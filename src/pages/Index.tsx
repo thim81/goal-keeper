@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { History, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
+import { useTheme } from '@/hooks/useTheme';
 import { useSync } from '@/hooks/useSync';
 import { SyncState } from '@/lib/sync';
 import { Scoreboard } from '@/components/Scoreboard';
@@ -50,8 +51,11 @@ export default function Index() {
     removePlayer,
     updatePeriods,
     updateSyncToken,
+    updateTheme,
     setAllSettingsState,
   } = useSettings();
+
+  useTheme(settings.theme);
 
   const handleSyncState = useCallback(
     (state: SyncState) => {
@@ -121,6 +125,7 @@ export default function Index() {
           onRemovePlayer={removePlayer}
           onUpdatePeriods={updatePeriods}
           onUpdateSyncToken={updateSyncToken}
+          onUpdateTheme={updateTheme}
         />
       )}
 

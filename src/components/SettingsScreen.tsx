@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw } from 'lucide-react';
-import { AppSettings } from '@/types/match';
+import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw, Moon, Sun, Laptop } from 'lucide-react';
+import { AppSettings, Theme } from '@/types/match';
 
 interface SettingsScreenProps {
   settings: AppSettings;
@@ -10,6 +10,7 @@ interface SettingsScreenProps {
   onRemovePlayer: (name: string) => void;
   onUpdatePeriods: (count: number, duration: number) => void;
   onUpdateSyncToken: (token: string) => void;
+  onUpdateTheme: (theme: Theme) => void;
 }
 
 export function SettingsScreen({
@@ -20,6 +21,7 @@ export function SettingsScreen({
   onRemovePlayer,
   onUpdatePeriods,
   onUpdateSyncToken,
+  onUpdateTheme,
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
@@ -164,6 +166,49 @@ export function SettingsScreen({
               No players added yet. Add players to use autocomplete when scoring.
             </p>
           )}
+        </div>
+
+        {/* Theme */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Sun className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Appearance</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => onUpdateTheme('light')}
+              className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                settings.theme === 'light'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sun className="w-5 h-5" />
+              <span className="text-xs font-medium">Light</span>
+            </button>
+            <button
+              onClick={() => onUpdateTheme('dark')}
+              className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                settings.theme === 'dark'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Moon className="w-5 h-5" />
+              <span className="text-xs font-medium">Dark</span>
+            </button>
+            <button
+              onClick={() => onUpdateTheme('system')}
+              className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                settings.theme === 'system'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Laptop className="w-5 h-5" />
+              <span className="text-xs font-medium">System</span>
+            </button>
+          </div>
         </div>
 
         {/* Sync */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AppSettings, DEFAULT_SETTINGS } from '@/types/match';
+import { AppSettings, DEFAULT_SETTINGS, Theme } from '@/types/match';
 
 const SETTINGS_KEY = 'football-tracker-settings';
 
@@ -48,6 +48,10 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, syncToken }));
   }, []);
 
+  const updateTheme = useCallback((theme: Theme) => {
+    setSettings((prev) => ({ ...prev, theme }));
+  }, []);
+
   const setAllSettingsState = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
   }, []);
@@ -60,6 +64,7 @@ export function useSettings() {
     removePlayer,
     updatePeriods,
     updateSyncToken,
+    updateTheme,
     setAllSettingsState,
   };
 }

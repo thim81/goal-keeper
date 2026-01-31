@@ -43,12 +43,15 @@ export interface MatchSummary {
   endedAt: number;
 }
 
+export type Theme = 'light' | 'dark' | 'system';
+
 export interface AppSettings {
   teamName: string;
   players: string[];
   periodsCount: number;
   periodDuration: number; // in minutes
   syncToken?: string;
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -57,4 +60,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   periodsCount: 4,
   periodDuration: 20,
   syncToken: '',
+  theme: 'system',
 };
