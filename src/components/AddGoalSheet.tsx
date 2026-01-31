@@ -39,87 +39,85 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl border-t border-border/50 flex flex-col max-h-[92vh] animate-slide-up">
+      <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-6 safe-bottom animate-slide-up border-t border-border/50">
         {/* Handle */}
-        <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full mx-auto my-4 shrink-0" />
+        <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-6" />
 
-        <div className="flex-1 overflow-y-auto px-6 pb-10 safe-bottom">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground">Add Goal ⚽</h2>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-            >
-              <X className="w-5 h-5 text-muted-foreground" />
-            </button>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-foreground">Add Goal ⚽</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+          >
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="space-y-4">
+          {/* Scorer */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">Scorer *</label>
+            <PlayerAutocomplete
+              value={scorer}
+              onChange={setScorer}
+              players={knownPlayers}
+              placeholder="Who scored?"
+              autoFocus
+            />
           </div>
 
-          {/* Form */}
-          <div className="space-y-4">
-            {/* Scorer */}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Scorer *</label>
-              <PlayerAutocomplete
-                value={scorer}
-                onChange={setScorer}
-                players={knownPlayers}
-                placeholder="Who scored?"
-                autoFocus
-              />
-            </div>
+          {/* Assist */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Assist (optional)
+            </label>
+            <PlayerAutocomplete
+              value={assist}
+              onChange={setAssist}
+              players={knownPlayers}
+              placeholder="Who assisted?"
+            />
+          </div>
 
-            {/* Assist */}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Assist (optional)
-              </label>
-              <PlayerAutocomplete
-                value={assist}
-                onChange={setAssist}
-                players={knownPlayers}
-                placeholder="Who assisted?"
-              />
-            </div>
-
-            {/* Goal Type */}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Goal Type
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {goalTypes.map(({ type, label, icon: Icon }) => (
-                  <button
-                    key={type}
-                    onClick={() => setGoalType(type)}
-                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                      goalType === type
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-secondary hover:border-primary/50'
-                    }`}
+          {/* Goal Type */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Goal Type
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {goalTypes.map(({ type, label, icon: Icon }) => (
+                <button
+                  key={type}
+                  onClick={() => setGoalType(type)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                    goalType === type
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-secondary hover:border-primary/50'
+                  }`}
+                >
+                  <Icon
+                    className={`w-5 h-5 ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
+                  />
+                  <span
+                    className={`text-xs font-medium ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
                   >
-                    <Icon
-                      className={`w-5 h-5 ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
-                    />
-                    <span
-                      className={`text-xs font-medium ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
-                    >
-                      {label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    {label}
+                  </span>
+                </button>
+              ))}
             </div>
-
-            {/* Submit */}
-            <button
-              onClick={handleSubmit}
-              disabled={!scorer.trim()}
-              className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-4"
-            >
-              Add Goal
-            </button>
           </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={!scorer.trim()}
+            className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
+          >
+            Add Goal
+          </button>
         </div>
       </div>
     </div>
