@@ -48,6 +48,7 @@ export interface AppSettings {
   players: string[];
   periodsCount: number;
   periodDuration: number; // in minutes
+  syncToken?: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -55,4 +56,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   players: [],
   periodsCount: 4,
   periodDuration: 20,
+  syncToken: '',
 };

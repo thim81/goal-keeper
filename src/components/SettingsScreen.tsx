@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, X, Users, Clock, Shield } from 'lucide-react';
+import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw } from 'lucide-react';
 import { AppSettings } from '@/types/match';
 
 interface SettingsScreenProps {
@@ -9,6 +9,7 @@ interface SettingsScreenProps {
   onAddPlayer: (name: string) => void;
   onRemovePlayer: (name: string) => void;
   onUpdatePeriods: (count: number, duration: number) => void;
+  onUpdateSyncToken: (token: string) => void;
 }
 
 export function SettingsScreen({
@@ -18,9 +19,11 @@ export function SettingsScreen({
   onAddPlayer,
   onRemovePlayer,
   onUpdatePeriods,
+  onUpdateSyncToken,
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
+  const [syncToken, setSyncToken] = useState(settings.syncToken || '');
 
   const handleAddPlayer = () => {
     if (newPlayer.trim()) {
@@ -35,8 +38,14 @@ export function SettingsScreen({
     }
   };
 
+  const handleSyncTokenBlur = () => {
+    if (syncToken !== settings.syncToken) {
+      onUpdateSyncToken(syncToken.trim());
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full safe-top">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <button
@@ -155,6 +164,27 @@ export function SettingsScreen({
               No players added yet. Add players to use autocomplete when scoring.
             </p>
           )}
+        </div>
+
+        {/* Sync */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <RefreshCw className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Cloud Sync</span>
+          </div>
+          <div className="space-y-2">
+            <input
+              type="password"
+              value={syncToken}
+              onChange={(e) => setSyncToken(e.target.value)}
+              onBlur={handleSyncTokenBlur}
+              placeholder="Enter sync token"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Enter your token to sync matches across devices. Your data will be stored in Cloudflare KV.
+            </p>
+          </div>
         </div>
       </div>
     </div>

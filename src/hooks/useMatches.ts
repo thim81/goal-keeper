@@ -227,6 +227,15 @@ export function useMatches() {
     return { myTeam, opponent };
   }, [activeMatch]);
 
+  const setAllMatchesState = useCallback(
+    (history: MatchSummary[], active: Match | null, fullMatches: Record<string, Match>) => {
+      setMatchHistory(history);
+      setActiveMatch(active);
+      localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
+    },
+    [],
+  );
+
   return {
     activeMatch,
     matchHistory,
@@ -240,5 +249,6 @@ export function useMatches() {
     getMatchDetails,
     deleteMatch,
     getScore,
+    setAllMatchesState,
   };
 }

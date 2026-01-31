@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { History, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
+import { useSync } from '@/hooks/useSync';
+import { SyncState } from '@/lib/sync';
 import { Scoreboard } from '@/components/Scoreboard';
 import { GoalTimeline } from '@/components/GoalTimeline';
 import { MatchTimer } from '@/components/MatchTimer';
@@ -38,9 +40,28 @@ export default function Index() {
     getMatchDetails,
     deleteMatch,
     getScore,
+    setAllMatchesState,
   } = useMatches();
 
-  const { settings, updateTeamName, addPlayer, removePlayer, updatePeriods } = useSettings();
+  const {
+    settings,
+    updateTeamName,
+    addPlayer,
+    removePlayer,
+    updatePeriods,
+    updateSyncToken,
+    setAllSettingsState,
+  } = useSettings();
+
+  const handleSyncState = useCallback(
+    (state: SyncState) => {
+      setAllMatchesState(state.matches, state.activeMatch, state.fullMatches);
+      setAllSettingsState(state.settings);
+    },
+    [setAllMatchesState, setAllSettingsState],
+  );
+
+  useSync(settings.syncToken, matchHistory, activeMatch, settings, handleSyncState);
 
   const score = getScore();
 
@@ -99,6 +120,7 @@ export default function Index() {
           onAddPlayer={addPlayer}
           onRemovePlayer={removePlayer}
           onUpdatePeriods={updatePeriods}
+          onUpdateSyncToken={updateSyncToken}
         />
       )}
 
@@ -115,7 +137,7 @@ export default function Index() {
 
       {/* History View */}
       {view === 'history' && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
             <h1 className="text-xl font-bold text-foreground">Match History</h1>
@@ -147,7 +169,7 @@ export default function Index() {
 
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <h1 className="text-lg font-bold text-foreground">Goal Keeper</h1>
@@ -234,7 +256,7 @@ export default function Index() {
 
       {/* Home View */}
       {view === 'home' && !activeMatch && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <div>

@@ -44,6 +44,14 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, periodsCount, periodDuration }));
   }, []);
 
+  const updateSyncToken = useCallback((syncToken: string) => {
+    setSettings((prev) => ({ ...prev, syncToken }));
+  }, []);
+
+  const setAllSettingsState = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings);
+  }, []);
+
   return {
     settings,
     updateTeamName,
@@ -51,5 +59,7 @@ export function useSettings() {
     addPlayer,
     removePlayer,
     updatePeriods,
+    updateSyncToken,
+    setAllSettingsState,
   };
 }
