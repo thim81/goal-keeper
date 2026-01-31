@@ -84,7 +84,7 @@ export function GoalTimeline({
 
   return (
     <div className="flex-1 overflow-y-auto px-1">
-      <div className="space-y-3">
+      <div className="space-y-2">
         {timelineItems.map((item, index) => {
           if (item.kind === 'event') {
             const event = item.data;
@@ -93,7 +93,7 @@ export function GoalTimeline({
             return (
               <div
                 key={event.id}
-                className="animate-slide-up flex items-center gap-3 p-3 bg-secondary/50 rounded-xl group"
+                className="animate-slide-up flex items-center gap-3 py-1 px-3 bg-secondary/50 rounded-xl group"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="p-2 rounded-lg bg-muted-foreground/10">
@@ -125,13 +125,13 @@ export function GoalTimeline({
           return (
             <div
               key={goal.id}
-              className={`animate-slide-up goal-gradient rounded-xl p-4 border border-border/30 group ${
+              className={`animate-slide-up goal-gradient rounded-xl py-1 px-3 border border-border/30 group ${
                 isMyTeam ? 'border-l-4 border-l-primary' : 'border-l-4 border-l-accent'
               }`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${isMyTeam ? 'bg-primary/20' : 'bg-accent/20'}`}>
                     <Icon className={`w-4 h-4 ${isMyTeam ? 'text-primary' : 'text-accent'}`} />
                   </div>
@@ -153,7 +153,7 @@ export function GoalTimeline({
                     {goal.assist && (
                       <p className="text-sm text-muted-foreground">Assist: {goal.assist}</p>
                     )}
-                    <p className="text-xs text-muted-foreground/60 mt-1">{teamName}</p>
+                    {/*<p className="text-xs text-muted-foreground/60 mt-1">{teamName}</p>*/}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
