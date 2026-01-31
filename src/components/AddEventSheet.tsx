@@ -8,8 +8,6 @@ interface AddEventSheetProps {
 }
 
 const eventTypes: { type: GameEventType; label: string; icon: typeof Play; color: string }[] = [
-  { type: 'start', label: 'Start Period', icon: Play, color: 'text-primary' },
-  { type: 'period-end', label: 'End Period', icon: Pause, color: 'text-accent' },
   { type: 'pause', label: 'Pause Timer', icon: Pause, color: 'text-goal' },
   { type: 'resume', label: 'Resume Timer', icon: Play, color: 'text-primary' },
 ];
@@ -44,7 +42,7 @@ export function AddEventSheet({ isOpen, onClose, onAddEvent }: AddEventSheetProp
         </div>
 
         {/* Event buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           {eventTypes.map(({ type, label, icon: Icon, color }) => (
             <button
               key={type}

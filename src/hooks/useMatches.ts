@@ -51,10 +51,18 @@ export function useMatches() {
       opponentName: opponentName || 'Opponent',
       isHome,
       goals: [],
-      events: [],
+      events: [
+        {
+          id: generateId(),
+          type: 'start',
+          label: 'Start Period 1',
+          time: getCurrentTime(),
+          timestamp: Date.now(),
+        },
+      ],
       startedAt: Date.now(),
       isActive: true,
-      isRunning: false,
+      isRunning: true,
       totalPausedTime: 0,
       currentPeriod: 1,
     };
@@ -144,8 +152,15 @@ export function useMatches() {
   const startPeriod = useCallback(() => {
     setActiveMatch((prev) => {
       if (!prev) return null;
-      const startEventsCount = prev.events.filter((e) => e.type === 'start').length;
-      const newPeriod = startEventsCount === 0 ? prev.currentPeriod : prev.currentPeriod + 1;
+      
+      const lastEvent = prev.events[prev.events.length - 1];
+      const isInitialStart = prev.events.length === 1 && prev.events[0].type === 'start';
+      
+      // If the last event was already a start event (e.g. from startMatch), don't increment period yet
+      // but ensure it's running. Actually, startMatch already sets currentPeriod: 1 and adds the event.
+      // If we are calling startPeriod manually, it's usually after an endPeriod.
+      
+      const newPeriod = lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
 
       const newEvent: GameEvent = {
         id: generateId(),

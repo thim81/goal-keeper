@@ -1,4 +1,4 @@
-import { Undo2, Flag, Plus, ClipboardList, Play, Pause, StepForward } from 'lucide-react';
+import { Undo2, Flag, Plus, ClipboardList, Play, Pause, Square, StepForward } from 'lucide-react';
 
 interface MatchActionsProps {
   onAddMyGoal: () => void;
@@ -49,14 +49,7 @@ export function MatchActions({
       </div>
 
       {/* Timer Controls */}
-      <div className="grid grid-cols-3 gap-3 mb-3">
-        <button
-          onClick={onStartPeriod}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
-        >
-          <Play className="w-5 h-5 text-primary" />
-          <span className="text-xs">Start Period</span>
-        </button>
+      <div className="grid grid-cols-2 gap-3 mb-3">
         <button
           onClick={onToggleTimer}
           className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
@@ -64,23 +57,33 @@ export function MatchActions({
           {isRunning ? (
             <>
               <Pause className="w-5 h-5 text-goal" />
-              <span className="text-xs">Pause</span>
+              <span className="text-xs">Pause Time</span>
             </>
           ) : (
             <>
-              <Play className="w-5 h-5 text-primary" />
-              <span className="text-xs">Resume</span>
+              <Play className="w-5 h-5 text-goal" />
+              <span className="text-xs">Resume Time</span>
             </>
           )}
         </button>
-        <button
-          onClick={onEndPeriod}
-          disabled={!isRunning}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-secondary/80 transition-colors"
-        >
-          <Pause className="w-5 h-5 text-accent" />
-          <span className="text-xs">End Period</span>
-        </button>
+        {!isRunning && (
+          <button
+            onClick={onStartPeriod}
+            className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+          >
+            <StepForward className="w-5 h-5 text-primary" />
+            <span className="text-xs">Start Period {currentPeriod + 1}</span>
+          </button>
+        )}
+        {isRunning && (
+          <button
+            onClick={onEndPeriod}
+            className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+          >
+            <Square className="w-5 h-5 text-accent" />
+            <span className="text-xs">End Period {currentPeriod}</span>
+          </button>
+        )}
       </div>
 
       {/* Secondary actions */}
