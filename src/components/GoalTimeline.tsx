@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Goal, GameEvent } from '@/types/match';
 import {
   Trophy,
@@ -11,7 +11,6 @@ import {
   Flag,
   Trash2,
 } from 'lucide-react';
-
 interface GoalTimelineProps {
   goals: Goal[];
   events: GameEvent[];
@@ -70,6 +69,24 @@ export function GoalTimeline({
     ...goals.map((g) => ({ kind: 'goal' as const, data: g })),
     ...events.map((e) => ({ kind: 'event' as const, data: e })),
   ].sort((a, b) => a.data.timestamp - b.data.timestamp);
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const prevCountRef = useRef(timelineItems.length);
+
+  useEffect(() => {
+    // Only auto-scroll when new items are added
+    const prev = prevCountRef.current;
+    const next = timelineItems.length;
+    if (next > prev) {
+      // Use rAF so layout is updated before we scroll
+      requestAnimationFrame(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+    prevCountRef.current = next;
+  }, [timelineItems.length]);
 
   // iOS-like swipe-to-delete for event rows
   const MAX_SWIPE_PX = 84; // width of the revealed action area
@@ -217,8 +234,8 @@ export function GoalTimeline({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-1">
-      <div className="space-y-2">
+    <div ref={scrollRef} className="h-full overflow-y-auto px-1 overscroll-contain">
+      <div className="space-y-2 pb-2">
         {timelineItems.map((item, index) => {
           if (item.kind === 'event') {
             const event = item.data;
@@ -317,7 +334,7 @@ export function GoalTimeline({
 
                 {/* Foreground row (slides left) */}
                 <div
-                  className={`goal-gradient rounded-xl py-1 px-3 border border-border/30 group touch-pan-y bg-secondary ${
+                  className={`${swipeX !== 0 ? 'bg-secondary' : 'goal-gradient'} rounded-xl py-1 px-3 border border-border/30 group touch-pan-y ${
                     isMyTeam ? 'border-l-4 border-l-primary' : 'border-l-4 border-l-accent'
                   }`}
                   style={{
@@ -357,7 +374,7 @@ export function GoalTimeline({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-muted-foreground bg-secondary/50 px-2 py-1 rounded">
+                      <span className="text-sm font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
                         {goal.time}
                       </span>
 

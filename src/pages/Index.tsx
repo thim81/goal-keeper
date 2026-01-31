@@ -127,7 +127,7 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
       {/* Settings View */}
       {view === 'settings' && (
         <SettingsScreen
@@ -155,7 +155,7 @@ export default function Index() {
 
       {/* History View */}
       {view === 'history' && (
-        <div className="flex-1 flex flex-col safe-top">
+        <div className="flex-1 flex flex-col safe-top overflow-hidden min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
             <h1 className="text-xl font-bold text-foreground">Match History</h1>
@@ -175,7 +175,7 @@ export default function Index() {
             </div>
           </div>
 
-          <div className="flex-1 p-4 overflow-hidden flex flex-col">
+          <div className="flex-1 p-4 overflow-hidden flex flex-col min-h-0">
             <MatchHistory
               matches={matchHistory}
               onSelectMatch={handleSelectMatch}
@@ -187,7 +187,7 @@ export default function Index() {
 
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
-        <div className="flex-1 flex flex-col safe-top">
+        <div className="flex-1 flex flex-col safe-top overflow-hidden min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
@@ -226,19 +226,21 @@ export default function Index() {
           </div>
 
           {/* Timeline */}
-          <div className="flex-1 p-4 overflow-hidden flex flex-col">
+          <div className="flex-1 p-4 overflow-hidden flex flex-col min-h-0">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Timeline
             </h2>
-            <GoalTimeline
-              goals={activeMatch.goals}
-              events={activeMatch.events}
-              myTeamName={activeMatch.myTeamName}
-              opponentName={activeMatch.opponentName}
-              editable
-              onDeleteGoal={deleteGoal}
-              onDeleteEvent={deleteEvent}
-            />
+            <div className="flex-1 overflow-hidden min-h-0">
+              <GoalTimeline
+                goals={activeMatch.goals}
+                events={activeMatch.events}
+                myTeamName={activeMatch.myTeamName}
+                opponentName={activeMatch.opponentName}
+                editable
+                onDeleteGoal={deleteGoal}
+                onDeleteEvent={deleteEvent}
+              />
+            </div>
           </div>
 
           {/* Actions */}
