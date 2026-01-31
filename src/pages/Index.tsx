@@ -172,7 +172,7 @@ export default function Index() {
         <div className="flex-1 flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
-            <h1 className="text-lg font-bold text-foreground">Goal Keeper</h1>
+            <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
             <div className="flex gap-2">
               <button
                 onClick={() => setView('settings')}

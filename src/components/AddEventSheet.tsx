@@ -24,7 +24,7 @@ export function AddEventSheet({ isOpen, onClose, onAddEvent }: AddEventSheetProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 animate-fade-in">
+    <div className="fixed inset-0 z-50 animate-fade-in mb-6">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
