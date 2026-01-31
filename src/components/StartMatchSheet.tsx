@@ -69,7 +69,7 @@ export function StartMatchSheet({
               onChange={(e) => setMyTeamName(e.target.value)}
               placeholder="My Team"
               className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
-              autoFocus
+              // autoFocus
             />
           </div>
 

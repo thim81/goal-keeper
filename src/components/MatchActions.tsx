@@ -32,7 +32,7 @@ export function MatchActions({
   isHome,
 }: MatchActionsProps) {
   return (
-    <div className="bg-card/80 backdrop-blur-lg border-t border-border/50 p-4 mb-6">
+    <div className="p-4">
 
       {/* Main goal buttons */}
       <div className="grid grid-cols-2 gap-3 mb-3">
