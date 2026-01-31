@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Stadium Night Theme */
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Pitch Green - Primary */
+    --primary: 142 71% 45%;
+    --primary-foreground: 222 47% 6%;
+
+    /* Slate Blue - Secondary */
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 55%;
+
+    /* Warm Coral - Accent (Opponent) */
+    --accent: 0 84% 60%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Goal Gold */
+    --goal: 45 93% 47%;
+    --goal-foreground: 222 47% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 17%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.75rem;
+
+    /* Custom gradients */
+    --gradient-pitch: linear-gradient(
+      135deg,
+      hsl(142 71% 45% / 0.2) 0%,
+      hsl(142 71% 35% / 0.1) 100%
+    );
+    --gradient-card: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
+    --gradient-scoreboard: linear-gradient(135deg, hsl(222 47% 12%) 0%, hsl(222 47% 8%) 100%);
+    --gradient-goal: linear-gradient(
+      135deg,
+      hsl(45 93% 47% / 0.15) 0%,
+      hsl(45 93% 47% / 0.05) 100%
+    );
+
+    /* Shadows */
+    --shadow-glow: 0 0 20px hsl(142 71% 45% / 0.3);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .btn-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+
+  .scoreboard-gradient {
+    background: var(--gradient-scoreboard);
+  }
+
+  .goal-gradient {
+    background: var(--gradient-goal);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  .animate-goal {
+    animation: goalPulse 0.6s ease-out;
+  }
+
+  @keyframes goalPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
