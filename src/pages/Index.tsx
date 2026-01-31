@@ -226,7 +226,7 @@ export default function Index() {
           </div>
 
           {/* Timeline */}
-          <div className="flex-1 p-4 overflow-hidden flex flex-col min-h-0 pb-44">
+          <div className="flex-1 p-4 overflow-hidden flex flex-col min-h-0">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Timeline
             </h2>
@@ -244,9 +244,8 @@ export default function Index() {
           </div>
 
           {/* Actions (overlay) */}
-          <div className="fixed left-0 right-0 bottom-0 z-40 safe-bottom bg-background/80 backdrop-blur-sm border-t border-border/30">
-            <div className="px-4 pt-3">
-              <MatchActions
+          <div className="z-40 safe-bottom bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4">
+            <MatchActions
                 onAddMyGoal={() => setShowAddGoal(true)}
                 onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
                 onAddEvent={() => setShowAddEvent(true)}
@@ -261,7 +260,6 @@ export default function Index() {
                 isPeriodEnded={!!isPeriodEnded}
                 isHome={activeMatch.isHome}
               />
-            </div>
           </div>
 
           {/* Add Goal Sheet */}

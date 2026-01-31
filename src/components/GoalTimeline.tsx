@@ -234,7 +234,7 @@ export function GoalTimeline({
   }
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto px-1 overscroll-contain">
+    <div ref={scrollRef} className="h-full overflow-y-auto px-1 overscroll-none">
       <div className="space-y-2 pb-2">
         {timelineItems.map((item, index) => {
           if (item.kind === 'event') {
