@@ -64,7 +64,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
               onChange={setScorer}
               players={knownPlayers}
               placeholder="Who scored?"
-              autoFocus
+              // autoFocus
             />
           </div>
 
