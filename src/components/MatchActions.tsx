@@ -12,6 +12,7 @@ interface MatchActionsProps {
   isRunning: boolean;
   canUndo: boolean;
   currentPeriod: number;
+  isPeriodEnded: boolean;
 }
 
 export function MatchActions({
@@ -26,6 +27,7 @@ export function MatchActions({
   isRunning,
   canUndo,
   currentPeriod,
+  isPeriodEnded,
 }: MatchActionsProps) {
   return (
     <div className="bg-card/80 backdrop-blur-lg border-t border-border/50 p-4 safe-bottom mb-6">
@@ -52,7 +54,8 @@ export function MatchActions({
       <div className="grid grid-cols-2 gap-3 mb-3">
         <button
           onClick={onToggleTimer}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+          disabled={!isRunning && isPeriodEnded}
+          className="flex items-center justify-center gap-1 py-3 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary/80"
         >
           {isRunning ? (
             <>
@@ -66,19 +69,19 @@ export function MatchActions({
             </>
           )}
         </button>
-        {!isRunning && (
+        {isPeriodEnded && (
           <button
             onClick={onStartPeriod}
-            className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+            className="flex items-center justify-center gap-1 py-3 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
           >
             <StepForward className="w-5 h-5 text-primary" />
             <span className="text-xs">Start Period {currentPeriod + 1}</span>
           </button>
         )}
-        {isRunning && (
+        {!isPeriodEnded && (
           <button
             onClick={onEndPeriod}
-            className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+            className="flex items-center justify-center gap-1 py-3 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
           >
             <Square className="w-5 h-5 text-accent" />
             <span className="text-xs">End Period {currentPeriod}</span>

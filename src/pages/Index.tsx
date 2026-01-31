@@ -71,6 +71,7 @@ export default function Index() {
   useSync(settings.syncToken, matchHistory, activeMatch, settings, handleSyncState);
 
   const score = getScore();
+  const isPeriodEnded = activeMatch?.events?.at(-1)?.type === 'period-end';
 
   // Handle starting a new match
   const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
@@ -253,6 +254,7 @@ export default function Index() {
             isRunning={activeMatch.isRunning}
             canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
             currentPeriod={activeMatch.currentPeriod}
+            isPeriodEnded={!!isPeriodEnded}
           />
 
           {/* Add Goal Sheet */}
