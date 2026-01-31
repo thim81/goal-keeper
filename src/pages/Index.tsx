@@ -255,6 +255,7 @@ export default function Index() {
             canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
             currentPeriod={activeMatch.currentPeriod}
             isPeriodEnded={!!isPeriodEnded}
+            isHome={activeMatch.isHome}
           />
 
           {/* Add Goal Sheet */}
