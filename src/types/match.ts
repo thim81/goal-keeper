@@ -30,6 +30,10 @@ export interface Match {
   startedAt: number;
   endedAt?: number;
   isActive: boolean;
+  isRunning: boolean;
+  pausedAt?: number;
+  totalPausedTime: number;
+  currentPeriod: number;
 }
 
 export interface MatchSummary {

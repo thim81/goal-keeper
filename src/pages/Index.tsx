@@ -41,6 +41,9 @@ export default function Index() {
     getMatchDetails,
     deleteMatch,
     getScore,
+    startPeriod,
+    endPeriod,
+    toggleTimer,
     setAllMatchesState,
   } = useMatches();
 
@@ -90,11 +93,20 @@ export default function Index() {
 
   // Handle adding an event
   const handleAddEvent = (type: GameEventType) => {
-    addEvent(type);
+    if (type === 'start') {
+      startPeriod();
+    } else if (type === 'period-end') {
+      endPeriod();
+    } else if (type === 'pause' || type === 'resume') {
+      toggleTimer();
+    } else {
+      addEvent(type);
+    }
   };
 
   // Handle ending match
   const handleEndMatch = () => {
+    endPeriod();
     endMatch();
     setView('home');
   };
@@ -205,6 +217,10 @@ export default function Index() {
               startedAt={activeMatch.startedAt}
               periodsCount={settings.periodsCount}
               periodDuration={settings.periodDuration}
+              isRunning={activeMatch.isRunning}
+              totalPausedTime={activeMatch.totalPausedTime}
+              pausedAt={activeMatch.pausedAt}
+              currentPeriod={activeMatch.currentPeriod}
             />
           </div>
 
@@ -231,7 +247,12 @@ export default function Index() {
             onAddEvent={() => setShowAddEvent(true)}
             onUndo={undoLast}
             onEndMatch={handleEndMatch}
+            onStartPeriod={startPeriod}
+            onEndPeriod={endPeriod}
+            onToggleTimer={toggleTimer}
+            isRunning={activeMatch.isRunning}
             canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
+            currentPeriod={activeMatch.currentPeriod}
           />
 
           {/* Add Goal Sheet */}

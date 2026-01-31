@@ -5,23 +5,45 @@ interface MatchTimerProps {
   startedAt: number;
   periodsCount: number;
   periodDuration: number;
+  isRunning: boolean;
+  totalPausedTime: number;
+  pausedAt?: number;
+  currentPeriod: number;
 }
 
-export function MatchTimer({ startedAt, periodsCount, periodDuration }: MatchTimerProps) {
+export function MatchTimer({
+  startedAt,
+  periodsCount,
+  periodDuration,
+  isRunning,
+  totalPausedTime,
+  pausedAt,
+  currentPeriod,
+}: MatchTimerProps) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
+    const updateElapsed = () => {
+      let currentElapsed = 0;
+      if (isRunning) {
+        currentElapsed = Math.floor((Date.now() - startedAt - totalPausedTime) / 1000);
+      } else if (pausedAt) {
+        currentElapsed = Math.floor((pausedAt - startedAt - totalPausedTime) / 1000);
+      } else {
+        // Not started yet or something else
+        currentElapsed = Math.floor((Date.now() - startedAt - totalPausedTime) / 1000);
+      }
+      setElapsed(Math.max(0, currentElapsed));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
 
     return () => clearInterval(interval);
-  }, [startedAt]);
+  }, [startedAt, isRunning, totalPausedTime, pausedAt]);
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
-  const totalMatchMinutes = periodsCount * periodDuration;
-  const currentPeriod = Math.min(Math.floor(minutes / periodDuration) + 1, periodsCount);
 
   // Start time
   const startTime = new Date(startedAt).toLocaleTimeString('en-GB', {
@@ -40,7 +62,7 @@ export function MatchTimer({ startedAt, periodsCount, periodDuration }: MatchTim
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
           Period {currentPeriod}/{periodsCount}
         </span>
-        <span className="font-mono text-lg font-bold text-primary tabular-nums">
+        <span className={`font-mono text-lg font-bold tabular-nums ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}>
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </span>
       </div>

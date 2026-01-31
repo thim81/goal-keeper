@@ -1,4 +1,4 @@
-import { Undo2, Flag, Plus, ClipboardList } from 'lucide-react';
+import { Undo2, Flag, Plus, ClipboardList, Play, Pause, StepForward } from 'lucide-react';
 
 interface MatchActionsProps {
   onAddMyGoal: () => void;
@@ -6,7 +6,12 @@ interface MatchActionsProps {
   onAddEvent: () => void;
   onUndo: () => void;
   onEndMatch: () => void;
+  onStartPeriod: () => void;
+  onEndPeriod: () => void;
+  onToggleTimer: () => void;
+  isRunning: boolean;
   canUndo: boolean;
+  currentPeriod: number;
 }
 
 export function MatchActions({
@@ -15,10 +20,16 @@ export function MatchActions({
   onAddEvent,
   onUndo,
   onEndMatch,
+  onStartPeriod,
+  onEndPeriod,
+  onToggleTimer,
+  isRunning,
   canUndo,
+  currentPeriod,
 }: MatchActionsProps) {
   return (
     <div className="bg-card/80 backdrop-blur-lg border-t border-border/50 p-4 safe-bottom mb-6">
+
       {/* Main goal buttons */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <button
@@ -34,6 +45,41 @@ export function MatchActions({
         >
           <Plus className="w-5 h-5" />
           They Scored
+        </button>
+      </div>
+
+      {/* Timer Controls */}
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <button
+          onClick={onStartPeriod}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+        >
+          <Play className="w-5 h-5 text-primary" />
+          <span className="text-xs">Start Period</span>
+        </button>
+        <button
+          onClick={onToggleTimer}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"
+        >
+          {isRunning ? (
+            <>
+              <Pause className="w-5 h-5 text-goal" />
+              <span className="text-xs">Pause</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-5 h-5 text-primary" />
+              <span className="text-xs">Resume</span>
+            </>
+          )}
+        </button>
+        <button
+          onClick={onEndPeriod}
+          disabled={!isRunning}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-secondary text-secondary-foreground font-medium rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-secondary/80 transition-colors"
+        >
+          <Pause className="w-5 h-5 text-accent" />
+          <span className="text-xs">End Period</span>
         </button>
       </div>
 

@@ -54,6 +54,9 @@ export function useMatches() {
       events: [],
       startedAt: Date.now(),
       isActive: true,
+      isRunning: false,
+      totalPausedTime: 0,
+      currentPeriod: 1,
     };
     setActiveMatch(newMatch);
   }, []);
@@ -138,6 +141,81 @@ export function useMatches() {
     [activeMatch],
   );
 
+  const startPeriod = useCallback(() => {
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      const startEventsCount = prev.events.filter((e) => e.type === 'start').length;
+      const newPeriod = startEventsCount === 0 ? prev.currentPeriod : prev.currentPeriod + 1;
+
+      const newEvent: GameEvent = {
+        id: generateId(),
+        type: 'start',
+        label: `Start Period ${newPeriod}`,
+        time: getCurrentTime(),
+        timestamp: Date.now(),
+      };
+
+      let additionalPausedTime = 0;
+      if (prev.pausedAt) {
+        additionalPausedTime = Date.now() - prev.pausedAt;
+      }
+
+      return {
+        ...prev,
+        isRunning: true,
+        pausedAt: undefined,
+        totalPausedTime: prev.totalPausedTime + additionalPausedTime,
+        currentPeriod: newPeriod,
+        events: [...prev.events, newEvent],
+      };
+    });
+  }, []);
+
+  const endPeriod = useCallback(() => {
+    // If we call endPeriod multiple times or when not running, we might still want to log it if it's the last action
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      
+      const newEvent: GameEvent = {
+        id: generateId(),
+        type: 'period-end',
+        label: `End Period ${prev.currentPeriod}`,
+        time: getCurrentTime(),
+        timestamp: Date.now(),
+      };
+
+      return {
+        ...prev,
+        isRunning: false,
+        pausedAt: prev.isRunning ? Date.now() : prev.pausedAt,
+        events: [...prev.events, newEvent],
+      };
+    });
+  }, []);
+
+  const toggleTimer = useCallback(() => {
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      if (prev.isRunning) {
+        // Pause
+        return {
+          ...prev,
+          isRunning: false,
+          pausedAt: Date.now(),
+        };
+      } else {
+        // Resume
+        const additionalPausedTime = prev.pausedAt ? Date.now() - prev.pausedAt : 0;
+        return {
+          ...prev,
+          isRunning: true,
+          pausedAt: undefined,
+          totalPausedTime: prev.totalPausedTime + additionalPausedTime,
+        };
+      }
+    });
+  }, []);
+
   const undoLast = useCallback(() => {
     if (!activeMatch) return;
 
@@ -159,43 +237,52 @@ export function useMatches() {
   }, [activeMatch, deleteGoal, deleteEvent]);
 
   const endMatch = useCallback(() => {
-    if (!activeMatch) return;
+    setActiveMatch((prev) => {
+      if (!prev) return null;
 
-    const myTeamScore = activeMatch.goals.filter(
-      (g) =>
-        (g.team === 'my-team' && g.type !== 'own-goal') ||
-        (g.team === 'opponent' && g.type === 'own-goal'),
-    ).length;
+      const myTeamScore = prev.goals.filter(
+        (g) =>
+          (g.team === 'my-team' && g.type !== 'own-goal') ||
+          (g.team === 'opponent' && g.type === 'own-goal'),
+      ).length;
 
-    const opponentScore = activeMatch.goals.filter(
-      (g) =>
-        (g.team === 'opponent' && g.type !== 'own-goal') ||
-        (g.team === 'my-team' && g.type === 'own-goal'),
-    ).length;
+      const opponentScore = prev.goals.filter(
+        (g) =>
+          (g.team === 'opponent' && g.type !== 'own-goal') ||
+          (g.team === 'my-team' && g.type === 'own-goal'),
+      ).length;
 
-    const summary: MatchSummary = {
-      id: activeMatch.id,
-      myTeamName: activeMatch.myTeamName,
-      opponentName: activeMatch.opponentName,
-      isHome: activeMatch.isHome,
-      myTeamScore,
-      opponentScore,
-      date: new Date(activeMatch.startedAt).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }),
-      endedAt: Date.now(),
-    };
+      const summary: MatchSummary = {
+        id: prev.id,
+        myTeamName: prev.myTeamName,
+        opponentName: prev.opponentName,
+        isHome: prev.isHome,
+        myTeamScore,
+        opponentScore,
+        date: new Date(prev.startedAt).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }),
+        endedAt: Date.now(),
+      };
 
-    // Save full match data for detail view
-    const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
-    fullMatches[activeMatch.id] = { ...activeMatch, endedAt: Date.now(), isActive: false };
-    localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
+      // Save full match data for detail view
+      const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
+      fullMatches[prev.id] = {
+        ...prev,
+        endedAt: Date.now(),
+        isActive: false,
+        isRunning: false,
+        currentPeriod: 4,
+        pausedAt: prev.isRunning ? Date.now() : prev.pausedAt,
+      };
+      localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
 
-    setMatchHistory((prev) => [summary, ...prev]);
-    setActiveMatch(null);
-  }, [activeMatch]);
+      setMatchHistory((history) => [summary, ...history]);
+      return null;
+    });
+  }, []);
 
   const getMatchDetails = useCallback((matchId: string): Match | null => {
     const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
@@ -249,6 +336,9 @@ export function useMatches() {
     getMatchDetails,
     deleteMatch,
     getScore,
+    startPeriod,
+    endPeriod,
+    toggleTimer,
     setAllMatchesState,
   };
 }

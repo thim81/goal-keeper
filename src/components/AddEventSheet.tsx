@@ -8,11 +8,10 @@ interface AddEventSheetProps {
 }
 
 const eventTypes: { type: GameEventType; label: string; icon: typeof Play; color: string }[] = [
-  { type: 'start', label: 'Start', icon: Play, color: 'text-primary' },
-  { type: 'pause', label: 'Pause', icon: Pause, color: 'text-goal' },
-  { type: 'resume', label: 'Resume', icon: Play, color: 'text-primary' },
-  { type: 'half-time', label: 'Half Time', icon: Clock, color: 'text-muted-foreground' },
-  { type: 'full-time', label: 'Full Time', icon: Flag, color: 'text-accent' },
+  { type: 'start', label: 'Start Period', icon: Play, color: 'text-primary' },
+  { type: 'period-end', label: 'End Period', icon: Pause, color: 'text-accent' },
+  { type: 'pause', label: 'Pause Timer', icon: Pause, color: 'text-goal' },
+  { type: 'resume', label: 'Resume Timer', icon: Play, color: 'text-primary' },
 ];
 
 export function AddEventSheet({ isOpen, onClose, onAddEvent }: AddEventSheetProps) {
@@ -50,7 +49,7 @@ export function AddEventSheet({ isOpen, onClose, onAddEvent }: AddEventSheetProp
             <button
               key={type}
               onClick={() => handleSelect(type)}
-              className="flex items-center justify-center gap-3 p-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-all active:scale-[0.98]"
+              className="flex items-center justify-center gap-3 px-2 py-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-all active:scale-[0.98]"
             >
               <Icon className={`w-5 h-5 ${color}`} />
               <span className="font-semibold text-foreground">{label}</span>
