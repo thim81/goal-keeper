@@ -235,7 +235,7 @@ export function GoalTimeline({
   }
 
   return (
-    <div className="space-y-2 pb-2">
+    <div ref={scrollRef} className="space-y-2 pb-2">
         {timelineItems.map((item, index) => {
           if (item.kind === 'event') {
             const event = item.data;
