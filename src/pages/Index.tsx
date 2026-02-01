@@ -135,7 +135,7 @@ export default function Index() {
   }
 
   return (
-    <div className="flex-1 bg-background flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Settings View */}
       {view === 'settings' && (
         <SettingsScreen
@@ -163,7 +163,7 @@ export default function Index() {
 
       {/* History View */}
       {view === 'history' && (
-        <div className="flex-1 flex flex-col safe-top overflow-hidden">
+        <div className="min-h-screen flex flex-col safe-top overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
             <h1 className="text-xl font-bold text-foreground">Match History</h1>
@@ -329,7 +329,7 @@ export default function Index() {
 
       {/* Home View */}
       {view === 'home' && !activeMatch && (
-        <div className="flex-1 flex flex-col safe-top">
+        <div className="min-h-screen flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <div>

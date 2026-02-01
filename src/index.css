@@ -118,41 +118,21 @@
     @apply border-border;
   }
 
-  html {
-    width: 100%;
-    height: 100vh;
-    height: calc(var(--vh, 1vh) * 100);
-    background-color: hsl(var(--background));
-  }
-
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
     -webkit-tap-highlight-color: transparent;
-    width: 100%;
-    height: 100vh;
-    height: calc(var(--vh, 1vh) * 100);
     margin: 0;
     padding: 0;
     overscroll-behavior: none;
-    overflow: hidden;
-  }
-
-  #root {
-    height: 100vh;
-    height: calc(var(--vh, 1vh) * 100);
-    width: 100%;
-    display: flex;
-    flex-direction: column;
   }
 }
 
 .app {
-  height: 100%;
-  width: 100%;
+  min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* Custom utilities */

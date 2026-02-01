@@ -47,7 +47,7 @@ export function SettingsScreen({
   };
 
   return (
-    <div className="flex-1 flex flex-col safe-top overflow-hidden">
+    <div className="min-h-screen flex flex-col safe-top overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <button

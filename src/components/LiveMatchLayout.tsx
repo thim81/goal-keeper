@@ -20,7 +20,7 @@ export function LiveMatchLayout({
   children,
 }: LiveMatchLayoutProps) {
   return (
-    <div className={`flex-1 flex flex-col safe-top overflow-hidden ${debug ? 'bg-red-500/10' : ''}`}>
+    <div className={`min-h-screen flex flex-col safe-top overflow-hidden ${debug ? 'bg-red-500/10' : ''}`}>
       {/* Fixed Header */}
       <div className={`flex-shrink-0 ${debug ? 'bg-blue-500/10' : ''}`}>
         {header}
