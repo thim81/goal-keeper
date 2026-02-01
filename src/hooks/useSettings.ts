@@ -52,6 +52,10 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, theme }));
   }, []);
 
+  const updateDebug = useCallback((debug: boolean) => {
+    setSettings((prev) => ({ ...prev, debug }));
+  }, []);
+
   const setAllSettingsState = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
   }, []);
@@ -65,6 +69,7 @@ export function useSettings() {
     updatePeriods,
     updateSyncToken,
     updateTheme,
+    updateDebug,
     setAllSettingsState,
   };
 }

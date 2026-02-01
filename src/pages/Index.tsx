@@ -59,6 +59,7 @@ export default function Index() {
     updatePeriods,
     updateSyncToken,
     updateTheme,
+    updateDebug,
     setAllSettingsState,
   } = useSettings();
 
@@ -147,6 +148,7 @@ export default function Index() {
           onUpdatePeriods={updatePeriods}
           onUpdateSyncToken={updateSyncToken}
           onUpdateTheme={updateTheme}
+          onUpdateDebug={updateDebug}
         />
       )}
 
@@ -196,7 +198,7 @@ export default function Index() {
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
         <LiveMatchLayout
-          debug
+          debug={settings.debug}
           header={
             <div className="flex items-center justify-between p-4">
               <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>

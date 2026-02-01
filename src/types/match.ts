@@ -56,6 +56,7 @@ export interface AppSettings {
   periodDuration: number; // in minutes
   syncToken?: string;
   theme: Theme;
+  debug: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -65,4 +66,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   periodDuration: 20,
   syncToken: '',
   theme: 'system',
+  debug: false,
 };

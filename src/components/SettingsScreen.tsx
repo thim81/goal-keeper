@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw, Moon, Sun, Laptop } from 'lucide-react';
+import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw, Moon, Sun, Laptop, Bug } from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
 
 interface SettingsScreenProps {
@@ -11,6 +11,7 @@ interface SettingsScreenProps {
   onUpdatePeriods: (count: number, duration: number) => void;
   onUpdateSyncToken: (token: string) => void;
   onUpdateTheme: (theme: Theme) => void;
+  onUpdateDebug: (debug: boolean) => void;
 }
 
 export function SettingsScreen({
@@ -22,6 +23,7 @@ export function SettingsScreen({
   onUpdatePeriods,
   onUpdateSyncToken,
   onUpdateTheme,
+  onUpdateDebug,
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
@@ -236,6 +238,38 @@ export function SettingsScreen({
               Enter your token to sync matches across devices. Your data will be stored in Cloudflare KV.
             </p>
           </div>
+        </div>
+
+        {/* Debug Mode */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Bug className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Debug Mode</span>
+          </div>
+          <button
+            onClick={() => onUpdateDebug(!settings.debug)}
+            className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+              settings.debug
+                ? 'border-primary bg-primary/5'
+                : 'border-transparent bg-secondary hover:bg-secondary/80'
+            }`}
+          >
+            <span className="text-foreground font-medium">Show debug overlay</span>
+            <div
+              className={`w-12 h-6 rounded-full transition-colors ${
+                settings.debug ? 'bg-primary' : 'bg-muted-foreground/30'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                  settings.debug ? 'translate-x-6' : 'translate-x-0.5'
+                } mt-0.5`}
+              />
+            </div>
+          </button>
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            Display viewport measurements and layout information during live matches.
+          </p>
         </div>
       </div>
     </div>

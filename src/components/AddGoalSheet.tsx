@@ -101,7 +101,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
                     className={`w-5 h-5 ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
                   />
                   <span
-                    className={`text-xs font-medium ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
+                    className={`text-[10px] font-medium ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
                   >
                     {label}
                   </span>
