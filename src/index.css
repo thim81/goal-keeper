@@ -119,33 +119,40 @@
   }
 
   html {
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
     background-color: hsl(var(--background));
+    overflow: hidden;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
     -webkit-tap-highlight-color: transparent;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
     overscroll-behavior: none;
-    position: fixed;
-    width: 100%;
     overflow: hidden;
   }
 
   #root {
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
     width: 100%;
-    position: relative;
+    display: flex;
+    flex-direction: column;
   }
 }
 
 .app {
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  position: relative;
 }
 
 /* Custom utilities */
@@ -219,15 +226,6 @@
     }
     to {
       opacity: 1;
-    }
-  }
-
-  /* iOS PWA specific fixes */
-  @supports (-webkit-touch-callout: none) {
-    body {
-      /* Force body to fill viewport on iOS */
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
     }
   }
 }

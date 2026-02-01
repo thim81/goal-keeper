@@ -24,7 +24,7 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const isDraw = myTeamScore === opponentScore;
 
   return (
-    <div className="absolute inset-0 flex flex-col safe-top">
+    <div className="flex-1 flex flex-col safe-top overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <button
@@ -83,7 +83,7 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
       </div>
 
       {/* Timeline */}
-      <div className="flex-1 p-4 overflow-hidden flex flex-col">
+      <div className="flex-1 p-4 overflow-y-auto overscroll-contain">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Timeline
         </h2>

@@ -80,7 +80,8 @@ export function GoalTimeline({
     if (next > prev) {
       // Use rAF so layout is updated before we scroll
       requestAnimationFrame(() => {
-        const el = scrollRef.current;
+        // Scroll the parent container (LiveMatchLayout handles scrolling)
+        const el = scrollRef.current?.closest('.overflow-y-auto');
         if (!el) return;
         el.scrollTop = el.scrollHeight;
       });
@@ -234,8 +235,7 @@ export function GoalTimeline({
   }
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto px-1 overscroll-none">
-      <div className="space-y-2 pb-2">
+    <div className="space-y-2 pb-2">
         {timelineItems.map((item, index) => {
           if (item.kind === 'event') {
             const event = item.data;
@@ -398,7 +398,6 @@ export function GoalTimeline({
             </div>
           );
         })}
-      </div>
     </div>
   );
 }
