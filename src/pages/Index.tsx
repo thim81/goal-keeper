@@ -196,7 +196,7 @@ export default function Index() {
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
         <LiveMatchLayout
-          actionsHeight={showSecondaryActions ? 236 : 176}
+          debug
           header={
             <div className="flex items-center justify-between p-4">
               <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
