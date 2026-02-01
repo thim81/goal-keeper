@@ -15,6 +15,7 @@ interface MatchActionsProps {
   isPeriodEnded: boolean;
   isHome: boolean;
   showSecondaryActions?: boolean;
+  secondaryClassName?: string;
 }
 
 export function MatchActions({
@@ -32,6 +33,7 @@ export function MatchActions({
   isPeriodEnded,
   isHome,
   showSecondaryActions = true,
+  secondaryClassName,
 }: MatchActionsProps) {
   return (
     <div>
@@ -116,7 +118,7 @@ export function MatchActions({
 
       {/* Secondary actions */}
       {showSecondaryActions && (
-        <div className="flex gap-3">
+        <div className={`flex gap-3 ${secondaryClassName ?? ''}`}>
           <button
             onClick={onAddEvent}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"

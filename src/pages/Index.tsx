@@ -29,10 +29,10 @@ export default function Index() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [actionsHeight, setActionsHeight] = useState(0);
   const actionsRef = useRef<HTMLDivElement | null>(null);
-  const HANDLE_HEIGHT = 20;
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
+  const DEBUG_LAYOUT = true;
 
   const {
     activeMatch,
@@ -215,8 +215,10 @@ export default function Index() {
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
         <div
-          className="flex-1 flex flex-col safe-top overflow-hidden min-h-0"
-          style={actionsHeight ? { paddingBottom: showSecondaryActions ? actionsHeight : HANDLE_HEIGHT } : undefined}
+          className={`flex-1 flex flex-col safe-top overflow-hidden min-h-0 ${
+            DEBUG_LAYOUT ? 'bg-red-500/10' : ''
+          }`}
+          style={actionsHeight ? { paddingBottom: actionsHeight } : undefined}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4">
@@ -238,7 +240,7 @@ export default function Index() {
           </div>
 
           {/* Scoreboard */}
-          <div className="px-4">
+          <div className={`px-4 ${DEBUG_LAYOUT ? 'bg-green-500/10' : ''}`}>
             <Scoreboard
               match={activeMatch}
               myTeamScore={score.myTeam}
@@ -256,11 +258,15 @@ export default function Index() {
           </div>
 
           {/* Timeline */}
-          <div className="flex-1 p-4 overflow-hidden flex flex-col min-h-0">
+          <div className={`flex-1 p-4 overflow-hidden flex flex-col min-h-0 ${
+            DEBUG_LAYOUT ? 'bg-orange-500/10' : ''
+          }`}>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Timeline
             </h2>
-            <div className="flex-1 overflow-hidden min-h-0">
+            <div className={`flex-1 overflow-hidden min-h-0 ${
+              DEBUG_LAYOUT ? 'bg-yellow-500/10' : ''
+            }`}>
               <GoalTimeline
                 goals={activeMatch.goals}
                 events={activeMatch.events}
@@ -277,12 +283,16 @@ export default function Index() {
           {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
           <div
             ref={actionsRef}
-            className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-0 pt-2"
+            className={`fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-0 pt-2 ${
+              DEBUG_LAYOUT ? 'bg-blue-500/20' : ''
+            }`}
           >
             <button
               type="button"
               aria-label={showSecondaryActions ? 'Hide extra actions' : 'Show extra actions'}
-              className="w-full flex justify-center pb-2"
+              className={`w-full flex justify-center pb-2 ${
+                DEBUG_LAYOUT ? 'bg-purple-500/20' : ''
+              }`}
               onClick={() => handleToggleSecondary(!showSecondaryActions)}
               onPointerDown={(e) => {
                 dragging.current = true;
@@ -325,6 +335,7 @@ export default function Index() {
                 isPeriodEnded={!!isPeriodEnded}
                 isHome={activeMatch.isHome}
                 showSecondaryActions={showSecondaryActions}
+                secondaryClassName={DEBUG_LAYOUT ? 'bg-pink-500/20' : undefined}
               />
           </div>
 
