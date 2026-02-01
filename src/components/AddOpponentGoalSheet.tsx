@@ -71,7 +71,7 @@ export function AddOpponentGoalSheet({
                   className={`w-5 h-5 ${goalType === type ? 'text-accent' : 'text-muted-foreground'}`}
                 />
                 <span
-                  className={`text-xs font-medium ${goalType === type ? 'text-accent' : 'text-muted-foreground'}`}
+                  className={`text-[10px] font-medium ${goalType === type ? 'text-accent' : 'text-muted-foreground'}`}
                 >
                   {label}
                 </span>
