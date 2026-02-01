@@ -335,7 +335,7 @@ export default function Index() {
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <div>
-              <h1 className="text-2xl font-black text-foreground">Goal Keeper</h1>
+              <h1 className="text-2xl font-black text-foreground">⚽️ Goal Keeper</h1>
               <p className="text-sm text-muted-foreground">Track your football matches</p>
             </div>
             <div className="flex gap-2">
