@@ -8,15 +8,30 @@ function setVH() {
   document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
 
-// Set on load
+// Set immediately
 setVH();
 
-// Update on resize (e.g., when rotating device)
-window.addEventListener('resize', setVH);
+// Set after a short delay (for PWA viewport adjustment)
+setTimeout(setVH, 100);
+setTimeout(setVH, 500);
 
-// Also update on orientation change
+// Update on various events
+window.addEventListener('resize', setVH);
 window.addEventListener('orientationchange', () => {
-  setTimeout(setVH, 100); // Small delay to ensure new dimensions are available
+  setTimeout(setVH, 100);
+  setTimeout(setVH, 500);
+});
+
+// Listen for visibility change (PWA becoming active)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    setTimeout(setVH, 100);
+  }
+});
+
+// PWA-specific: listen for app install/launch
+window.addEventListener('appinstalled', () => {
+  setTimeout(setVH, 100);
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
