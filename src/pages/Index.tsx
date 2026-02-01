@@ -244,7 +244,8 @@ export default function Index() {
           </div>
 
           {/* Actions (overlay) */}
-          <div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+          {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
+          <div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-4">
             <MatchActions
                 onAddMyGoal={() => setShowAddGoal(true)}
                 onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
