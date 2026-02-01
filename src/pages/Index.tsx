@@ -29,6 +29,10 @@ export default function Index() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [actionsHeight, setActionsHeight] = useState(0);
   const actionsRef = useRef<HTMLDivElement | null>(null);
+  const HANDLE_HEIGHT = 20;
+  const [showSecondaryActions, setShowSecondaryActions] = useState(false);
+  const dragStartY = useRef(0);
+  const dragging = useRef(false);
 
   const {
     activeMatch,
@@ -78,6 +82,10 @@ export default function Index() {
     observer.observe(el);
     return () => observer.disconnect();
   }, [view, activeMatch]);
+
+  const handleToggleSecondary = (open: boolean) => {
+    setShowSecondaryActions(open);
+  };
 
   const handleSyncState = useCallback(
     (state: SyncState) => {
@@ -208,7 +216,7 @@ export default function Index() {
       {view === 'live' && activeMatch && (
         <div
           className="flex-1 flex flex-col safe-top overflow-hidden min-h-0"
-          style={actionsHeight ? { paddingBottom: actionsHeight } : undefined}
+          style={actionsHeight ? { paddingBottom: showSecondaryActions ? actionsHeight : HANDLE_HEIGHT } : undefined}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4">
@@ -269,8 +277,39 @@ export default function Index() {
           {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
           <div
             ref={actionsRef}
-            className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-0"
+            className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-0 pt-2"
           >
+            <button
+              type="button"
+              aria-label={showSecondaryActions ? 'Hide extra actions' : 'Show extra actions'}
+              className="w-full flex justify-center pb-2"
+              onClick={() => handleToggleSecondary(!showSecondaryActions)}
+              onPointerDown={(e) => {
+                dragging.current = true;
+                dragStartY.current = e.clientY;
+                try {
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                } catch {
+                  // ignore
+                }
+              }}
+              onPointerMove={(e) => {
+                if (!dragging.current) return;
+                const deltaY = e.clientY - dragStartY.current;
+                if (deltaY < -12) handleToggleSecondary(true);
+                if (deltaY > 12) handleToggleSecondary(false);
+              }}
+              onPointerUp={() => {
+                if (!dragging.current) return;
+                dragging.current = false;
+              }}
+              onPointerCancel={() => {
+                if (!dragging.current) return;
+                dragging.current = false;
+              }}
+            >
+              <span className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
+            </button>
             <MatchActions
                 onAddMyGoal={() => setShowAddGoal(true)}
                 onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
@@ -285,6 +324,7 @@ export default function Index() {
                 currentPeriod={activeMatch.currentPeriod}
                 isPeriodEnded={!!isPeriodEnded}
                 isHome={activeMatch.isHome}
+                showSecondaryActions={showSecondaryActions}
               />
           </div>
 
