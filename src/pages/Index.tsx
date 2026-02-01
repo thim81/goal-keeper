@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useLayoutEffect, useRef } from 'react';
 import { History, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
@@ -27,6 +27,8 @@ export default function Index() {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showStartMatch, setShowStartMatch] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [actionsHeight, setActionsHeight] = useState(0);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
 
   const {
     activeMatch,
@@ -59,6 +61,23 @@ export default function Index() {
   } = useSettings();
 
   useTheme(settings.theme);
+
+  useLayoutEffect(() => {
+    const el = actionsRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(el.getBoundingClientRect().height);
+      setActionsHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    updateHeight();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => updateHeight());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [view, activeMatch]);
 
   const handleSyncState = useCallback(
     (state: SyncState) => {
@@ -187,7 +206,10 @@ export default function Index() {
 
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
-        <div className="flex-1 flex flex-col safe-top overflow-hidden min-h-0">
+        <div
+          className="flex-1 flex flex-col safe-top overflow-hidden min-h-0"
+          style={actionsHeight ? { paddingBottom: actionsHeight } : undefined}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4">
             <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
@@ -245,7 +267,10 @@ export default function Index() {
 
           {/* Actions (overlay) */}
           {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
-          <div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-4">
+          <div
+            ref={actionsRef}
+            className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-4 safe-bottom"
+          >
             <MatchActions
                 onAddMyGoal={() => setShowAddGoal(true)}
                 onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
