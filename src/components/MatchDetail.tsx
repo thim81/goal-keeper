@@ -24,7 +24,7 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const isDraw = myTeamScore === opponentScore;
 
   return (
-    <div className="flex flex-col h-full safe-top">
+    <div className="absolute inset-0 flex flex-col safe-top">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <button
