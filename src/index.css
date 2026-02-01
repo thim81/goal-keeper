@@ -141,6 +141,15 @@
   }
 }
 
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
 /* Custom utilities */
 @layer utilities {
   .text-balance {

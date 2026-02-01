@@ -1,4 +1,4 @@
-import { useState, useCallback, useLayoutEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { History, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
@@ -9,6 +9,7 @@ import { Scoreboard } from '@/components/Scoreboard';
 import { GoalTimeline } from '@/components/GoalTimeline';
 import { MatchTimer } from '@/components/MatchTimer';
 import { MatchActions } from '@/components/MatchActions';
+import { LiveMatchLayout } from '@/components/LiveMatchLayout';
 import { AddGoalSheet } from '@/components/AddGoalSheet';
 import { AddOpponentGoalSheet } from '@/components/AddOpponentGoalSheet';
 import { AddEventSheet } from '@/components/AddEventSheet';
@@ -27,12 +28,9 @@ export default function Index() {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showStartMatch, setShowStartMatch] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [actionsHeight, setActionsHeight] = useState(0);
-  const actionsRef = useRef<HTMLDivElement | null>(null);
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
-  const DEBUG_LAYOUT = true;
 
   const {
     activeMatch,
@@ -65,23 +63,6 @@ export default function Index() {
   } = useSettings();
 
   useTheme(settings.theme);
-
-  useLayoutEffect(() => {
-    const el = actionsRef.current;
-    if (!el) return;
-
-    const updateHeight = () => {
-      const nextHeight = Math.ceil(el.getBoundingClientRect().height);
-      setActionsHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    };
-
-    updateHeight();
-
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => updateHeight());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [view, activeMatch]);
 
   const handleToggleSecondary = (open: boolean) => {
     setShowSecondaryActions(open);
@@ -214,59 +195,49 @@ export default function Index() {
 
       {/* Live Match View */}
       {view === 'live' && activeMatch && (
-        <div
-          className={`flex-1 flex flex-col safe-top overflow-hidden min-h-0 ${
-            DEBUG_LAYOUT ? 'bg-red-500/10' : ''
-          }`}
-          style={actionsHeight ? { paddingBottom: actionsHeight } : undefined}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4">
-            <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setView('settings')}
-                className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-              >
-                <Settings className="w-5 h-5 text-foreground" />
-              </button>
-              <button
-                onClick={() => setView('history')}
-                className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-              >
-                <History className="w-5 h-5 text-foreground" />
-              </button>
+        <LiveMatchLayout
+          header={
+            <div className="flex items-center justify-between p-4">
+              <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setView('settings')}
+                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <Settings className="w-5 h-5 text-foreground" />
+                </button>
+                <button
+                  onClick={() => setView('history')}
+                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <History className="w-5 h-5 text-foreground" />
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* Scoreboard */}
-          <div className={`px-4 ${DEBUG_LAYOUT ? 'bg-green-500/10' : ''}`}>
-            <Scoreboard
-              match={activeMatch}
-              myTeamScore={score.myTeam}
-              opponentScore={score.opponent}
-            />
-            <MatchTimer
-              startedAt={activeMatch.startedAt}
-              periodsCount={settings.periodsCount}
-              periodDuration={settings.periodDuration}
-              isRunning={activeMatch.isRunning}
-              totalPausedTime={activeMatch.totalPausedTime}
-              pausedAt={activeMatch.pausedAt}
-              currentPeriod={activeMatch.currentPeriod}
-            />
-          </div>
-
-          {/* Timeline */}
-          <div className={`flex-1 p-4 overflow-hidden flex flex-col min-h-0 ${
-            DEBUG_LAYOUT ? 'bg-orange-500/10' : ''
-          }`}>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Timeline
-            </h2>
-            <div className={`flex-1 overflow-hidden min-h-0 ${
-              DEBUG_LAYOUT ? 'bg-yellow-500/10' : ''
-            }`}>
+          }
+          top={
+            <div className="px-4">
+              <Scoreboard
+                match={activeMatch}
+                myTeamScore={score.myTeam}
+                opponentScore={score.opponent}
+              />
+              <MatchTimer
+                startedAt={activeMatch.startedAt}
+                periodsCount={settings.periodsCount}
+                periodDuration={settings.periodDuration}
+                isRunning={activeMatch.isRunning}
+                totalPausedTime={activeMatch.totalPausedTime}
+                pausedAt={activeMatch.pausedAt}
+                currentPeriod={activeMatch.currentPeriod}
+              />
+            </div>
+          }
+          timeline={
+            <>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Timeline
+              </h2>
               <GoalTimeline
                 goals={activeMatch.goals}
                 events={activeMatch.events}
@@ -276,23 +247,13 @@ export default function Index() {
                 onDeleteGoal={deleteGoal}
                 onDeleteEvent={deleteEvent}
               />
-            </div>
-          </div>
-
-          {/* Actions (overlay) */}
-          {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
-          <div
-            ref={actionsRef}
-            className={`fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-[env(safe-area-inset-bottom)] pt-2 ${
-              DEBUG_LAYOUT ? 'bg-blue-500/20' : ''
-            }`}
-          >
+            </>
+          }
+          actionsHandle={
             <button
               type="button"
               aria-label={showSecondaryActions ? 'Hide extra actions' : 'Show extra actions'}
-              className={`w-full flex justify-center pb-2 ${
-                DEBUG_LAYOUT ? 'bg-purple-500/20' : ''
-              }`}
+              className="w-full flex justify-center pb-2"
               onClick={() => handleToggleSecondary(!showSecondaryActions)}
               onPointerDown={(e) => {
                 dragging.current = true;
@@ -320,25 +281,26 @@ export default function Index() {
             >
               <span className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
             </button>
+          }
+          actions={
             <MatchActions
-                onAddMyGoal={() => setShowAddGoal(true)}
-                onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
-                onAddEvent={() => setShowAddEvent(true)}
-                onUndo={undoLast}
-                onEndMatch={handleEndMatch}
-                onStartPeriod={startPeriod}
-                onEndPeriod={endPeriod}
-                onToggleTimer={toggleTimer}
-                isRunning={activeMatch.isRunning}
-                canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
-                currentPeriod={activeMatch.currentPeriod}
-                isPeriodEnded={!!isPeriodEnded}
-                isHome={activeMatch.isHome}
-                showSecondaryActions={showSecondaryActions}
-                secondaryClassName={DEBUG_LAYOUT ? 'bg-pink-500/20' : undefined}
-              />
-          </div>
-
+              onAddMyGoal={() => setShowAddGoal(true)}
+              onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
+              onAddEvent={() => setShowAddEvent(true)}
+              onUndo={undoLast}
+              onEndMatch={handleEndMatch}
+              onStartPeriod={startPeriod}
+              onEndPeriod={endPeriod}
+              onToggleTimer={toggleTimer}
+              isRunning={activeMatch.isRunning}
+              canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
+              currentPeriod={activeMatch.currentPeriod}
+              isPeriodEnded={!!isPeriodEnded}
+              isHome={activeMatch.isHome}
+              showSecondaryActions={showSecondaryActions}
+            />
+          }
+        >
           {/* Add Goal Sheet */}
           <AddGoalSheet
             isOpen={showAddGoal}
@@ -361,7 +323,7 @@ export default function Index() {
             onClose={() => setShowAddEvent(false)}
             onAddEvent={handleAddEvent}
           />
-        </div>
+        </LiveMatchLayout>
       )}
 
       {/* Home View */}
