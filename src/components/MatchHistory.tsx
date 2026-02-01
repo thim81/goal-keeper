@@ -23,7 +23,10 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
   }
 
   return (
-    <div className="flex-1 overflow-y-auto overscroll-none">
+    <div
+      className="flex-1 overflow-y-auto overscroll-none"
+      style={{ paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))` }}
+    >
       <div className="space-y-3">
         {matches.map((match, index) => {
           const isWin = match.myTeamScore > match.opponentScore;

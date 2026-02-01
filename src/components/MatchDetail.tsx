@@ -83,7 +83,10 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
       </div>
 
       {/* Timeline */}
-      <div className="flex-1 p-4 overflow-y-auto overscroll-contain">
+      <div
+        className="flex-1 p-4 overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: `calc(1rem + env(safe-area-inset-bottom, 0px))` }}
+      >
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Timeline
         </h2>
