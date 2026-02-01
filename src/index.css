@@ -118,10 +118,26 @@
     @apply border-border;
   }
 
+  html {
+    height: -webkit-fill-available;
+    background-color: hsl(var(--background));
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
     -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
+  #root {
+    height: 100%;
   }
 }
 

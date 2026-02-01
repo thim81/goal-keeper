@@ -127,7 +127,7 @@ export default function Index() {
   }
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
+    <div className="h-full w-full bg-background flex flex-col overflow-hidden">
       {/* Settings View */}
       {view === 'settings' && (
         <SettingsScreen
