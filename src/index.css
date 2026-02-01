@@ -129,11 +129,7 @@
     -webkit-tap-highlight-color: transparent;
     min-height: 100vh;
     min-height: -webkit-fill-available;
-    overflow: hidden;
     overscroll-behavior: none;
-    position: fixed;
-    width: 100%;
-    height: 100%;
   }
 
   #root {
@@ -148,6 +144,11 @@
     height: 100dvh;
     min-height: 100dvh;
   }
+}
+
+.app {
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Custom utilities */
