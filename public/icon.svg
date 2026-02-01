@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Green background -->
+  <rect width="512" height="512" rx="115" fill="#22c55e"/>
+
+  <!-- Soccer ball emoji -->
+  <text x="256" y="380" font-size="320" text-anchor="middle" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji">⚽</text>
+</svg>
