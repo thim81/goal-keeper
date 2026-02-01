@@ -7,7 +7,7 @@ Ideal for parents, who want to keep track of the goals during their kids matches
 
 | Home Screen | Live Match | Match Score | Match History |
 |-------------|------------|---------------|---------------|
-| ![Home](./assets/goal_keeper_home.png) | ![Live](./assets/goal_keeper_match.png) | ![Score](./assets/goal_keeper_add_score.png) | ![History](./assets/goal_keeper_match_history.png) |
+| ![Home](./public/assets/goal_keeper_home.png) | ![Live](./public/assets/goal_keeper_match.png) | ![Score](./public/assets/goal_keeper_add_score.png) | ![History](./public/assets/goal_keeper_match_history.png) |
 
 ## Features
 
