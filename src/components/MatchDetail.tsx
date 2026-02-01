@@ -23,6 +23,26 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const isWin = myTeamScore > opponentScore;
   const isDraw = myTeamScore === opponentScore;
 
+  // Calculate scorer and assist statistics
+  const myTeamGoals = match.goals.filter((g) => g.team === 'my-team' && g.type !== 'own-goal');
+
+  const scorerStats = myTeamGoals.reduce((acc, goal) => {
+    if (goal.scorer) {
+      acc[goal.scorer] = (acc[goal.scorer] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const assistStats = myTeamGoals.reduce((acc, goal) => {
+    if (goal.assist) {
+      acc[goal.assist] = (acc[goal.assist] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const topScorers = Object.entries(scorerStats).sort((a, b) => b[1] - a[1]);
+  const topAssisters = Object.entries(assistStats).sort((a, b) => b[1] - a[1]);
+
   return (
     <div
       className="flex flex-col safe-top overflow-hidden"
@@ -84,6 +104,54 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
           </span>
         </div>
       </div>
+
+      {/* Player Statistics */}
+      {(topScorers.length > 0 || topAssisters.length > 0) && (
+        <div className="mx-4 mt-4 p-4 bg-secondary/50 rounded-xl border border-border/30">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Player Statistics
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Scorers */}
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground mb-2">Top Scorers</h3>
+              {topScorers.length > 0 ? (
+                <div className="space-y-1.5">
+                  {topScorers.map(([name, count]) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <span className="text-sm text-foreground font-medium">{name}</span>
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">
+                        {count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No scorers recorded</p>
+              )}
+            </div>
+
+            {/* Assists */}
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground mb-2">Top Assists</h3>
+              {topAssisters.length > 0 ? (
+                <div className="space-y-1.5">
+                  {topAssisters.map(([name, count]) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <span className="text-sm text-foreground font-medium">{name}</span>
+                      <span className="text-xs bg-goal/20 text-goal px-2 py-0.5 rounded-full font-bold">
+                        {count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No assists recorded</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div
