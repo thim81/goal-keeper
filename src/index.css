@@ -152,7 +152,7 @@
   }
 
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 16px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .animate-goal {

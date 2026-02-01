@@ -32,7 +32,7 @@ export function MatchActions({
   isHome,
 }: MatchActionsProps) {
   return (
-    <div className="pb-4">
+    <div>
 
       {/* Main goal buttons */}
       <div className="grid grid-cols-2 gap-3 mb-3">
