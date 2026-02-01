@@ -283,7 +283,7 @@ export default function Index() {
           {/*<div className="z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 pt-3 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">*/}
           <div
             ref={actionsRef}
-            className={`fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-0 pt-2 ${
+            className={`fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pb-[env(safe-area-inset-bottom)] pt-2 ${
               DEBUG_LAYOUT ? 'bg-blue-500/20' : ''
             }`}
           >
