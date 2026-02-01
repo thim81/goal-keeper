@@ -25,9 +25,7 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
       <div className="flex items-center justify-between">
         {/* My Team */}
         <div className="flex-1 text-center">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-            {leftLabel}
-          </p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{leftLabel}</p>
           <p className="text-lg font-bold text-foreground truncate px-2">{leftTeamName}</p>
         </div>
 
@@ -37,7 +35,9 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
             {leftScore}
           </span>
           <span className="text-2xl font-bold text-muted-foreground">-</span>
-          <span className={`text-5xl font-black ${rightScoreClass} tabular-nums`}>{rightScore}</span>
+          <span className={`text-5xl font-black ${rightScoreClass} tabular-nums`}>
+            {rightScore}
+          </span>
         </div>
 
         {/* Opponent */}

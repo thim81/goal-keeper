@@ -26,19 +26,25 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   // Calculate scorer and assist statistics
   const myTeamGoals = match.goals.filter((g) => g.team === 'my-team' && g.type !== 'own-goal');
 
-  const scorerStats = myTeamGoals.reduce((acc, goal) => {
-    if (goal.scorer) {
-      acc[goal.scorer] = (acc[goal.scorer] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  const scorerStats = myTeamGoals.reduce(
+    (acc, goal) => {
+      if (goal.scorer) {
+        acc[goal.scorer] = (acc[goal.scorer] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
-  const assistStats = myTeamGoals.reduce((acc, goal) => {
-    if (goal.assist) {
-      acc[goal.assist] = (acc[goal.assist] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  const assistStats = myTeamGoals.reduce(
+    (acc, goal) => {
+      if (goal.assist) {
+        acc[goal.assist] = (acc[goal.assist] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const topScorers = Object.entries(scorerStats).sort((a, b) => b[1] - a[1]);
   const topAssisters = Object.entries(assistStats).sort((a, b) => b[1] - a[1]);

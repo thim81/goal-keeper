@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, X, Users, Clock, Shield, RefreshCw, Moon, Sun, Laptop, Bug } from 'lucide-react';
+import {
+  ArrowLeft,
+  Plus,
+  X,
+  Users,
+  Clock,
+  Shield,
+  RefreshCw,
+  Moon,
+  Sun,
+  Laptop,
+  Bug,
+} from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
 
 interface SettingsScreenProps {
@@ -235,7 +247,8 @@ export function SettingsScreen({
               className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-[10px] text-muted-foreground leading-tight">
-              Enter your token to sync matches across devices. Your data will be stored in Cloudflare KV.
+              Enter your token to sync matches across devices. Your data will be stored in
+              Cloudflare KV.
             </p>
           </div>
         </div>

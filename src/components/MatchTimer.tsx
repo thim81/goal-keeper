@@ -62,7 +62,9 @@ export function MatchTimer({
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
           Period {currentPeriod}/{periodsCount}
         </span>
-        <span className={`font-mono text-lg font-bold tabular-nums ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}>
+        <span
+          className={`font-mono text-lg font-bold tabular-nums ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}
+        >
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </span>
       </div>

@@ -152,15 +152,16 @@ export function useMatches() {
   const startPeriod = useCallback(() => {
     setActiveMatch((prev) => {
       if (!prev) return null;
-      
+
       const lastEvent = prev.events[prev.events.length - 1];
       const isInitialStart = prev.events.length === 1 && prev.events[0].type === 'start';
-      
+
       // If the last event was already a start event (e.g. from startMatch), don't increment period yet
       // but ensure it's running. Actually, startMatch already sets currentPeriod: 1 and adds the event.
       // If we are calling startPeriod manually, it's usually after an endPeriod.
-      
-      const newPeriod = lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
+
+      const newPeriod =
+        lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
 
       const newEvent: GameEvent = {
         id: generateId(),
@@ -190,7 +191,7 @@ export function useMatches() {
     // If we call endPeriod multiple times or when not running, we might still want to log it if it's the last action
     setActiveMatch((prev) => {
       if (!prev) return null;
-      
+
       const newEvent: GameEvent = {
         id: generateId(),
         type: 'period-end',

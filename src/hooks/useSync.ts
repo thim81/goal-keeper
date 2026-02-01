@@ -8,7 +8,7 @@ export function useSync(
   matchHistory: MatchSummary[],
   activeMatch: Match | null,
   settings: AppSettings,
-  onSyncState: (state: SyncState) => void
+  onSyncState: (state: SyncState) => void,
 ) {
   const isInitialMount = useRef(true);
   const lastPushedState = useRef<string>('');

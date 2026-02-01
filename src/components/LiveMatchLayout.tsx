@@ -28,25 +28,25 @@ export function LiveMatchLayout({
     containerHeight: 0,
     windowHeight: 0,
     vh: 0,
-    safeAreaBottom: 0
+    safeAreaBottom: 0,
   });
 
   React.useEffect(() => {
     const updateHeights = () => {
       if (timelineRef.current && actionsRef.current && containerRef.current) {
         // Get safe-area-inset-bottom value
-        const safeAreaBottom = parseInt(
-          getComputedStyle(document.documentElement)
-            .getPropertyValue('env(safe-area-inset-bottom, 0px)')
-            .replace('px', '')
-        ) || 0;
+        const safeAreaBottom =
+          parseInt(
+            getComputedStyle(document.documentElement)
+              .getPropertyValue('env(safe-area-inset-bottom, 0px)')
+              .replace('px', ''),
+          ) || 0;
 
         // Get --vh value
-        const vh = parseFloat(
-          getComputedStyle(document.documentElement)
-            .getPropertyValue('--vh')
-            .replace('px', '')
-        ) || 0;
+        const vh =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--vh').replace('px', ''),
+          ) || 0;
 
         setInfo({
           timeline: timelineRef.current.clientHeight,
@@ -54,7 +54,7 @@ export function LiveMatchLayout({
           containerHeight: containerRef.current.clientHeight,
           windowHeight: window.innerHeight,
           vh: vh * 100,
-          safeAreaBottom
+          safeAreaBottom,
         });
       }
     };
@@ -82,14 +82,10 @@ export function LiveMatchLayout({
       )}
 
       {/* Fixed Header */}
-      <div className={`flex-shrink-0 ${debug ? 'bg-blue-500/10' : ''}`}>
-        {header}
-      </div>
+      <div className={`flex-shrink-0 ${debug ? 'bg-blue-500/10' : ''}`}>{header}</div>
 
       {/* Fixed Scoreboard/Top Section */}
-      <div className={`flex-shrink-0 ${debug ? 'bg-green-500/10' : ''}`}>
-        {top}
-      </div>
+      <div className={`flex-shrink-0 ${debug ? 'bg-green-500/10' : ''}`}>{top}</div>
 
       {/* Scrollable Timeline - This grows to fill space */}
       <div
@@ -106,7 +102,7 @@ export function LiveMatchLayout({
           debug ? 'bg-purple-500/20' : ''
         }`}
         style={{
-          paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px))`
+          paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px))`,
         }}
       >
         {actionsHandle ? (
