@@ -24,7 +24,10 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const isDraw = myTeamScore === opponentScore;
 
   return (
-    <div className="min-h-screen flex flex-col safe-top overflow-hidden">
+    <div
+      className="flex flex-col safe-top overflow-hidden"
+      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <button

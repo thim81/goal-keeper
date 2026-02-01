@@ -8,7 +8,6 @@ interface LiveMatchLayoutProps {
   actionsHandle?: ReactNode;
   debug?: boolean;
   children?: ReactNode;
-  actionsHeight?: number;
 }
 
 export function LiveMatchLayout({
@@ -19,10 +18,12 @@ export function LiveMatchLayout({
   actionsHandle,
   debug = false,
   children,
-  actionsHeight = 236,
 }: LiveMatchLayoutProps) {
   return (
-    <div className={`min-h-screen flex flex-col safe-top ${debug ? 'bg-red-500/10' : ''}`}>
+    <div
+      className={`flex flex-col safe-top ${debug ? 'bg-red-500/10' : ''}`}
+      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+    >
       {/* Fixed Header */}
       <div className={`flex-shrink-0 ${debug ? 'bg-blue-500/10' : ''}`}>
         {header}
@@ -44,10 +45,7 @@ export function LiveMatchLayout({
           debug ? 'bg-purple-500/20' : ''
         }`}
         style={{
-          height: actionsHeight,
-          minHeight: actionsHeight,
-          paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px))`,
-          overflow: 'hidden',
+          paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px))`
         }}
       >
         {actionsHandle ? (
