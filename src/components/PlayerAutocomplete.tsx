@@ -17,7 +17,6 @@ export function PlayerAutocomplete({
 }: PlayerAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filteredPlayers, setFilteredPlayers] = useState<string[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,28 +37,29 @@ export function PlayerAutocomplete({
   }, [value, players]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handlePointerDownOutside = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handlePointerDownOutside);
+    return () => document.removeEventListener('pointerdown', handlePointerDownOutside);
   }, []);
 
   const handleSelect = (player: string) => {
     onChange(player);
     setIsOpen(false);
-    inputRef.current?.focus();
   };
 
   return (
     <div ref={containerRef} className="relative">
       <input
-        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          if (filteredPlayers.length > 0) setIsOpen(true);
+        }}
         placeholder={placeholder}
         className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
         autoFocus={autoFocus}
@@ -72,6 +72,7 @@ export function PlayerAutocomplete({
             <button
               key={player}
               type="button"
+              onPointerDown={(e) => e.preventDefault()}
               onClick={() => handleSelect(player)}
               className={`w-full px-4 py-3 text-left text-foreground hover:bg-primary/20 transition-colors ${
                 index !== filteredPlayers.length - 1 ? 'border-b border-border/50' : ''
