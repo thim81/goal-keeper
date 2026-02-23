@@ -17,6 +17,16 @@ import { StartMatchSheet } from '@/components/StartMatchSheet';
 import { MatchHistory } from '@/components/MatchHistory';
 import { MatchDetail } from '@/components/MatchDetail';
 import { SettingsScreen } from '@/components/SettingsScreen';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { GoalType, GameEventType, Match } from '@/types/match';
 
 type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
@@ -29,6 +39,7 @@ export default function Index() {
   const [showStartMatch, setShowStartMatch] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
+  const [pendingDeleteMatchId, setPendingDeleteMatchId] = useState<string | null>(null);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
 
@@ -130,6 +141,20 @@ export default function Index() {
     }
   };
 
+  const pendingDeleteMatch = pendingDeleteMatchId
+    ? matchHistory.find((match) => match.id === pendingDeleteMatchId) ?? null
+    : null;
+
+  const handleRequestDeleteMatch = (matchId: string) => {
+    setPendingDeleteMatchId(matchId);
+  };
+
+  const handleConfirmDeleteMatch = () => {
+    if (!pendingDeleteMatchId) return;
+    deleteMatch(pendingDeleteMatchId);
+    setPendingDeleteMatchId(null);
+  };
+
   // If there's an active match and we're on home, show live
   if (activeMatch && view === 'home') {
     setView('live');
@@ -189,7 +214,7 @@ export default function Index() {
             <MatchHistory
               matches={matchHistory}
               onSelectMatch={handleSelectMatch}
-              onDeleteMatch={deleteMatch}
+              onDeleteMatch={handleRequestDeleteMatch}
             />
           </div>
         </div>
@@ -390,6 +415,33 @@ export default function Index() {
           />
         </div>
       )}
+
+      <AlertDialog
+        open={!!pendingDeleteMatchId}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteMatchId(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteMatch
+                ? `This will permanently remove ${pendingDeleteMatch.myTeamName} vs ${pendingDeleteMatch.opponentName} (${pendingDeleteMatch.date}) from your history.`
+                : 'This will permanently remove the selected match from your history.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteMatch}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
