@@ -44,7 +44,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
         <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-6" />
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Add Goal ⚽</h2>
           <button
             onClick={onClose}
@@ -114,7 +114,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
           <button
             onClick={handleSubmit}
             disabled={!scorer.trim()}
-            className="w-full py-3 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
+            className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
           >
             Add Goal
           </button>
