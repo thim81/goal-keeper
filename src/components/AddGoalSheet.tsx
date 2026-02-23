@@ -114,7 +114,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
           <button
             onClick={handleSubmit}
             disabled={!scorer.trim()}
-            className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
+            className="w-full py-3 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
           >
             Add Goal
           </button>

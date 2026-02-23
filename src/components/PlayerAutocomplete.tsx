@@ -61,7 +61,7 @@ export function PlayerAutocomplete({
           if (filteredPlayers.length > 0) setIsOpen(true);
         }}
         placeholder={placeholder}
-        className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
+        className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-base"
         autoFocus={autoFocus}
         autoComplete="off"
       />
