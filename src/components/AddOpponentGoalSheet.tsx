@@ -40,10 +40,10 @@ export function AddOpponentGoalSheet({
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-6 safe-bottom animate-slide-up border-t border-border/50">
         {/* Handle */}
-        <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-6" />
+        <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">{opponentName} Goal</h2>
           <button
             onClick={onClose}
