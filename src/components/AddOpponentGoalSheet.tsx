@@ -38,7 +38,7 @@ export function AddOpponentGoalSheet({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-6 safe-bottom animate-slide-up border-t border-border/50">
+      <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-4 safe-bottom animate-slide-up border-t border-border/50">
         {/* Handle */}
         <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
 
