@@ -33,7 +33,7 @@ export function useSync(
       if (remoteState) {
         onSyncState(remoteState);
         lastPushedState.current = JSON.stringify(remoteState);
-        toast.success('Synced with Cloudflare');
+        toast.success('Goals Synced');
       } else {
         // If no remote state, push local state as initial
         const currentState = getLocalState();
