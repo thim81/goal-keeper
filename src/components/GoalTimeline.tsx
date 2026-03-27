@@ -16,6 +16,7 @@ interface GoalTimelineProps {
   events: GameEvent[];
   myTeamName: string;
   opponentName: string;
+  scrollToBottomSignal?: number;
   editable?: boolean;
   onDeleteGoal?: (id: string) => void;
   onDeleteEvent?: (id: string) => void;
@@ -60,6 +61,7 @@ export function GoalTimeline({
   events,
   myTeamName,
   opponentName,
+  scrollToBottomSignal = 0,
   editable = false,
   onDeleteGoal,
   onDeleteEvent,
@@ -72,6 +74,7 @@ export function GoalTimeline({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const prevCountRef = useRef(timelineItems.length);
+  const hasAutoScrolledOnMountRef = useRef(false);
 
   useEffect(() => {
     // Only auto-scroll when new items are added
@@ -88,6 +91,28 @@ export function GoalTimeline({
     }
     prevCountRef.current = next;
   }, [timelineItems.length]);
+
+  useEffect(() => {
+    if (!editable || timelineItems.length === 0 || hasAutoScrolledOnMountRef.current) return;
+
+    requestAnimationFrame(() => {
+      const el = scrollRef.current?.closest('.overflow-y-auto');
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+
+    hasAutoScrolledOnMountRef.current = true;
+  }, [editable, timelineItems.length]);
+
+  useEffect(() => {
+    if (scrollToBottomSignal === 0) return;
+
+    requestAnimationFrame(() => {
+      const el = scrollRef.current?.closest('.overflow-y-auto');
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [scrollToBottomSignal]);
 
   // iOS-like swipe-to-delete for event rows
   const MAX_SWIPE_PX = 84; // width of the revealed action area

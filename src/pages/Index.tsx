@@ -40,6 +40,7 @@ export default function Index() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const [pendingDeleteMatchId, setPendingDeleteMatchId] = useState<string | null>(null);
+  const [syncScrollSignal, setSyncScrollSignal] = useState(0);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
 
@@ -84,6 +85,9 @@ export default function Index() {
     (state: SyncState) => {
       setAllMatchesState(state.matches, state.activeMatch, state.fullMatches);
       setAllSettingsState(state.settings);
+      if (state.activeMatch) {
+        setSyncScrollSignal((value) => value + 1);
+      }
     },
     [setAllMatchesState, setAllSettingsState],
   );
@@ -271,6 +275,7 @@ export default function Index() {
                 events={activeMatch.events}
                 myTeamName={activeMatch.myTeamName}
                 opponentName={activeMatch.opponentName}
+                scrollToBottomSignal={syncScrollSignal}
                 editable
                 onDeleteGoal={deleteGoal}
                 onDeleteEvent={deleteEvent}
