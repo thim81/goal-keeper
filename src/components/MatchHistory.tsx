@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { ChevronRight, Trophy, Trash2 } from 'lucide-react';
 import { MatchSummary } from '@/types/match';
 
@@ -8,6 +9,62 @@ interface MatchHistoryProps {
 }
 
 export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHistoryProps) {
+  const MAX_SWIPE_PX = 84;
+  const SWIPE_SNAP_THRESHOLD = 42;
+  const [matchSwipeX, setMatchSwipeX] = useState<Record<string, number>>({});
+  const activeMatchIdRef = useRef<string | null>(null);
+  const startXRef = useRef(0);
+  const startSwipeRef = useRef(0);
+  const draggingRef = useRef(false);
+  const didSwipeRef = useRef(false);
+
+  const onMatchPointerDown = (matchId: string) => (e: React.PointerEvent) => {
+    draggingRef.current = true;
+    didSwipeRef.current = false;
+    activeMatchIdRef.current = matchId;
+    startXRef.current = e.clientX;
+    startSwipeRef.current = matchSwipeX[matchId] ?? 0;
+
+    // Close other rows when starting a new swipe
+    setMatchSwipeX((prev) => {
+      const next: Record<string, number> = {};
+      if (prev[matchId]) next[matchId] = prev[matchId];
+      return next;
+    });
+
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const onMatchPointerMove = (e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    const matchId = activeMatchIdRef.current;
+    if (!matchId) return;
+
+    const dx = e.clientX - startXRef.current;
+    if (Math.abs(dx) > 6) didSwipeRef.current = true;
+
+    // only allow swiping left to reveal
+    const nextX = Math.max(-MAX_SWIPE_PX, Math.min(0, startSwipeRef.current + dx));
+    setMatchSwipeX((prev) => ({ ...prev, [matchId]: nextX }));
+  };
+
+  const onMatchPointerEnd = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+
+    const matchId = activeMatchIdRef.current;
+    activeMatchIdRef.current = null;
+    if (!matchId) return;
+
+    const currentX = matchSwipeX[matchId] ?? 0;
+    const shouldReveal = Math.abs(currentX) >= SWIPE_SNAP_THRESHOLD;
+    setMatchSwipeX((prev) => ({ ...prev, [matchId]: shouldReveal ? -MAX_SWIPE_PX : 0 }));
+  };
+
   if (matches.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -34,15 +91,51 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
           const resultColor = isWin ? 'text-primary' : isDraw ? 'text-goal' : 'text-accent';
           const resultBg = isWin ? 'bg-primary/10' : isDraw ? 'bg-goal/10' : 'bg-accent/10';
 
+          const swipeX = matchSwipeX[match.id] ?? 0;
+
           return (
             <div
               key={match.id}
               className="animate-slide-up card-gradient rounded-xl border border-border/30 overflow-hidden"
               style={{ animationDelay: `${index * 50}ms` }}
             >
+              <div className="relative overflow-hidden border-b border-border/30">
+                {swipeX !== 0 && (
+                  <button
+                    onClick={() => {
+                      setMatchSwipeX((prev) => ({ ...prev, [match.id]: 0 }));
+                      onDeleteMatch(match.id);
+                    }}
+                    className="absolute inset-y-0 right-0 w-[84px] bg-accent text-accent-foreground flex items-center justify-center"
+                    aria-label="Delete match"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+
               <button
-                onClick={() => onSelectMatch(match.id)}
-                className="w-full p-4 text-left hover:bg-secondary/30 transition-colors"
+                onClick={(e) => {
+                  if (didSwipeRef.current || swipeX !== 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    didSwipeRef.current = false;
+                    if (swipeX !== 0) {
+                      setMatchSwipeX((prev) => ({ ...prev, [match.id]: 0 }));
+                    }
+                    return;
+                  }
+
+                  onSelectMatch(match.id);
+                }}
+                className="w-full p-4 text-left hover:bg-secondary/30 transition-colors touch-pan-y"
+                style={{
+                  transform: `translateX(${swipeX}px)`,
+                  transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
+                }}
+                onPointerDown={onMatchPointerDown(match.id)}
+                onPointerMove={onMatchPointerMove}
+                onPointerUp={onMatchPointerEnd}
+                onPointerCancel={onMatchPointerEnd}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -65,9 +158,12 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
               </button>
+              </div>
 
-              {/* Delete button */}
-              <div className="border-t border-border/30 px-4 py-2 flex justify-end">
+              {/*
+                Delete button fallback (kept commented out).
+                Swipe-left delete is the primary interaction.
+              <div className="px-4 py-2 flex justify-end">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -79,6 +175,7 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                   Delete
                 </button>
               </div>
+              */}
             </div>
           );
         })}
