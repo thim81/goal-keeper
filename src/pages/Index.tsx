@@ -117,7 +117,10 @@ export default function Index() {
   };
 
   // Handle adding an event
-  const handleAddEvent = (type: GameEventType) => {
+  const handleAddEvent = (
+    type: GameEventType,
+    options?: { team?: 'my-team' | 'opponent'; player?: string },
+  ) => {
     if (type === 'start') {
       startPeriod();
     } else if (type === 'period-end') {
@@ -125,7 +128,27 @@ export default function Index() {
     } else if (type === 'pause' || type === 'resume') {
       toggleTimer();
     } else {
-      addEvent(type);
+      const label =
+        type === 'yellow-card' || type === 'red-card'
+          ? [
+              options?.team
+                ? options.team === 'my-team'
+                  ? activeMatch?.myTeamName ?? 'My Team'
+                  : activeMatch?.opponentName ?? 'Opponent'
+                : undefined,
+              options?.player,
+            ]
+              .filter(Boolean)
+              .join(' • ') || undefined
+          : undefined;
+
+      addEvent(type, label, options);
+
+      if (type === 'yellow-card' || type === 'red-card') {
+        if (options?.team === 'my-team' && options.player) {
+          addPlayer(options.player);
+        }
+      }
     }
   };
 
@@ -355,6 +378,9 @@ export default function Index() {
             isOpen={showAddEvent}
             onClose={() => setShowAddEvent(false)}
             onAddEvent={handleAddEvent}
+            myTeamName={activeMatch.myTeamName}
+            opponentName={activeMatch.opponentName}
+            knownPlayers={settings.players}
           />
         </LiveMatchLayout>
       )}

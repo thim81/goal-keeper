@@ -52,6 +52,19 @@ const eventTypeLabels = {
   'half-time': 'Half Time',
   'full-time': 'Full Time',
   'period-end': 'Period End',
+  'yellow-card': 'Yellow Card',
+  'red-card': 'Red Card',
+};
+
+const eventTypeIconColors = {
+  start: 'text-muted-foreground',
+  pause: 'text-muted-foreground',
+  resume: 'text-muted-foreground',
+  'half-time': 'text-muted-foreground',
+  'full-time': 'text-muted-foreground',
+  'period-end': 'text-muted-foreground',
+  'yellow-card': 'text-yellow-500',
+  'red-card': 'text-red-500',
 };
 
 type TimelineItem = { kind: 'goal'; data: Goal } | { kind: 'event'; data: GameEvent };
@@ -264,7 +277,20 @@ export function GoalTimeline({
       {timelineItems.map((item, index) => {
         if (item.kind === 'event') {
           const event = item.data;
-          const Icon = eventTypeIcons[event.type];
+          const eventTeamName =
+            event.team === 'my-team'
+              ? myTeamName
+              : event.team === 'opponent'
+                ? opponentName
+                : undefined;
+          const isCardEvent = event.type === 'yellow-card' || event.type === 'red-card';
+          const Icon = !isCardEvent ? eventTypeIcons[event.type] : null;
+          const iconColor = !isCardEvent ? eventTypeIconColors[event.type] : '';
+          const cardDetails = [eventTeamName, event.player].filter(Boolean).join(' • ');
+          const eventText =
+            isCardEvent
+              ? cardDetails || event.label || 'Card'
+              : event.label || eventTypeLabels[event.type];
           const swipeX = eventSwipeX[event.id] ?? 0;
           const canSwipeDelete = editable && !!onDeleteEvent;
 
@@ -300,12 +326,26 @@ export function GoalTimeline({
                   onPointerCancel={canSwipeDelete ? onEventPointerEnd : undefined}
                   onClick={canSwipeDelete ? onEventRowClick(event.id) : undefined}
                 >
-                  <div className="p-2 rounded-lg bg-muted-foreground/10">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
+                  <div
+                    className={`rounded-lg flex items-center justify-center ${
+                      isCardEvent ? 'w-8 h-8 ml-1' : 'p-2 bg-muted-foreground/10'
+                    }`}
+                  >
+                    {isCardEvent ? (
+                      <span
+                        className={`inline-block h-5 w-4 rounded-[2px] border ${
+                          event.type === 'yellow-card'
+                            ? 'bg-yellow-400 border-yellow-500'
+                            : 'bg-red-500 border-red-600'
+                        }`}
+                      />
+                    ) : (
+                      Icon && <Icon className={`w-4 h-4 ${iconColor}`} />
+                    )}
                   </div>
 
                   <span className="font-medium text-muted-foreground flex-1 min-w-0 truncate">
-                    {event.label || eventTypeLabels[event.type]}
+                    {eventText}
                   </span>
 
                   <span className="text-sm font-mono text-muted-foreground/60 bg-secondary px-2 py-1 rounded shrink-0">

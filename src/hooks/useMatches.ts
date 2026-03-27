@@ -111,13 +111,19 @@ export function useMatches() {
   );
 
   const addEvent = useCallback(
-    (type: GameEventType, label?: string) => {
+    (
+      type: GameEventType,
+      label?: string,
+      options?: { team?: 'my-team' | 'opponent'; player?: string },
+    ) => {
       if (!activeMatch) return;
 
       const newEvent: GameEvent = {
         id: generateId(),
         type,
         label,
+        team: options?.team,
+        player: options?.player,
         time: getCurrentTime(),
         timestamp: Date.now(),
       };
@@ -268,6 +274,9 @@ export function useMatches() {
           (g.team === 'my-team' && g.type === 'own-goal'),
       ).length;
 
+      const yellowCardCount = prev.events.filter((event) => event.type === 'yellow-card').length;
+      const redCardCount = prev.events.filter((event) => event.type === 'red-card').length;
+
       const summary: MatchSummary = {
         id: prev.id,
         myTeamName: prev.myTeamName,
@@ -275,6 +284,8 @@ export function useMatches() {
         isHome: prev.isHome,
         myTeamScore,
         opponentScore,
+        yellowCardCount,
+        redCardCount,
         date: new Date(prev.startedAt).toLocaleDateString('en-GB', {
           day: 'numeric',
           month: 'short',

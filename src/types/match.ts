@@ -1,6 +1,14 @@
 export type GoalType = 'normal' | 'penalty' | 'own-goal' | 'head';
 
-export type GameEventType = 'start' | 'pause' | 'resume' | 'half-time' | 'full-time' | 'period-end';
+export type GameEventType =
+  | 'start'
+  | 'pause'
+  | 'resume'
+  | 'half-time'
+  | 'full-time'
+  | 'period-end'
+  | 'yellow-card'
+  | 'red-card';
 
 export interface Goal {
   id: string;
@@ -16,6 +24,8 @@ export interface GameEvent {
   id: string;
   type: GameEventType;
   label?: string; // e.g. "End of Period 1"
+  team?: 'my-team' | 'opponent';
+  player?: string;
   time: string;
   timestamp: number;
 }
@@ -43,6 +53,8 @@ export interface MatchSummary {
   isHome: boolean;
   myTeamScore: number;
   opponentScore: number;
+  yellowCardCount?: number;
+  redCardCount?: number;
   date: string;
   endedAt: number;
 }
