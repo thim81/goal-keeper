@@ -146,7 +146,7 @@ export default function Index() {
   };
 
   const pendingDeleteMatch = pendingDeleteMatchId
-    ? matchHistory.find((match) => match.id === pendingDeleteMatchId) ?? null
+    ? (matchHistory.find((match) => match.id === pendingDeleteMatchId) ?? null)
     : null;
 
   const handleRequestDeleteMatch = (matchId: string) => {
