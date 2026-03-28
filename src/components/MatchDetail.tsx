@@ -49,6 +49,30 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const topScorers = Object.entries(scorerStats).sort((a, b) => b[1] - a[1]);
   const topAssisters = Object.entries(assistStats).sort((a, b) => b[1] - a[1]);
 
+  const cardTotals = match.events.reduce(
+    (acc, event) => {
+      if (!event.team) return acc;
+      if (event.type === 'yellow-card') {
+        acc[event.team].yellow += 1;
+      } else if (event.type === 'red-card') {
+        acc[event.team].red += 1;
+      }
+      return acc;
+    },
+    {
+      'my-team': { yellow: 0, red: 0 },
+      opponent: { yellow: 0, red: 0 },
+    } as Record<'my-team' | 'opponent', { yellow: number; red: number }>,
+  );
+  const myTeamHasCards = cardTotals['my-team'].yellow > 0 || cardTotals['my-team'].red > 0;
+  const opponentHasCards = cardTotals.opponent.yellow > 0 || cardTotals.opponent.red > 0;
+  const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
+  const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
+  const homeScore = match.isHome ? myTeamScore : opponentScore;
+  const awayScore = match.isHome ? opponentScore : myTeamScore;
+  const homeScoreColor = match.isHome ? 'text-primary' : 'text-accent';
+  const awayScoreColor = match.isHome ? 'text-accent' : 'text-primary';
+
   return (
     <div
       className="flex flex-col safe-top overflow-hidden"
@@ -80,25 +104,39 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
         <div className="flex items-center justify-between">
           <div className="flex-1 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-              {match.isHome ? 'Home' : 'Away'}
+              Home
             </p>
-            <p className="text-lg font-bold text-foreground">{match.myTeamName}</p>
+            <p className="text-lg font-bold text-foreground">{homeTeamName}</p>
           </div>
           <div className="flex items-center gap-3 px-4">
-            <span className="text-5xl font-black text-primary">{myTeamScore}</span>
+            <span className={`text-5xl font-black ${homeScoreColor}`}>{homeScore}</span>
             <span className="text-2xl font-bold text-muted-foreground">-</span>
-            <span className="text-5xl font-black text-accent">{opponentScore}</span>
+            <span className={`text-5xl font-black ${awayScoreColor}`}>{awayScore}</span>
           </div>
           <div className="flex-1 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-              {match.isHome ? 'Away' : 'Home'}
+              Away
             </p>
-            <p className="text-lg font-bold text-foreground">{match.opponentName}</p>
+            <p className="text-lg font-bold text-foreground">{awayTeamName}</p>
           </div>
         </div>
-        <div className="text-center mt-4">
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center">
+          <div className="justify-self-center min-h-8 inline-flex items-center gap-1">
+            {myTeamHasCards && cardTotals['my-team'].yellow > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-600">
+                <span className="inline-block h-5 w-4 rounded-[2px] border bg-yellow-400 border-yellow-500" />
+                {cardTotals['my-team'].yellow}
+              </span>
+            )}
+            {myTeamHasCards && cardTotals['my-team'].red > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-red-500/15 text-red-600">
+                <span className="inline-block h-5 w-4 rounded-[2px] border bg-red-500 border-red-600" />
+                {cardTotals['my-team'].red}
+              </span>
+            )}
+          </div>
           <span
-            className={`text-sm font-bold px-3 py-1 rounded-full ${
+            className={`justify-self-center text-sm font-bold px-3 py-1 rounded-full ${
               isWin
                 ? 'bg-primary/20 text-primary'
                 : isDraw
@@ -108,6 +146,20 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
           >
             {isWin ? 'Victory!' : isDraw ? 'Draw' : 'Defeat'}
           </span>
+          <div className="justify-self-center min-h-8 inline-flex items-center gap-1">
+            {opponentHasCards && cardTotals.opponent.yellow > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-600">
+                <span className="inline-block h-5 w-4 rounded-[2px] border bg-yellow-400 border-yellow-500" />
+                {cardTotals.opponent.yellow}
+              </span>
+            )}
+            {opponentHasCards && cardTotals.opponent.red > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-red-500/15 text-red-600">
+                <span className="inline-block h-5 w-4 rounded-[2px] border bg-red-500 border-red-600" />
+                {cardTotals.opponent.red}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

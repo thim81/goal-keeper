@@ -90,6 +90,10 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
           const isDraw = match.myTeamScore === match.opponentScore;
           const resultColor = isWin ? 'text-primary' : isDraw ? 'text-goal' : 'text-accent';
           const resultBg = isWin ? 'bg-primary/10' : isDraw ? 'bg-goal/10' : 'bg-accent/10';
+          const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
+          const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
+          const homeScore = match.isHome ? match.myTeamScore : match.opponentScore;
+          const awayScore = match.isHome ? match.opponentScore : match.myTeamScore;
 
           const swipeX = matchSwipeX[match.id] ?? 0;
 
@@ -148,11 +152,11 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                       <span className="text-xs text-muted-foreground">{match.date}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">{match.myTeamName}</span>
-                      <span className="text-2xl font-black text-primary">{match.myTeamScore}</span>
+                      <span className="font-semibold text-foreground">{homeTeamName}</span>
+                      <span className="text-2xl font-black text-primary">{homeScore}</span>
                       <span className="text-muted-foreground">-</span>
-                      <span className="text-2xl font-black text-accent">{match.opponentScore}</span>
-                      <span className="font-semibold text-foreground">{match.opponentName}</span>
+                      <span className="text-2xl font-black text-accent">{awayScore}</span>
+                      <span className="font-semibold text-foreground">{awayTeamName}</span>
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
