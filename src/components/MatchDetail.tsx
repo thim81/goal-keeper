@@ -103,9 +103,7 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
       <div className="scoreboard-gradient p-6 mx-4 mt-4 rounded-2xl border border-border/50">
         <div className="flex items-center justify-between">
           <div className="flex-1 text-center">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-              Home
-            </p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Home</p>
             <p className="text-lg font-bold text-foreground">{homeTeamName}</p>
           </div>
           <div className="flex items-center gap-3 px-4">
@@ -114,9 +112,7 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
             <span className={`text-5xl font-black ${awayScoreColor}`}>{awayScore}</span>
           </div>
           <div className="flex-1 text-center">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-              Away
-            </p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Away</p>
             <p className="text-lg font-bold text-foreground">{awayTeamName}</p>
           </div>
         </div>

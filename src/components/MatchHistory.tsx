@@ -117,51 +117,51 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                   </button>
                 )}
 
-              <button
-                onClick={(e) => {
-                  if (didSwipeRef.current || swipeX !== 0) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    didSwipeRef.current = false;
-                    if (swipeX !== 0) {
-                      setMatchSwipeX((prev) => ({ ...prev, [match.id]: 0 }));
+                <button
+                  onClick={(e) => {
+                    if (didSwipeRef.current || swipeX !== 0) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      didSwipeRef.current = false;
+                      if (swipeX !== 0) {
+                        setMatchSwipeX((prev) => ({ ...prev, [match.id]: 0 }));
+                      }
+                      return;
                     }
-                    return;
-                  }
 
-                  onSelectMatch(match.id);
-                }}
-                className="w-full p-4 text-left hover:bg-secondary/30 transition-colors touch-pan-y"
-                style={{
-                  transform: `translateX(${swipeX}px)`,
-                  transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
-                }}
-                onPointerDown={onMatchPointerDown(match.id)}
-                onPointerMove={onMatchPointerMove}
-                onPointerUp={onMatchPointerEnd}
-                onPointerCancel={onMatchPointerEnd}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span
-                        className={`text-xs font-bold px-2 py-1 rounded ${resultBg} ${resultColor}`}
-                      >
-                        {isWin ? 'WIN' : isDraw ? 'DRAW' : 'LOSS'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{match.date}</span>
+                    onSelectMatch(match.id);
+                  }}
+                  className="w-full p-4 text-left hover:bg-secondary/30 transition-colors touch-pan-y"
+                  style={{
+                    transform: `translateX(${swipeX}px)`,
+                    transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
+                  }}
+                  onPointerDown={onMatchPointerDown(match.id)}
+                  onPointerMove={onMatchPointerMove}
+                  onPointerUp={onMatchPointerEnd}
+                  onPointerCancel={onMatchPointerEnd}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span
+                          className={`text-xs font-bold px-2 py-1 rounded ${resultBg} ${resultColor}`}
+                        >
+                          {isWin ? 'WIN' : isDraw ? 'DRAW' : 'LOSS'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{match.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">{homeTeamName}</span>
+                        <span className="text-2xl font-black text-primary">{homeScore}</span>
+                        <span className="text-muted-foreground">-</span>
+                        <span className="text-2xl font-black text-accent">{awayScore}</span>
+                        <span className="font-semibold text-foreground">{awayTeamName}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">{homeTeamName}</span>
-                      <span className="text-2xl font-black text-primary">{homeScore}</span>
-                      <span className="text-muted-foreground">-</span>
-                      <span className="text-2xl font-black text-accent">{awayScore}</span>
-                      <span className="font-semibold text-foreground">{awayTeamName}</span>
-                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </div>
-              </button>
+                </button>
               </div>
 
               {/*

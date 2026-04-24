@@ -22,30 +22,42 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
 
   return (
     <div className="scoreboard-gradient rounded-2xl p-6 border border-border/50 shadow-lg">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         {/* My Team */}
-        <div className="flex-1 text-center">
+        <div className="min-w-0 flex-1 basis-0 text-center">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{leftLabel}</p>
-          <p className="text-lg font-bold text-foreground truncate px-2">{leftTeamName}</p>
+          <p
+            className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+            title={leftTeamName}
+          >
+            {leftTeamName}
+          </p>
         </div>
 
         {/* Score */}
-        <div className="flex items-center gap-3 px-4">
-          <span className={`text-5xl font-black ${leftScoreClass} tabular-nums animate-goal`}>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3 px-1 sm:px-3">
+          <span
+            className={`text-4xl sm:text-5xl font-black ${leftScoreClass} tabular-nums animate-goal`}
+          >
             {leftScore}
           </span>
-          <span className="text-2xl font-bold text-muted-foreground">-</span>
-          <span className={`text-5xl font-black ${rightScoreClass} tabular-nums`}>
+          <span className="text-xl sm:text-2xl font-bold text-muted-foreground">-</span>
+          <span className={`text-4xl sm:text-5xl font-black ${rightScoreClass} tabular-nums`}>
             {rightScore}
           </span>
         </div>
 
         {/* Opponent */}
-        <div className="flex-1 text-center">
+        <div className="min-w-0 flex-1 basis-0 text-center">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
             {rightLabel}
           </p>
-          <p className="text-lg font-bold text-foreground truncate px-2">{rightTeamName}</p>
+          <p
+            className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+            title={rightTeamName}
+          >
+            {rightTeamName}
+          </p>
         </div>
       </div>
 

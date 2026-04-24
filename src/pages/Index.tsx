@@ -133,8 +133,8 @@ export default function Index() {
           ? [
               options?.team
                 ? options.team === 'my-team'
-                  ? activeMatch?.myTeamName ?? 'My Team'
-                  : activeMatch?.opponentName ?? 'Opponent'
+                  ? (activeMatch?.myTeamName ?? 'My Team')
+                  : (activeMatch?.opponentName ?? 'Opponent')
                 : undefined,
               options?.player,
             ]

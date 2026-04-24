@@ -287,10 +287,9 @@ export function GoalTimeline({
           const Icon = !isCardEvent ? eventTypeIcons[event.type] : null;
           const iconColor = !isCardEvent ? eventTypeIconColors[event.type] : '';
           const cardDetails = [eventTeamName, event.player].filter(Boolean).join(' • ');
-          const eventText =
-            isCardEvent
-              ? cardDetails || event.label || 'Card'
-              : event.label || eventTypeLabels[event.type];
+          const eventText = isCardEvent
+            ? cardDetails || event.label || 'Card'
+            : event.label || eventTypeLabels[event.type];
           const swipeX = eventSwipeX[event.id] ?? 0;
           const canSwipeDelete = editable && !!onDeleteEvent;
 
