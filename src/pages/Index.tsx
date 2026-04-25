@@ -27,6 +27,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { GoalType, GameEventType, Match } from '@/types/match';
 
 type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
@@ -40,6 +50,8 @@ export default function Index() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const [pendingDeleteMatchId, setPendingDeleteMatchId] = useState<string | null>(null);
+  const [showRenameOpponent, setShowRenameOpponent] = useState(false);
+  const [opponentNameDraft, setOpponentNameDraft] = useState('');
   const [syncScrollSignal, setSyncScrollSignal] = useState(0);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
@@ -56,11 +68,13 @@ export default function Index() {
     endMatch,
     getMatchDetails,
     deleteMatch,
+    renameHistoricalOpponent,
     getScore,
     startPeriod,
     endPeriod,
     toggleTimer,
     setAllMatchesState,
+    renameOpponent,
   } = useMatches();
 
   const {
@@ -79,6 +93,19 @@ export default function Index() {
 
   const handleToggleSecondary = (open: boolean) => {
     setShowSecondaryActions(open);
+  };
+
+  const handleOpenRenameOpponent = () => {
+    if (!activeMatch) return;
+    setOpponentNameDraft(activeMatch.opponentName);
+    setShowRenameOpponent(true);
+  };
+
+  const handleSaveRenameOpponent = () => {
+    const trimmed = opponentNameDraft.trim();
+    if (!trimmed) return;
+    renameOpponent(trimmed);
+    setShowRenameOpponent(false);
   };
 
   const handleSyncState = useCallback(
@@ -208,6 +235,10 @@ export default function Index() {
       {view === 'detail' && selectedMatch && (
         <MatchDetail
           match={selectedMatch}
+          onRenameOpponent={(name) => {
+            const updated = renameHistoricalOpponent(selectedMatch.id, name);
+            if (updated) setSelectedMatch(updated);
+          }}
           onBack={() => {
             setSelectedMatch(null);
             setView('history');
@@ -276,6 +307,7 @@ export default function Index() {
                 match={activeMatch}
                 myTeamScore={score.myTeam}
                 opponentScore={score.opponent}
+                onOpponentLongPress={handleOpenRenameOpponent}
               />
               <MatchTimer
                 startedAt={activeMatch.startedAt}
@@ -473,6 +505,46 @@ export default function Index() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={showRenameOpponent}
+        onOpenChange={(open) => {
+          setShowRenameOpponent(open);
+          if (!open && activeMatch) {
+            setOpponentNameDraft(activeMatch.opponentName);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Opponent Name</DialogTitle>
+            <DialogDescription>
+              Long-pressing the opponent team name opens this dialog.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={opponentNameDraft}
+            onChange={(e) => setOpponentNameDraft(e.target.value)}
+            placeholder="Opponent name"
+            autoFocus
+            maxLength={60}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSaveRenameOpponent();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveRenameOpponent} disabled={!opponentNameDraft.trim()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

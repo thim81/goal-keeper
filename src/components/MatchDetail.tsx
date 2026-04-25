@@ -1,13 +1,43 @@
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Match } from '@/types/match';
 import { GoalTimeline } from './GoalTimeline';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface MatchDetailProps {
   match: Match;
   onBack: () => void;
+  onRenameOpponent?: (name: string) => void;
 }
 
-export function MatchDetail({ match, onBack }: MatchDetailProps) {
+export function MatchDetail({ match, onBack, onRenameOpponent }: MatchDetailProps) {
+  const [showRenameOpponent, setShowRenameOpponent] = useState(false);
+  const [opponentDraft, setOpponentDraft] = useState(match.opponentName);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    setOpponentDraft(match.opponentName);
+  }, [match.opponentName]);
+
+  useEffect(
+    () => () => {
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const myTeamScore = match.goals.filter(
     (g) =>
       (g.team === 'my-team' && g.type !== 'own-goal') ||
@@ -72,6 +102,38 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
   const awayScore = match.isHome ? opponentScore : myTeamScore;
   const homeScoreColor = match.isHome ? 'text-primary' : 'text-accent';
   const awayScoreColor = match.isHome ? 'text-accent' : 'text-primary';
+  const homeIsOpponent = !match.isHome;
+  const awayIsOpponent = match.isHome;
+
+  const startLongPress = () => {
+    longPressTriggeredRef.current = false;
+    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setOpponentDraft(match.opponentName);
+      setShowRenameOpponent(true);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (!longPressTimerRef.current) return;
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  };
+
+  const handleNameClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (!longPressTriggeredRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    longPressTriggeredRef.current = false;
+  };
+
+  const handleSaveOpponentName = () => {
+    const trimmed = opponentDraft.trim();
+    if (!trimmed) return;
+    onRenameOpponent?.(trimmed);
+    setShowRenameOpponent(false);
+  };
 
   return (
     <div
@@ -101,19 +163,55 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
 
       {/* Score Summary */}
       <div className="scoreboard-gradient p-6 mx-4 mt-4 rounded-2xl border border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 text-center">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1 basis-0 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Home</p>
-            <p className="text-lg font-bold text-foreground">{homeTeamName}</p>
+            {homeIsOpponent ? (
+              <button
+                type="button"
+                title={`${homeTeamName} (long press to edit)`}
+                className="block w-full text-base sm:text-lg font-bold text-foreground truncate px-1 select-none"
+                onPointerDown={startLongPress}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={handleNameClick}
+              >
+                {homeTeamName}
+              </button>
+            ) : (
+              <p className="text-base sm:text-lg font-bold text-foreground truncate px-1" title={homeTeamName}>
+                {homeTeamName}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-3 px-4">
-            <span className={`text-5xl font-black ${homeScoreColor}`}>{homeScore}</span>
-            <span className="text-2xl font-bold text-muted-foreground">-</span>
-            <span className={`text-5xl font-black ${awayScoreColor}`}>{awayScore}</span>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3 px-1 sm:px-3">
+            <span className={`text-4xl sm:text-5xl font-black ${homeScoreColor}`}>{homeScore}</span>
+            <span className="text-xl sm:text-2xl font-bold text-muted-foreground">-</span>
+            <span className={`text-4xl sm:text-5xl font-black ${awayScoreColor}`}>{awayScore}</span>
           </div>
-          <div className="flex-1 text-center">
+          <div className="min-w-0 flex-1 basis-0 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Away</p>
-            <p className="text-lg font-bold text-foreground">{awayTeamName}</p>
+            {awayIsOpponent ? (
+              <button
+                type="button"
+                title={`${awayTeamName} (long press to edit)`}
+                className="block w-full text-base sm:text-lg font-bold text-foreground truncate px-1 select-none"
+                onPointerDown={startLongPress}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={handleNameClick}
+              >
+                {awayTeamName}
+              </button>
+            ) : (
+              <p className="text-base sm:text-lg font-bold text-foreground truncate px-1" title={awayTeamName}>
+                {awayTeamName}
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center">
@@ -222,6 +320,44 @@ export function MatchDetail({ match, onBack }: MatchDetailProps) {
           opponentName={match.opponentName}
         />
       </div>
+
+      <Dialog
+        open={showRenameOpponent}
+        onOpenChange={(open) => {
+          setShowRenameOpponent(open);
+          if (!open) setOpponentDraft(match.opponentName);
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Opponent Name</DialogTitle>
+            <DialogDescription>
+              Long-press the opponent team name to rename it.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={opponentDraft}
+            onChange={(e) => setOpponentDraft(e.target.value)}
+            placeholder="Opponent name"
+            autoFocus
+            maxLength={60}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSaveOpponentName();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveOpponentName} disabled={!opponentDraft.trim()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

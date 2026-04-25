@@ -323,6 +323,34 @@ export function useMatches() {
     localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
   }, []);
 
+  const renameHistoricalOpponent = useCallback((matchId: string, name: string): Match | null => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return null;
+
+    const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
+    const existingMatch = fullMatches[matchId] as Match | undefined;
+    if (!existingMatch) return null;
+
+    const updatedMatch: Match = {
+      ...existingMatch,
+      opponentName: trimmedName,
+    };
+    fullMatches[matchId] = updatedMatch;
+    localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
+
+    setMatchHistory((prev) =>
+      prev.map((summary) =>
+        summary.id === matchId ? { ...summary, opponentName: trimmedName } : summary,
+      ),
+    );
+
+    setActiveMatch((prev) =>
+      prev && prev.id === matchId ? { ...prev, opponentName: trimmedName } : prev,
+    );
+
+    return updatedMatch;
+  }, []);
+
   const getScore = useCallback(() => {
     if (!activeMatch) return { myTeam: 0, opponent: 0 };
 
@@ -350,6 +378,19 @@ export function useMatches() {
     [],
   );
 
+  const renameOpponent = useCallback((name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        opponentName: trimmedName,
+      };
+    });
+  }, []);
+
   return {
     activeMatch,
     matchHistory,
@@ -362,10 +403,12 @@ export function useMatches() {
     endMatch,
     getMatchDetails,
     deleteMatch,
+    renameHistoricalOpponent,
     getScore,
     startPeriod,
     endPeriod,
     toggleTimer,
     setAllMatchesState,
+    renameOpponent,
   };
 }

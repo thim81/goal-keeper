@@ -1,12 +1,19 @@
+import { useEffect, useRef, type MouseEvent } from 'react';
 import { Match } from '@/types/match';
 
 interface ScoreboardProps {
   match: Match;
   myTeamScore: number;
   opponentScore: number;
+  onOpponentLongPress?: () => void;
 }
 
-export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProps) {
+export function Scoreboard({
+  match,
+  myTeamScore,
+  opponentScore,
+  onOpponentLongPress,
+}: ScoreboardProps) {
   const leftTeamName = match.isHome ? match.myTeamName : match.opponentName;
   const rightTeamName = match.isHome ? match.opponentName : match.myTeamName;
 
@@ -17,8 +24,46 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
   const rightScore = match.isHome ? opponentScore : myTeamScore;
 
   const isMyTeamLeft = match.isHome;
+  const leftIsOpponent = !match.isHome;
+  const rightIsOpponent = match.isHome;
   const leftScoreClass = isMyTeamLeft ? 'text-primary' : 'text-accent';
   const rightScoreClass = isMyTeamLeft ? 'text-accent' : 'text-primary';
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const startLongPress = () => {
+    if (!onOpponentLongPress) return;
+    longPressTriggeredRef.current = false;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+    }
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      onOpponentLongPress();
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (!longPressTimerRef.current) return;
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  };
+
+  const handleNameClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (!longPressTriggeredRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    longPressTriggeredRef.current = false;
+  };
 
   return (
     <div className="scoreboard-gradient rounded-2xl p-6 border border-border/50 shadow-lg">
@@ -26,12 +71,28 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
         {/* My Team */}
         <div className="min-w-0 flex-1 basis-0 text-center">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{leftLabel}</p>
-          <p
-            className="text-base sm:text-lg font-bold text-foreground truncate px-1"
-            title={leftTeamName}
-          >
-            {leftTeamName}
-          </p>
+          {leftIsOpponent ? (
+            <button
+              type="button"
+              title={`${leftTeamName} (long press to edit)`}
+              className="block w-full text-base sm:text-lg font-bold text-foreground truncate px-1 select-none"
+              onPointerDown={startLongPress}
+              onPointerUp={cancelLongPress}
+              onPointerLeave={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onContextMenu={(e) => e.preventDefault()}
+              onClick={handleNameClick}
+            >
+              {leftTeamName}
+            </button>
+          ) : (
+            <p
+              className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+              title={leftTeamName}
+            >
+              {leftTeamName}
+            </p>
+          )}
         </div>
 
         {/* Score */}
@@ -52,12 +113,28 @@ export function Scoreboard({ match, myTeamScore, opponentScore }: ScoreboardProp
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
             {rightLabel}
           </p>
-          <p
-            className="text-base sm:text-lg font-bold text-foreground truncate px-1"
-            title={rightTeamName}
-          >
-            {rightTeamName}
-          </p>
+          {rightIsOpponent ? (
+            <button
+              type="button"
+              title={`${rightTeamName} (long press to edit)`}
+              className="block w-full text-base sm:text-lg font-bold text-foreground truncate px-1 select-none"
+              onPointerDown={startLongPress}
+              onPointerUp={cancelLongPress}
+              onPointerLeave={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onContextMenu={(e) => e.preventDefault()}
+              onClick={handleNameClick}
+            >
+              {rightTeamName}
+            </button>
+          ) : (
+            <p
+              className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+              title={rightTeamName}
+            >
+              {rightTeamName}
+            </p>
+          )}
         </div>
       </div>
 
