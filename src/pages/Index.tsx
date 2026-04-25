@@ -38,7 +38,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlayerAutocomplete } from '@/components/PlayerAutocomplete';
 import { createDefaultSeasonName } from '@/lib/seasons';
+import { buildBackupPayload, parseBackupPayload } from '@/lib/backup';
 import { GoalType, GameEventType, Match } from '@/types/match';
+import { toast } from 'sonner';
 
 type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
 
@@ -302,6 +304,51 @@ export default function Index() {
     setPendingReopenSeasonId(null);
   };
 
+  const handleExportBackup = () => {
+    const activeSeason = activeSeasonId ? seasons[activeSeasonId] : null;
+    const payload = buildBackupPayload({
+      matches: activeSeason?.matches ?? [],
+      fullMatches: activeSeason?.fullMatches ?? {},
+      seasons,
+      activeSeasonId: activeSeasonId ?? undefined,
+      activeMatch,
+      settings,
+    });
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const filename = `goal-keeper-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    toast.success('Backup exported');
+  };
+
+  const handleImportBackup = async (file: File) => {
+    const text = await file.text();
+    const parsed = parseBackupPayload(text);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
+      return;
+    }
+
+    setAllMatchesState(parsed.state);
+    setAllSettingsState(parsed.state.settings);
+    setView(parsed.state.activeMatch ? 'live' : 'home');
+    setSelectedMatch(null);
+    setSelectedMatchSeasonId(null);
+    setPendingDeleteMatch(null);
+    setPendingReopenSeasonId(null);
+    setShowCloseSeason(false);
+    setShowRenameOpponent(false);
+    setShowRenameSeason(false);
+    toast.success('Backup imported');
+  };
+
   const startSeasonNameLongPress = () => {
     if (!selectedSeasonSummary) return;
     seasonLongPressTriggeredRef.current = false;
@@ -365,6 +412,8 @@ export default function Index() {
           onUpdateSyncToken={updateSyncToken}
           onUpdateTheme={updateTheme}
           onUpdateDebug={updateDebug}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleImportBackup}
         />
       )}
 

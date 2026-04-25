@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ArrowLeft,
   Plus,
@@ -11,6 +11,8 @@ import {
   Sun,
   Laptop,
   Bug,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
 
@@ -24,6 +26,8 @@ interface SettingsScreenProps {
   onUpdateSyncToken: (token: string) => void;
   onUpdateTheme: (theme: Theme) => void;
   onUpdateDebug: (debug: boolean) => void;
+  onExportBackup: () => void;
+  onImportBackup: (file: File) => Promise<void> | void;
 }
 
 export function SettingsScreen({
@@ -36,10 +40,13 @@ export function SettingsScreen({
   onUpdateSyncToken,
   onUpdateTheme,
   onUpdateDebug,
+  onExportBackup,
+  onImportBackup,
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddPlayer = () => {
     if (newPlayer.trim()) {
@@ -58,6 +65,10 @@ export function SettingsScreen({
     if (syncToken !== settings.syncToken) {
       onUpdateSyncToken(syncToken.trim());
     }
+  };
+
+  const handlePickImportFile = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -251,6 +262,45 @@ export function SettingsScreen({
               Cloudflare KV.
             </p>
           </div>
+        </div>
+
+        {/* Backup */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Download className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Backup (JSON)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onExportBackup}
+              className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <Download className="w-4 h-4 text-foreground" />
+              <span className="text-sm font-medium text-foreground">Export</span>
+            </button>
+            <button
+              onClick={handlePickImportFile}
+              className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <Upload className="w-4 h-4 text-foreground" />
+              <span className="text-sm font-medium text-foreground">Import</span>
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              await onImportBackup(file);
+              e.currentTarget.value = '';
+            }}
+          />
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            Export a full backup of seasons, matches and settings, or import a previous backup.
+          </p>
         </div>
 
         {/* Debug Mode */}
