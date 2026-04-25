@@ -1,7 +1,11 @@
+import { Match, MatchSummary, Season } from '@/types/match';
+
 export interface SyncState {
-  matches: any[];
-  activeMatch: any | null;
-  fullMatches: Record<string, any>;
+  matches: MatchSummary[];
+  activeMatch: Match | null;
+  fullMatches: Record<string, Match>;
+  seasons?: Record<string, Season>;
+  activeSeasonId?: string;
   settings: any;
 }
 

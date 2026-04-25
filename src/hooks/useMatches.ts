@@ -1,11 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Match, Goal, MatchSummary, GoalType, GameEvent, GameEventType } from '@/types/match';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Match, Goal, MatchSummary, GoalType, GameEvent, GameEventType, Season } from '@/types/match';
+import {
+  closeSeasonAndCreateNext,
+  createDefaultSeasonName,
+  getSeasonStats,
+  migrateLegacyDataToSeasons,
+  renameSeason,
+  reopenSeasonAsActive,
+} from '@/lib/seasons';
+import { SyncState } from '@/lib/sync';
 
-const STORAGE_KEY = 'football-tracker-matches';
+const LEGACY_MATCHES_KEY = 'football-tracker-matches';
+const LEGACY_FULL_MATCHES_KEY = 'football-tracker-full-matches';
 const ACTIVE_MATCH_KEY = 'football-tracker-active-match';
+const SEASONS_KEY = 'football-tracker-seasons';
+const ACTIVE_SEASON_KEY = 'football-tracker-active-season-id';
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 function getCurrentTime(): string {
@@ -13,24 +25,70 @@ function getCurrentTime(): string {
   return now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
+function createEmptyActiveSeason(now: number = Date.now()): { seasons: Record<string, Season>; activeSeasonId: string } {
+  const seasonId = generateId();
+  return {
+    seasons: {
+      [seasonId]: {
+        id: seasonId,
+        name: createDefaultSeasonName(now),
+        startAt: now,
+        status: 'active',
+        matches: [],
+        fullMatches: {},
+      },
+    },
+    activeSeasonId: seasonId,
+  };
+}
+
 export function useMatches() {
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
-  const [matchHistory, setMatchHistory] = useState<MatchSummary[]>([]);
+  const [seasons, setSeasons] = useState<Record<string, Season>>({});
+  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
 
-  // Load from localStorage on mount
+  const activeSeason = useMemo(
+    () => (activeSeasonId ? seasons[activeSeasonId] ?? null : null),
+    [activeSeasonId, seasons],
+  );
+  const matchHistory = activeSeason?.matches ?? [];
+
+  // Load state on mount (new format first, then legacy migration)
   useEffect(() => {
-    const savedActive = localStorage.getItem(ACTIVE_MATCH_KEY);
-    const savedHistory = localStorage.getItem(STORAGE_KEY);
+    const savedActiveMatch = localStorage.getItem(ACTIVE_MATCH_KEY);
+    if (savedActiveMatch) {
+      setActiveMatch(JSON.parse(savedActiveMatch));
+    }
 
-    if (savedActive) {
-      setActiveMatch(JSON.parse(savedActive));
+    const savedSeasonsRaw = localStorage.getItem(SEASONS_KEY);
+    const savedActiveSeasonId = localStorage.getItem(ACTIVE_SEASON_KEY);
+
+    if (savedSeasonsRaw) {
+      const parsedSeasons = JSON.parse(savedSeasonsRaw) as Record<string, Season>;
+      const resolvedActiveSeasonId =
+        savedActiveSeasonId && parsedSeasons[savedActiveSeasonId]
+          ? savedActiveSeasonId
+          : (Object.values(parsedSeasons).find((season) => season.status === 'active')?.id ??
+             Object.keys(parsedSeasons)[0] ??
+             null);
+
+      if (resolvedActiveSeasonId) {
+        setSeasons(parsedSeasons);
+        setActiveSeasonId(resolvedActiveSeasonId);
+        return;
+      }
     }
-    if (savedHistory) {
-      setMatchHistory(JSON.parse(savedHistory));
-    }
+
+    const legacyHistory = JSON.parse(localStorage.getItem(LEGACY_MATCHES_KEY) || '[]') as MatchSummary[];
+    const legacyFullMatches = JSON.parse(localStorage.getItem(LEGACY_FULL_MATCHES_KEY) || '{}') as Record<string, Match>;
+    const hasLegacy = legacyHistory.length > 0 || Object.keys(legacyFullMatches).length > 0;
+    const migrated = hasLegacy
+      ? migrateLegacyDataToSeasons(legacyHistory, legacyFullMatches)
+      : createEmptyActiveSeason();
+    setSeasons(migrated.seasons);
+    setActiveSeasonId(migrated.activeSeasonId);
   }, []);
 
-  // Save active match to localStorage
   useEffect(() => {
     if (activeMatch) {
       localStorage.setItem(ACTIVE_MATCH_KEY, JSON.stringify(activeMatch));
@@ -39,12 +97,22 @@ export function useMatches() {
     }
   }, [activeMatch]);
 
-  // Save history to localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(matchHistory));
-  }, [matchHistory]);
+    if (!activeSeasonId) return;
+    localStorage.setItem(SEASONS_KEY, JSON.stringify(seasons));
+    localStorage.setItem(ACTIVE_SEASON_KEY, activeSeasonId);
+
+    // Keep legacy keys synced to the active season as a backward-compatible fallback.
+    const currentSeason = seasons[activeSeasonId];
+    if (currentSeason) {
+      localStorage.setItem(LEGACY_MATCHES_KEY, JSON.stringify(currentSeason.matches));
+      localStorage.setItem(LEGACY_FULL_MATCHES_KEY, JSON.stringify(currentSeason.fullMatches));
+    }
+  }, [seasons, activeSeasonId]);
 
   const startMatch = useCallback((myTeamName: string, opponentName: string, isHome: boolean) => {
+    if (!activeSeasonId) return;
+
     const newMatch: Match = {
       id: generateId(),
       myTeamName: myTeamName || 'My Team',
@@ -66,13 +134,13 @@ export function useMatches() {
       totalPausedTime: 0,
       currentPeriod: 1,
     };
+
     setActiveMatch(newMatch);
-  }, []);
+  }, [activeSeasonId]);
 
   const addGoal = useCallback(
     (team: 'my-team' | 'opponent', scorer?: string, assist?: string, type: GoalType = 'normal') => {
       if (!activeMatch) return;
-
       const newGoal: Goal = {
         id: generateId(),
         team,
@@ -102,7 +170,7 @@ export function useMatches() {
         prev
           ? {
               ...prev,
-              goals: prev.goals.filter((g) => g.id !== goalId),
+              goals: prev.goals.filter((goal) => goal.id !== goalId),
             }
           : null,
       );
@@ -147,7 +215,7 @@ export function useMatches() {
         prev
           ? {
               ...prev,
-              events: prev.events.filter((e) => e.id !== eventId),
+              events: prev.events.filter((event) => event.id !== eventId),
             }
           : null,
       );
@@ -158,16 +226,8 @@ export function useMatches() {
   const startPeriod = useCallback(() => {
     setActiveMatch((prev) => {
       if (!prev) return null;
-
       const lastEvent = prev.events[prev.events.length - 1];
-      const isInitialStart = prev.events.length === 1 && prev.events[0].type === 'start';
-
-      // If the last event was already a start event (e.g. from startMatch), don't increment period yet
-      // but ensure it's running. Actually, startMatch already sets currentPeriod: 1 and adds the event.
-      // If we are calling startPeriod manually, it's usually after an endPeriod.
-
-      const newPeriod =
-        lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
+      const newPeriod = lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
 
       const newEvent: GameEvent = {
         id: generateId(),
@@ -177,11 +237,7 @@ export function useMatches() {
         timestamp: Date.now(),
       };
 
-      let additionalPausedTime = 0;
-      if (prev.pausedAt) {
-        additionalPausedTime = Date.now() - prev.pausedAt;
-      }
-
+      const additionalPausedTime = prev.pausedAt ? Date.now() - prev.pausedAt : 0;
       return {
         ...prev,
         isRunning: true,
@@ -194,7 +250,6 @@ export function useMatches() {
   }, []);
 
   const endPeriod = useCallback(() => {
-    // If we call endPeriod multiple times or when not running, we might still want to log it if it's the last action
     setActiveMatch((prev) => {
       if (!prev) return null;
 
@@ -219,22 +274,15 @@ export function useMatches() {
     setActiveMatch((prev) => {
       if (!prev) return null;
       if (prev.isRunning) {
-        // Pause
-        return {
-          ...prev,
-          isRunning: false,
-          pausedAt: Date.now(),
-        };
-      } else {
-        // Resume
-        const additionalPausedTime = prev.pausedAt ? Date.now() - prev.pausedAt : 0;
-        return {
-          ...prev,
-          isRunning: true,
-          pausedAt: undefined,
-          totalPausedTime: prev.totalPausedTime + additionalPausedTime,
-        };
+        return { ...prev, isRunning: false, pausedAt: Date.now() };
       }
+      const additionalPausedTime = prev.pausedAt ? Date.now() - prev.pausedAt : 0;
+      return {
+        ...prev,
+        isRunning: true,
+        pausedAt: undefined,
+        totalPausedTime: prev.totalPausedTime + additionalPausedTime,
+      };
     });
   }, []);
 
@@ -243,156 +291,256 @@ export function useMatches() {
 
     const lastGoal = activeMatch.goals[activeMatch.goals.length - 1];
     const lastEvent = activeMatch.events[activeMatch.events.length - 1];
-
-    // Find which one is more recent and remove it
     if (!lastGoal && !lastEvent) return;
 
-    if (!lastGoal) {
-      deleteEvent(lastEvent.id);
-    } else if (!lastEvent) {
-      deleteGoal(lastGoal.id);
-    } else if (lastGoal.timestamp > lastEvent.timestamp) {
-      deleteGoal(lastGoal.id);
-    } else {
-      deleteEvent(lastEvent.id);
-    }
-  }, [activeMatch, deleteGoal, deleteEvent]);
+    if (!lastGoal) deleteEvent(lastEvent.id);
+    else if (!lastEvent) deleteGoal(lastGoal.id);
+    else if (lastGoal.timestamp > lastEvent.timestamp) deleteGoal(lastGoal.id);
+    else deleteEvent(lastEvent.id);
+  }, [activeMatch, deleteEvent, deleteGoal]);
 
   const endMatch = useCallback(() => {
-    setActiveMatch((prev) => {
-      if (!prev) return null;
+    if (!activeMatch || !activeSeasonId) return;
 
-      const myTeamScore = prev.goals.filter(
-        (g) =>
-          (g.team === 'my-team' && g.type !== 'own-goal') ||
-          (g.team === 'opponent' && g.type === 'own-goal'),
-      ).length;
+    const myTeamScore = activeMatch.goals.filter(
+      (goal) =>
+        (goal.team === 'my-team' && goal.type !== 'own-goal') ||
+        (goal.team === 'opponent' && goal.type === 'own-goal'),
+    ).length;
 
-      const opponentScore = prev.goals.filter(
-        (g) =>
-          (g.team === 'opponent' && g.type !== 'own-goal') ||
-          (g.team === 'my-team' && g.type === 'own-goal'),
-      ).length;
+    const opponentScore = activeMatch.goals.filter(
+      (goal) =>
+        (goal.team === 'opponent' && goal.type !== 'own-goal') ||
+        (goal.team === 'my-team' && goal.type === 'own-goal'),
+    ).length;
 
-      const yellowCardCount = prev.events.filter((event) => event.type === 'yellow-card').length;
-      const redCardCount = prev.events.filter((event) => event.type === 'red-card').length;
+    const yellowCardCount = activeMatch.events.filter((event) => event.type === 'yellow-card').length;
+    const redCardCount = activeMatch.events.filter((event) => event.type === 'red-card').length;
+    const endedAt = Date.now();
 
-      const summary: MatchSummary = {
-        id: prev.id,
-        myTeamName: prev.myTeamName,
-        opponentName: prev.opponentName,
-        isHome: prev.isHome,
-        myTeamScore,
-        opponentScore,
-        yellowCardCount,
-        redCardCount,
-        date: new Date(prev.startedAt).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        }),
-        endedAt: Date.now(),
-      };
-
-      // Save full match data for detail view
-      const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
-      fullMatches[prev.id] = {
-        ...prev,
-        endedAt: Date.now(),
-        isActive: false,
-        isRunning: false,
-        currentPeriod: 4,
-        pausedAt: prev.isRunning ? Date.now() : prev.pausedAt,
-      };
-      localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
-
-      setMatchHistory((history) => [summary, ...history]);
-      return null;
-    });
-  }, []);
-
-  const getMatchDetails = useCallback((matchId: string): Match | null => {
-    const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
-    return fullMatches[matchId] || null;
-  }, []);
-
-  const deleteMatch = useCallback((matchId: string) => {
-    setMatchHistory((prev) => prev.filter((m) => m.id !== matchId));
-    const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
-    delete fullMatches[matchId];
-    localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
-  }, []);
-
-  const renameHistoricalOpponent = useCallback((matchId: string, name: string): Match | null => {
-    const trimmedName = name.trim();
-    if (!trimmedName) return null;
-
-    const fullMatches = JSON.parse(localStorage.getItem('football-tracker-full-matches') || '{}');
-    const existingMatch = fullMatches[matchId] as Match | undefined;
-    if (!existingMatch) return null;
-
-    const updatedMatch: Match = {
-      ...existingMatch,
-      opponentName: trimmedName,
+    const summary: MatchSummary = {
+      id: activeMatch.id,
+      myTeamName: activeMatch.myTeamName,
+      opponentName: activeMatch.opponentName,
+      isHome: activeMatch.isHome,
+      myTeamScore,
+      opponentScore,
+      yellowCardCount,
+      redCardCount,
+      date: new Date(activeMatch.startedAt).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }),
+      endedAt,
     };
-    fullMatches[matchId] = updatedMatch;
-    localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
 
-    setMatchHistory((prev) =>
-      prev.map((summary) =>
-        summary.id === matchId ? { ...summary, opponentName: trimmedName } : summary,
-      ),
-    );
+    const finalMatch: Match = {
+      ...activeMatch,
+      endedAt,
+      isActive: false,
+      isRunning: false,
+      currentPeriod: 4,
+      pausedAt: activeMatch.isRunning ? endedAt : activeMatch.pausedAt,
+    };
 
-    setActiveMatch((prev) =>
-      prev && prev.id === matchId ? { ...prev, opponentName: trimmedName } : prev,
-    );
+    setSeasons((prev) => {
+      const season = prev[activeSeasonId];
+      if (!season) return prev;
+      return {
+        ...prev,
+        [activeSeasonId]: {
+          ...season,
+          matches: [summary, ...season.matches],
+          fullMatches: {
+            ...season.fullMatches,
+            [finalMatch.id]: finalMatch,
+          },
+        },
+      };
+    });
 
-    return updatedMatch;
-  }, []);
+    setActiveMatch(null);
+  }, [activeMatch, activeSeasonId]);
 
-  const getScore = useCallback(() => {
-    if (!activeMatch) return { myTeam: 0, opponent: 0 };
+  const getSeasonMatchHistory = useCallback(
+    (seasonId: string): MatchSummary[] => seasons[seasonId]?.matches ?? [],
+    [seasons],
+  );
 
-    const myTeam = activeMatch.goals.filter(
-      (g) =>
-        (g.team === 'my-team' && g.type !== 'own-goal') ||
-        (g.team === 'opponent' && g.type === 'own-goal'),
-    ).length;
+  const getSeasonMatchDetails = useCallback(
+    (seasonId: string, matchId: string): Match | null => seasons[seasonId]?.fullMatches[matchId] ?? null,
+    [seasons],
+  );
 
-    const opponent = activeMatch.goals.filter(
-      (g) =>
-        (g.team === 'opponent' && g.type !== 'own-goal') ||
-        (g.team === 'my-team' && g.type === 'own-goal'),
-    ).length;
-
-    return { myTeam, opponent };
-  }, [activeMatch]);
-
-  const setAllMatchesState = useCallback(
-    (history: MatchSummary[], active: Match | null, fullMatches: Record<string, Match>) => {
-      setMatchHistory(history);
-      setActiveMatch(active);
-      localStorage.setItem('football-tracker-full-matches', JSON.stringify(fullMatches));
+  const getMatchDetails = useCallback(
+    (matchId: string, seasonId?: string): Match | null => {
+      const resolvedSeasonId = seasonId ?? activeSeasonId;
+      return resolvedSeasonId ? getSeasonMatchDetails(resolvedSeasonId, matchId) : null;
     },
-    [],
+    [activeSeasonId, getSeasonMatchDetails],
+  );
+
+  const deleteMatch = useCallback(
+    (matchId: string, seasonId?: string) => {
+      const resolvedSeasonId = seasonId ?? activeSeasonId;
+      if (!resolvedSeasonId) return;
+
+      setSeasons((prev) => {
+        const season = prev[resolvedSeasonId];
+        if (!season) return prev;
+        const nextFullMatches = { ...season.fullMatches };
+        delete nextFullMatches[matchId];
+        return {
+          ...prev,
+          [resolvedSeasonId]: {
+            ...season,
+            matches: season.matches.filter((match) => match.id !== matchId),
+            fullMatches: nextFullMatches,
+          },
+        };
+      });
+    },
+    [activeSeasonId],
+  );
+
+  const renameHistoricalOpponent = useCallback(
+    (matchId: string, name: string, seasonId?: string): Match | null => {
+      const resolvedSeasonId = seasonId ?? activeSeasonId;
+      const trimmedName = name.trim();
+      if (!resolvedSeasonId || !trimmedName) return null;
+
+      let updated: Match | null = null;
+      setSeasons((prev) => {
+        const season = prev[resolvedSeasonId];
+        if (!season) return prev;
+        const target = season.fullMatches[matchId];
+        if (!target) return prev;
+
+        updated = { ...target, opponentName: trimmedName };
+        return {
+          ...prev,
+          [resolvedSeasonId]: {
+            ...season,
+            matches: season.matches.map((summary) =>
+              summary.id === matchId ? { ...summary, opponentName: trimmedName } : summary,
+            ),
+            fullMatches: {
+              ...season.fullMatches,
+              [matchId]: updated,
+            },
+          },
+        };
+      });
+
+      setActiveMatch((prev) =>
+        prev && prev.id === matchId ? { ...prev, opponentName: trimmedName } : prev,
+      );
+      return updated;
+    },
+    [activeSeasonId],
   );
 
   const renameOpponent = useCallback((name: string) => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
-
-    setActiveMatch((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        opponentName: trimmedName,
-      };
-    });
+    setActiveMatch((prev) => (prev ? { ...prev, opponentName: trimmedName } : null));
   }, []);
+
+  const getScore = useCallback(() => {
+    if (!activeMatch) return { myTeam: 0, opponent: 0 };
+    const myTeam = activeMatch.goals.filter(
+      (goal) =>
+        (goal.team === 'my-team' && goal.type !== 'own-goal') ||
+        (goal.team === 'opponent' && goal.type === 'own-goal'),
+    ).length;
+    const opponent = activeMatch.goals.filter(
+      (goal) =>
+        (goal.team === 'opponent' && goal.type !== 'own-goal') ||
+        (goal.team === 'my-team' && goal.type === 'own-goal'),
+    ).length;
+    return { myTeam, opponent };
+  }, [activeMatch]);
+
+  const setAllMatchesState = useCallback((state: SyncState) => {
+    if (state.seasons && state.activeSeasonId) {
+      setSeasons(state.seasons);
+      setActiveSeasonId(state.activeSeasonId);
+      setActiveMatch(state.activeMatch);
+      return;
+    }
+
+    const migrated = migrateLegacyDataToSeasons(state.matches ?? [], state.fullMatches ?? {});
+    setSeasons(migrated.seasons);
+    setActiveSeasonId(migrated.activeSeasonId);
+    setActiveMatch(state.activeMatch);
+  }, []);
+
+  const canCloseSeason = !activeMatch;
+  const canReopenSeason = !activeMatch;
+
+  const closeAndStartNewSeason = useCallback(
+    (options?: { name?: string }): boolean => {
+      if (!activeSeasonId || activeMatch) return false;
+      const next = closeSeasonAndCreateNext(seasons, activeSeasonId, options?.name);
+      setSeasons(next.seasons);
+      setActiveSeasonId(next.activeSeasonId);
+      return true;
+    },
+    [activeSeasonId, activeMatch, seasons],
+  );
+
+  const reopenSeason = useCallback(
+    (seasonId: string): boolean => {
+      if (!activeSeasonId || activeMatch) return false;
+      const season = seasons[seasonId];
+      if (!season || season.status !== 'closed') return false;
+      const next = reopenSeasonAsActive(seasons, activeSeasonId, seasonId);
+      setSeasons(next.seasons);
+      setActiveSeasonId(next.activeSeasonId);
+      return true;
+    },
+    [activeSeasonId, activeMatch, seasons],
+  );
+
+  const renameSeasonName = useCallback((seasonId: string, name: string): boolean => {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    if (!seasons[seasonId]) return false;
+    setSeasons((prev) => renameSeason(prev, seasonId, trimmed));
+    return true;
+  }, [seasons]);
+
+  const getSeasonSummaries = useCallback(() => {
+    return Object.values(seasons)
+      .sort((a, b) => {
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (a.status !== 'active' && b.status === 'active') return 1;
+        return b.startAt - a.startAt;
+      })
+      .map((season) => ({
+        id: season.id,
+        name: season.name,
+        status: season.status,
+        startAt: season.startAt,
+        closedAt: season.closedAt,
+        matchCount: season.matches.length,
+      }));
+  }, [seasons]);
+
+  const getSeasonStatsById = useCallback(
+    (seasonId: string) => {
+      const season = seasons[seasonId];
+      return season ? getSeasonStats(season) : null;
+    },
+    [seasons],
+  );
 
   return {
     activeMatch,
+    activeSeasonId,
+    activeSeason,
+    seasons,
     matchHistory,
     startMatch,
     addGoal,
@@ -402,6 +550,8 @@ export function useMatches() {
     undoLast,
     endMatch,
     getMatchDetails,
+    getSeasonMatchHistory,
+    getSeasonMatchDetails,
     deleteMatch,
     renameHistoricalOpponent,
     getScore,
@@ -410,5 +560,12 @@ export function useMatches() {
     toggleTimer,
     setAllMatchesState,
     renameOpponent,
+    canCloseSeason,
+    canReopenSeason,
+    closeAndStartNewSeason,
+    reopenSeason,
+    renameSeasonName,
+    getSeasonSummaries,
+    getSeasonStatsById,
   };
 }

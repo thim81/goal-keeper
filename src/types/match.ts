@@ -59,6 +59,18 @@ export interface MatchSummary {
   endedAt: number;
 }
 
+export type SeasonStatus = 'active' | 'closed';
+
+export interface Season {
+  id: string;
+  name: string;
+  startAt: number;
+  closedAt?: number;
+  status: SeasonStatus;
+  matches: MatchSummary[];
+  fullMatches: Record<string, Match>;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
 export interface AppSettings {
