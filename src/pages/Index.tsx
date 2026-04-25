@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { History, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
@@ -35,8 +35,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PlayerAutocomplete } from '@/components/PlayerAutocomplete';
 import { GoalType, GameEventType, Match } from '@/types/match';
 
 type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
@@ -120,6 +120,22 @@ export default function Index() {
   );
 
   useSync(settings.syncToken, matchHistory, activeMatch, settings, handleSyncState);
+
+  const opponentSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const suggestions: string[] = [];
+
+    for (const match of matchHistory) {
+      const trimmed = match.opponentName.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLocaleLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push(trimmed);
+    }
+
+    return suggestions;
+  }, [matchHistory]);
 
   const score = getScore();
   const isPeriodEnded = activeMatch?.events?.at(-1)?.type === 'period-end';
@@ -235,6 +251,7 @@ export default function Index() {
       {view === 'detail' && selectedMatch && (
         <MatchDetail
           match={selectedMatch}
+          opponentSuggestions={opponentSuggestions}
           onRenameOpponent={(name) => {
             const updated = renameHistoricalOpponent(selectedMatch.id, name);
             if (updated) setSelectedMatch(updated);
@@ -475,6 +492,7 @@ export default function Index() {
             onClose={() => setShowStartMatch(false)}
             onStartMatch={handleStartMatch}
             defaultTeamName={settings.teamName}
+            opponentSuggestions={opponentSuggestions}
           />
         </div>
       )}
@@ -522,18 +540,14 @@ export default function Index() {
               Long-pressing the opponent team name opens this dialog.
             </DialogDescription>
           </DialogHeader>
-          <Input
+          <PlayerAutocomplete
             value={opponentNameDraft}
-            onChange={(e) => setOpponentNameDraft(e.target.value)}
+            onChange={setOpponentNameDraft}
+            players={opponentSuggestions}
             placeholder="Opponent name"
             autoFocus
             maxLength={60}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSaveRenameOpponent();
-              }
-            }}
+            onEnter={handleSaveRenameOpponent}
           />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>

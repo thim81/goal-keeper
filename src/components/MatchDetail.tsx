@@ -10,16 +10,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PlayerAutocomplete } from './PlayerAutocomplete';
 
 interface MatchDetailProps {
   match: Match;
   onBack: () => void;
   onRenameOpponent?: (name: string) => void;
+  opponentSuggestions?: string[];
 }
 
-export function MatchDetail({ match, onBack, onRenameOpponent }: MatchDetailProps) {
+export function MatchDetail({
+  match,
+  onBack,
+  onRenameOpponent,
+  opponentSuggestions = [],
+}: MatchDetailProps) {
   const [showRenameOpponent, setShowRenameOpponent] = useState(false);
   const [opponentDraft, setOpponentDraft] = useState(match.opponentName);
   const longPressTimerRef = useRef<number | null>(null);
@@ -181,7 +187,10 @@ export function MatchDetail({ match, onBack, onRenameOpponent }: MatchDetailProp
                 {homeTeamName}
               </button>
             ) : (
-              <p className="text-base sm:text-lg font-bold text-foreground truncate px-1" title={homeTeamName}>
+              <p
+                className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+                title={homeTeamName}
+              >
                 {homeTeamName}
               </p>
             )}
@@ -208,7 +217,10 @@ export function MatchDetail({ match, onBack, onRenameOpponent }: MatchDetailProp
                 {awayTeamName}
               </button>
             ) : (
-              <p className="text-base sm:text-lg font-bold text-foreground truncate px-1" title={awayTeamName}>
+              <p
+                className="text-base sm:text-lg font-bold text-foreground truncate px-1"
+                title={awayTeamName}
+              >
                 {awayTeamName}
               </p>
             )}
@@ -331,22 +343,16 @@ export function MatchDetail({ match, onBack, onRenameOpponent }: MatchDetailProp
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Opponent Name</DialogTitle>
-            <DialogDescription>
-              Long-press the opponent team name to rename it.
-            </DialogDescription>
+            <DialogDescription>Long-press the opponent team name to rename it.</DialogDescription>
           </DialogHeader>
-          <Input
+          <PlayerAutocomplete
             value={opponentDraft}
-            onChange={(e) => setOpponentDraft(e.target.value)}
+            onChange={setOpponentDraft}
+            players={opponentSuggestions}
             placeholder="Opponent name"
             autoFocus
             maxLength={60}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSaveOpponentName();
-              }
-            }}
+            onEnter={handleSaveOpponentName}
           />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>

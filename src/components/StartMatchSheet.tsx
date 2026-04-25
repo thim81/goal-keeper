@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, Play, Home, Plane } from 'lucide-react';
+import { PlayerAutocomplete } from './PlayerAutocomplete';
 
 interface StartMatchSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onStartMatch: (myTeamName: string, opponentName: string, isHome: boolean) => void;
   defaultTeamName?: string;
+  opponentSuggestions?: string[];
 }
 
 export function StartMatchSheet({
@@ -13,6 +15,7 @@ export function StartMatchSheet({
   onClose,
   onStartMatch,
   defaultTeamName,
+  opponentSuggestions = [],
 }: StartMatchSheetProps) {
   const [myTeamName, setMyTeamName] = useState('');
   const [opponentName, setOpponentName] = useState('');
@@ -78,12 +81,12 @@ export function StartMatchSheet({
             <label className="text-sm font-medium text-muted-foreground mb-2 block">
               Opponent Name
             </label>
-            <input
-              type="text"
+            <PlayerAutocomplete
               value={opponentName}
-              onChange={(e) => setOpponentName(e.target.value)}
+              onChange={setOpponentName}
+              players={opponentSuggestions}
               placeholder="Opponent"
-              className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
+              inputClassName="py-4 text-lg"
             />
           </div>
 

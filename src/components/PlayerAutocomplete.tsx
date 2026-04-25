@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface PlayerAutocompleteProps {
   value: string;
@@ -6,6 +7,9 @@ interface PlayerAutocompleteProps {
   players: string[];
   placeholder: string;
   autoFocus?: boolean;
+  maxLength?: number;
+  onEnter?: () => void;
+  inputClassName?: string;
 }
 
 export function PlayerAutocomplete({
@@ -14,6 +18,9 @@ export function PlayerAutocomplete({
   players,
   placeholder,
   autoFocus,
+  maxLength,
+  onEnter,
+  inputClassName,
 }: PlayerAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filteredPlayers, setFilteredPlayers] = useState<string[]>([]);
@@ -57,13 +64,22 @@ export function PlayerAutocomplete({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onEnter?.();
+          }
+        }}
         onFocus={() => {
           if (filteredPlayers.length > 0) setIsOpen(true);
         }}
         placeholder={placeholder}
-        className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-base"
+        className={cn(
+          'w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-base',
+          inputClassName,
+        )}
         autoFocus={autoFocus}
         autoComplete="off"
+        maxLength={maxLength}
       />
 
       {isOpen && filteredPlayers.length > 0 && (
