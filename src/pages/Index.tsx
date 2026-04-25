@@ -249,7 +249,9 @@ export default function Index() {
   };
 
   const effectiveHistorySeasonId = selectedHistorySeasonId ?? activeSeasonId;
-  const historyMatches = effectiveHistorySeasonId ? getSeasonMatchHistory(effectiveHistorySeasonId) : [];
+  const historyMatches = effectiveHistorySeasonId
+    ? getSeasonMatchHistory(effectiveHistorySeasonId)
+    : [];
 
   // Handle viewing match details
   const handleSelectMatch = (matchId: string) => {
@@ -263,7 +265,9 @@ export default function Index() {
   };
 
   const pendingDeleteMatchSummary = pendingDeleteMatch
-    ? (getSeasonMatchHistory(pendingDeleteMatch.seasonId).find((match) => match.id === pendingDeleteMatch.matchId) ?? null)
+    ? (getSeasonMatchHistory(pendingDeleteMatch.seasonId).find(
+        (match) => match.id === pendingDeleteMatch.matchId,
+      ) ?? null)
     : null;
 
   const handleRequestDeleteMatch = (matchId: string) => {
@@ -335,7 +339,9 @@ export default function Index() {
   const activeSeasonMatchCount = activeSeasonStats?.matches ?? 0;
   const activeSeasonTopScorer = activeSeasonStats?.topScorer;
 
-  const selectedSeasonSummary = seasonSummaries.find((season) => season.id === effectiveHistorySeasonId);
+  const selectedSeasonSummary = seasonSummaries.find(
+    (season) => season.id === effectiveHistorySeasonId,
+  );
   const selectedSeasonLabel = selectedSeasonSummary
     ? `${selectedSeasonSummary.name}${selectedSeasonSummary.status === 'active' ? ' (Active)' : ''}`
     : '';
@@ -450,7 +456,8 @@ export default function Index() {
                 >
                   {seasonSummaries.map((season) => (
                     <option key={season.id} value={season.id}>
-                      {season.name}{season.status === 'active' ? ' (Active)' : ''}
+                      {season.name}
+                      {season.status === 'active' ? ' (Active)' : ''}
                     </option>
                   ))}
                 </select>
@@ -714,10 +721,7 @@ export default function Index() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmReopenSeason}
-              disabled={!canReopenSeason}
-            >
+            <AlertDialogAction onClick={handleConfirmReopenSeason} disabled={!canReopenSeason}>
               Reopen Season
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -744,18 +748,21 @@ export default function Index() {
           <div className="space-y-2 rounded-xl border border-border/50 bg-secondary/40 p-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Matches</span>
-              <span className="font-semibold text-foreground">{activeSeasonStats?.matches ?? 0}</span>
+              <span className="font-semibold text-foreground">
+                {activeSeasonStats?.matches ?? 0}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">W / D / L</span>
               <span className="font-semibold text-foreground">
-                {(activeSeasonStats?.wins ?? 0)} / {(activeSeasonStats?.draws ?? 0)} / {(activeSeasonStats?.losses ?? 0)}
+                {activeSeasonStats?.wins ?? 0} / {activeSeasonStats?.draws ?? 0} /{' '}
+                {activeSeasonStats?.losses ?? 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Goals (For-Against)</span>
               <span className="font-semibold text-foreground">
-                {(activeSeasonStats?.goalsFor ?? 0)}-{(activeSeasonStats?.goalsAgainst ?? 0)}
+                {activeSeasonStats?.goalsFor ?? 0}-{activeSeasonStats?.goalsAgainst ?? 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -807,9 +814,7 @@ export default function Index() {
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Rename Season</DialogTitle>
-            <DialogDescription>
-              Long-pressing the season name opens this dialog.
-            </DialogDescription>
+            <DialogDescription>Long-pressing the season name opens this dialog.</DialogDescription>
           </DialogHeader>
           <PlayerAutocomplete
             value={seasonNameDraft}

@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Match, Goal, MatchSummary, GoalType, GameEvent, GameEventType, Season } from '@/types/match';
+import {
+  Match,
+  Goal,
+  MatchSummary,
+  GoalType,
+  GameEvent,
+  GameEventType,
+  Season,
+} from '@/types/match';
 import {
   closeSeasonAndCreateNext,
   createDefaultSeasonName,
@@ -25,7 +33,10 @@ function getCurrentTime(): string {
   return now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function createEmptyActiveSeason(now: number = Date.now()): { seasons: Record<string, Season>; activeSeasonId: string } {
+function createEmptyActiveSeason(now: number = Date.now()): {
+  seasons: Record<string, Season>;
+  activeSeasonId: string;
+} {
   const seasonId = generateId();
   return {
     seasons: {
@@ -48,7 +59,7 @@ export function useMatches() {
   const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
 
   const activeSeason = useMemo(
-    () => (activeSeasonId ? seasons[activeSeasonId] ?? null : null),
+    () => (activeSeasonId ? (seasons[activeSeasonId] ?? null) : null),
     [activeSeasonId, seasons],
   );
   const matchHistory = activeSeason?.matches ?? [];
@@ -69,8 +80,8 @@ export function useMatches() {
         savedActiveSeasonId && parsedSeasons[savedActiveSeasonId]
           ? savedActiveSeasonId
           : (Object.values(parsedSeasons).find((season) => season.status === 'active')?.id ??
-             Object.keys(parsedSeasons)[0] ??
-             null);
+            Object.keys(parsedSeasons)[0] ??
+            null);
 
       if (resolvedActiveSeasonId) {
         setSeasons(parsedSeasons);
@@ -79,8 +90,12 @@ export function useMatches() {
       }
     }
 
-    const legacyHistory = JSON.parse(localStorage.getItem(LEGACY_MATCHES_KEY) || '[]') as MatchSummary[];
-    const legacyFullMatches = JSON.parse(localStorage.getItem(LEGACY_FULL_MATCHES_KEY) || '{}') as Record<string, Match>;
+    const legacyHistory = JSON.parse(
+      localStorage.getItem(LEGACY_MATCHES_KEY) || '[]',
+    ) as MatchSummary[];
+    const legacyFullMatches = JSON.parse(
+      localStorage.getItem(LEGACY_FULL_MATCHES_KEY) || '{}',
+    ) as Record<string, Match>;
     const hasLegacy = legacyHistory.length > 0 || Object.keys(legacyFullMatches).length > 0;
     const migrated = hasLegacy
       ? migrateLegacyDataToSeasons(legacyHistory, legacyFullMatches)
@@ -110,33 +125,36 @@ export function useMatches() {
     }
   }, [seasons, activeSeasonId]);
 
-  const startMatch = useCallback((myTeamName: string, opponentName: string, isHome: boolean) => {
-    if (!activeSeasonId) return;
+  const startMatch = useCallback(
+    (myTeamName: string, opponentName: string, isHome: boolean) => {
+      if (!activeSeasonId) return;
 
-    const newMatch: Match = {
-      id: generateId(),
-      myTeamName: myTeamName || 'My Team',
-      opponentName: opponentName || 'Opponent',
-      isHome,
-      goals: [],
-      events: [
-        {
-          id: generateId(),
-          type: 'start',
-          label: 'Start Period 1',
-          time: getCurrentTime(),
-          timestamp: Date.now(),
-        },
-      ],
-      startedAt: Date.now(),
-      isActive: true,
-      isRunning: true,
-      totalPausedTime: 0,
-      currentPeriod: 1,
-    };
+      const newMatch: Match = {
+        id: generateId(),
+        myTeamName: myTeamName || 'My Team',
+        opponentName: opponentName || 'Opponent',
+        isHome,
+        goals: [],
+        events: [
+          {
+            id: generateId(),
+            type: 'start',
+            label: 'Start Period 1',
+            time: getCurrentTime(),
+            timestamp: Date.now(),
+          },
+        ],
+        startedAt: Date.now(),
+        isActive: true,
+        isRunning: true,
+        totalPausedTime: 0,
+        currentPeriod: 1,
+      };
 
-    setActiveMatch(newMatch);
-  }, [activeSeasonId]);
+      setActiveMatch(newMatch);
+    },
+    [activeSeasonId],
+  );
 
   const addGoal = useCallback(
     (team: 'my-team' | 'opponent', scorer?: string, assist?: string, type: GoalType = 'normal') => {
@@ -227,7 +245,8 @@ export function useMatches() {
     setActiveMatch((prev) => {
       if (!prev) return null;
       const lastEvent = prev.events[prev.events.length - 1];
-      const newPeriod = lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
+      const newPeriod =
+        lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
 
       const newEvent: GameEvent = {
         id: generateId(),
@@ -314,7 +333,9 @@ export function useMatches() {
         (goal.team === 'my-team' && goal.type === 'own-goal'),
     ).length;
 
-    const yellowCardCount = activeMatch.events.filter((event) => event.type === 'yellow-card').length;
+    const yellowCardCount = activeMatch.events.filter(
+      (event) => event.type === 'yellow-card',
+    ).length;
     const redCardCount = activeMatch.events.filter((event) => event.type === 'red-card').length;
     const endedAt = Date.now();
 
@@ -369,7 +390,8 @@ export function useMatches() {
   );
 
   const getSeasonMatchDetails = useCallback(
-    (seasonId: string, matchId: string): Match | null => seasons[seasonId]?.fullMatches[matchId] ?? null,
+    (seasonId: string, matchId: string): Match | null =>
+      seasons[seasonId]?.fullMatches[matchId] ?? null,
     [seasons],
   );
 
@@ -503,13 +525,16 @@ export function useMatches() {
     [activeSeasonId, activeMatch, seasons],
   );
 
-  const renameSeasonName = useCallback((seasonId: string, name: string): boolean => {
-    const trimmed = name.trim();
-    if (!trimmed) return false;
-    if (!seasons[seasonId]) return false;
-    setSeasons((prev) => renameSeason(prev, seasonId, trimmed));
-    return true;
-  }, [seasons]);
+  const renameSeasonName = useCallback(
+    (seasonId: string, name: string): boolean => {
+      const trimmed = name.trim();
+      if (!trimmed) return false;
+      if (!seasons[seasonId]) return false;
+      setSeasons((prev) => renameSeason(prev, seasonId, trimmed));
+      return true;
+    },
+    [seasons],
+  );
 
   const getSeasonSummaries = useCallback(() => {
     return Object.values(seasons)

@@ -119,7 +119,16 @@ describe('season helpers', () => {
         m1: createFullMatch({ id: 'm1' }),
         m2: createFullMatch({
           id: 'm2',
-          goals: [{ id: 'g4', team: 'my-team', scorer: 'Bob', type: 'normal', time: '30:00', timestamp: 4 }],
+          goals: [
+            {
+              id: 'g4',
+              team: 'my-team',
+              scorer: 'Bob',
+              type: 'normal',
+              time: '30:00',
+              timestamp: 4,
+            },
+          ],
         }),
         m3: createFullMatch({ id: 'm3', goals: [] }),
       },
