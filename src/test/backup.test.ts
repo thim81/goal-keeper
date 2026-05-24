@@ -56,4 +56,51 @@ describe('backup helpers', () => {
 
     expect(parsed.ok).toBe(false);
   });
+
+  it('rejects a backup where seasons is null', () => {
+    const payload = {
+      version: 1,
+      exportedAt: '',
+      state: { seasons: null, activeSeasonId: 's1', settings: {} },
+    };
+    const parsed = parseBackupPayload(JSON.stringify(payload));
+
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects a backup with seasons present but activeSeasonId missing', () => {
+    const payload = { version: 1, exportedAt: '', state: { seasons: { s1: {} }, settings: {} } };
+    const parsed = parseBackupPayload(JSON.stringify(payload));
+
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects a backup where activeSeasonId does not exist in seasons', () => {
+    const payload = { version: 1, exportedAt: '', state: { seasons: { s1: {} }, activeSeasonId: 'missing-id', settings: {} } };
+    const parsed = parseBackupPayload(JSON.stringify(payload));
+
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects a legacy backup where matches is not an array', () => {
+    const payload = {
+      version: 1,
+      exportedAt: '',
+      state: { matches: 'bad', fullMatches: {}, settings: {} },
+    };
+    const parsed = parseBackupPayload(JSON.stringify(payload));
+
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('rejects a legacy backup where fullMatches is not an object', () => {
+    const payload = {
+      version: 1,
+      exportedAt: '',
+      state: { matches: [], fullMatches: 'bad', settings: {} },
+    };
+    const parsed = parseBackupPayload(JSON.stringify(payload));
+
+    expect(parsed.ok).toBe(false);
+  });
 });
