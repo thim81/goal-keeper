@@ -13,6 +13,8 @@ import {
   Bug,
   Download,
   Upload,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
 
@@ -46,6 +48,7 @@ export function SettingsScreen({
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
+  const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddPlayer = () => {
@@ -249,14 +252,25 @@ export function SettingsScreen({
             <span className="text-sm font-semibold uppercase tracking-wider">Cloud Sync</span>
           </div>
           <div className="space-y-2">
-            <input
-              type="password"
-              value={syncToken}
-              onChange={(e) => setSyncToken(e.target.value)}
-              onBlur={handleSyncTokenBlur}
-              placeholder="Enter sync token"
-              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+            <div className="relative">
+              <input
+                type={showSyncToken ? 'text' : 'password'}
+                value={syncToken}
+                onChange={(e) => setSyncToken(e.target.value)}
+                onBlur={handleSyncTokenBlur}
+                placeholder="Enter sync token"
+                className="w-full px-4 py-3 pr-12 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSyncToken((visible) => !visible)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground"
+                aria-label={showSyncToken ? 'Hide sync token' : 'Show sync token'}
+                title={showSyncToken ? 'Hide sync token' : 'Show sync token'}
+              >
+                {showSyncToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <p className="text-[10px] text-muted-foreground leading-tight">
               Enter your token to sync matches across devices. Your data will be stored in
               Cloudflare KV.
