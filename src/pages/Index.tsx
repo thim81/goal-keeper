@@ -136,12 +136,13 @@ export default function Index() {
   const handleSyncState = useCallback(
     (state: SyncState) => {
       setAllMatchesState(state);
-      setAllSettingsState(state.settings);
+      // Theme is a device-local preference and must not be overwritten by sync.
+      setAllSettingsState({ ...state.settings, theme: settings.theme });
       if (state.activeMatch) {
         setSyncScrollSignal((value) => value + 1);
       }
     },
-    [setAllMatchesState, setAllSettingsState],
+    [setAllMatchesState, setAllSettingsState, settings.theme],
   );
 
   useSync(settings.syncToken, seasons, activeSeasonId, activeMatch, settings, handleSyncState);

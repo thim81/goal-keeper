@@ -17,6 +17,8 @@ export function useSync(
   // Function to gather current local state
   const getLocalState = useCallback((): SyncState => {
     const activeSeason = activeSeasonId ? seasons[activeSeasonId] : undefined;
+    const { theme: _localTheme, ...syncSettings } = settings;
+
     return {
       // Keep these legacy fields for backward-compatible remote peers.
       matches: activeSeason?.matches ?? [],
@@ -24,7 +26,7 @@ export function useSync(
       seasons,
       activeSeasonId: activeSeasonId ?? undefined,
       activeMatch,
-      settings,
+      settings: syncSettings,
     };
   }, [activeSeasonId, seasons, activeMatch, settings]);
 
