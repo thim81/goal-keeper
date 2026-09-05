@@ -5,14 +5,8 @@ describe('getOpponentSuggestions', () => {
   it('ranks exact, full-prefix, word-prefix, and substring matches', () => {
     const opponents = ['Royal Antwerp', 'Antwerp United', 'United FC', 'The Royal Club'];
 
-    expect(getOpponentSuggestions(opponents, 'royal')).toEqual([
-      'Royal Antwerp',
-      'The Royal Club',
-    ]);
-    expect(getOpponentSuggestions(opponents, 'ant')).toEqual([
-      'Antwerp United',
-      'Royal Antwerp',
-    ]);
+    expect(getOpponentSuggestions(opponents, 'royal')).toEqual(['Royal Antwerp', 'The Royal Club']);
+    expect(getOpponentSuggestions(opponents, 'ant')).toEqual(['Antwerp United', 'Royal Antwerp']);
   });
 
   it('deduplicates case-insensitively and preserves the recent display value', () => {

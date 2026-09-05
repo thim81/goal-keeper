@@ -76,7 +76,11 @@ describe('backup helpers', () => {
   });
 
   it('rejects a backup where activeSeasonId does not exist in seasons', () => {
-    const payload = { version: 1, exportedAt: '', state: { seasons: { s1: {} }, activeSeasonId: 'missing-id', settings: {} } };
+    const payload = {
+      version: 1,
+      exportedAt: '',
+      state: { seasons: { s1: {} }, activeSeasonId: 'missing-id', settings: {} },
+    };
     const parsed = parseBackupPayload(JSON.stringify(payload));
 
     expect(parsed.ok).toBe(false);

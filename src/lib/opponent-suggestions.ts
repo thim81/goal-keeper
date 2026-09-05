@@ -12,11 +12,7 @@ function matchRank(name: string, query: string): number | null {
   return null;
 }
 
-export function getOpponentSuggestions(
-  opponents: string[],
-  query: string,
-  limit = 8,
-): string[] {
+export function getOpponentSuggestions(opponents: string[], query: string, limit = 8): string[] {
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.length < 1) return [];
 
