@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { CalendarRange, History, RotateCcw, Settings } from 'lucide-react';
+import { CalendarRange, History, RefreshCw, RotateCcw, Settings } from 'lucide-react';
 import { useMatches } from '@/hooks/useMatches';
 import { useSettings } from '@/hooks/useSettings';
 import { useTheme } from '@/hooks/useTheme';
@@ -145,7 +145,14 @@ export default function Index() {
     [setAllMatchesState, setAllSettingsState, settings.theme],
   );
 
-  useSync(settings.syncToken, seasons, activeSeasonId, activeMatch, settings, handleSyncState);
+  const { syncNow, isSyncing, isCoolingDown } = useSync(
+    settings.syncToken,
+    seasons,
+    activeSeasonId,
+    activeMatch,
+    settings,
+    handleSyncState,
+  );
 
   const seasonSummaries = useMemo(() => getSeasonSummaries(), [getSeasonSummaries]);
 
@@ -527,8 +534,22 @@ export default function Index() {
         <LiveMatchLayout
           debug={settings.debug}
           header={
-            <div className="flex items-center justify-between p-4">
+            <div className="relative flex items-center justify-between p-4">
               <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
+              {settings.syncToken && (
+                <button
+                  type="button"
+                  onClick={syncNow}
+                  disabled={isSyncing || isCoolingDown}
+                  aria-label={isSyncing ? 'Syncing match' : 'Sync match'}
+                  title={isSyncing ? 'Syncing match' : 'Sync match'}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw
+                    className={`w-5 h-5 text-foreground ${isSyncing ? 'animate-spin' : ''}`}
+                  />
+                </button>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => setView('settings')}
