@@ -361,7 +361,7 @@ export function useMatches() {
       endedAt,
       isActive: false,
       isRunning: false,
-      currentPeriod: 4,
+      currentPeriod: activeMatch.currentPeriod,
       pausedAt: activeMatch.isRunning ? endedAt : activeMatch.pausedAt,
     };
 

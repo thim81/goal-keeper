@@ -53,6 +53,7 @@ export default function Index() {
   const [showAddOpponentGoal, setShowAddOpponentGoal] = useState(false);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showStartMatch, setShowStartMatch] = useState(false);
+  const [showEndMatchPrompt, setShowEndMatchPrompt] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedMatchSeasonId, setSelectedMatchSeasonId] = useState<string | null>(null);
   const [matchDetailOrigin, setMatchDetailOrigin] = useState<MatchDetailOrigin>('history');
@@ -208,6 +209,17 @@ export default function Index() {
     setView('live');
   };
 
+  const handleStartPeriod = () => {
+    startPeriod();
+  };
+
+  const handleEndPeriod = () => {
+    const isFinalPeriod =
+      activeMatch !== null && activeMatch.currentPeriod === settings.periodsCount;
+    endPeriod();
+    if (isFinalPeriod) setShowEndMatchPrompt(true);
+  };
+
   // Handle adding a goal for my team
   const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
     addGoal('my-team', scorer, assist, type);
@@ -227,9 +239,9 @@ export default function Index() {
     options?: { team?: 'my-team' | 'opponent'; player?: string },
   ) => {
     if (type === 'start') {
-      startPeriod();
+      handleStartPeriod();
     } else if (type === 'period-end') {
-      endPeriod();
+      handleEndPeriod();
     } else if (type === 'pause' || type === 'resume') {
       toggleTimer();
     } else {
@@ -259,7 +271,8 @@ export default function Index() {
 
   // Handle ending match
   const handleEndMatch = () => {
-    endPeriod();
+    setShowEndMatchPrompt(false);
+    if (activeMatch?.isRunning) endPeriod();
     endMatch();
     setView('home');
   };
@@ -654,8 +667,8 @@ export default function Index() {
               onAddEvent={() => setShowAddEvent(true)}
               onUndo={undoLast}
               onEndMatch={handleEndMatch}
-              onStartPeriod={startPeriod}
-              onEndPeriod={endPeriod}
+              onStartPeriod={handleStartPeriod}
+              onEndPeriod={handleEndPeriod}
               onToggleTimer={toggleTimer}
               isRunning={activeMatch.isRunning}
               canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
@@ -691,6 +704,21 @@ export default function Index() {
             opponentName={activeMatch.opponentName}
             knownPlayers={settings.players}
           />
+
+          <Dialog open={showEndMatchPrompt} onOpenChange={setShowEndMatchPrompt}>
+            <DialogContent className="max-w-sm rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Final whistle?</DialogTitle>
+                <DialogDescription>Ready to end the game and save the result?</DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="!flex-row !justify-center">
+                <Button variant="secondary" onClick={() => setShowEndMatchPrompt(false)}>
+                  Continue Game
+                </Button>
+                <Button onClick={handleEndMatch}>End Match</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </LiveMatchLayout>
       )}
 
