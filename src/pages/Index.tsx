@@ -15,6 +15,7 @@ import { AddOpponentGoalSheet } from '@/components/AddOpponentGoalSheet';
 import { AddEventSheet } from '@/components/AddEventSheet';
 import { StartMatchSheet } from '@/components/StartMatchSheet';
 import { MatchHistory } from '@/components/MatchHistory';
+import { MatchResultCard } from '@/components/MatchResultCard';
 import { MatchDetail } from '@/components/MatchDetail';
 import { SettingsScreen } from '@/components/SettingsScreen';
 import {
@@ -39,10 +40,12 @@ import { Button } from '@/components/ui/button';
 import { PlayerAutocomplete } from '@/components/PlayerAutocomplete';
 import { createDefaultSeasonName } from '@/lib/seasons';
 import { buildBackupPayload, parseBackupPayload } from '@/lib/backup';
+import { getRecentMatchWithinDays } from '@/lib/recent-match';
 import { GoalType, GameEventType, Match } from '@/types/match';
 import { toast } from 'sonner';
 
 type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
+type MatchDetailOrigin = 'home' | 'history';
 
 export default function Index() {
   const [view, setView] = useState<View>('home');
@@ -52,6 +55,7 @@ export default function Index() {
   const [showStartMatch, setShowStartMatch] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedMatchSeasonId, setSelectedMatchSeasonId] = useState<string | null>(null);
+  const [matchDetailOrigin, setMatchDetailOrigin] = useState<MatchDetailOrigin>('history');
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const [pendingDeleteMatch, setPendingDeleteMatch] = useState<{
     matchId: string;
@@ -193,6 +197,8 @@ export default function Index() {
     return suggestions;
   }, [matchHistory]);
 
+  const recentMatch = useMemo(() => getRecentMatchWithinDays(matchHistory), [matchHistory]);
+
   const score = getScore();
   const isPeriodEnded = activeMatch?.events?.at(-1)?.type === 'period-end';
 
@@ -264,12 +270,17 @@ export default function Index() {
     : [];
 
   // Handle viewing match details
-  const handleSelectMatch = (matchId: string) => {
-    if (!effectiveHistorySeasonId) return;
-    const match = getSeasonMatchDetails(effectiveHistorySeasonId, matchId);
+  const handleSelectMatch = (
+    matchId: string,
+    seasonId = effectiveHistorySeasonId,
+    origin: MatchDetailOrigin = 'history',
+  ) => {
+    if (!seasonId) return;
+    const match = getSeasonMatchDetails(seasonId, matchId);
     if (match) {
       setSelectedMatch(match);
-      setSelectedMatchSeasonId(effectiveHistorySeasonId);
+      setSelectedMatchSeasonId(seasonId);
+      setMatchDetailOrigin(origin);
       setView('detail');
     }
   };
@@ -349,6 +360,7 @@ export default function Index() {
     setView(parsed.state.activeMatch ? 'live' : 'home');
     setSelectedMatch(null);
     setSelectedMatchSeasonId(null);
+    setMatchDetailOrigin('history');
     setPendingDeleteMatch(null);
     setPendingReopenSeasonId(null);
     setShowCloseSeason(false);
@@ -441,7 +453,7 @@ export default function Index() {
           onBack={() => {
             setSelectedMatch(null);
             setSelectedMatchSeasonId(null);
-            setView('history');
+            setView(matchDetailOrigin);
           }}
         />
       )}
@@ -723,6 +735,17 @@ export default function Index() {
             >
               Start New Match
             </button>
+
+            {recentMatch && (
+              <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
+                <MatchResultCard
+                  match={recentMatch}
+                  onSelect={() =>
+                    handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, 'home')
+                  }
+                />
+              </div>
+            )}
 
             {activeSeasonMatchCount > 0 && (
               <button
