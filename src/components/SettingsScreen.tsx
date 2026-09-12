@@ -124,37 +124,6 @@ export function SettingsScreen({
           />
         </div>
 
-        {/* Calendar */}
-        <div className="space-y-3 pt-4 border-t border-border/30">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <CalendarDays className="w-4 h-4" />
-            <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
-          </div>
-          <div className="space-y-2">
-            <SecretInput
-              value={calendarUrl}
-              onChange={setCalendarUrl}
-              onBlur={handleCalendarSettingsBlur}
-              placeholder="Paste ProSoccerData subscription URL"
-              visible={showCalendarUrl}
-              onToggleVisibility={() => setShowCalendarUrl((visible) => !visible)}
-              showLabel="Show calendar URL"
-              hideLabel="Hide calendar URL"
-            />
-            <input
-              type="text"
-              value={calendarTeamName}
-              onChange={(e) => setCalendarTeamName(e.target.value)}
-              onBlur={handleCalendarSettingsBlur}
-              placeholder="Detected automatically, for example IPU15"
-              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              Only scheduled games are shown. The team label is detected from the calendar when left blank.
-            </p>
-          </div>
-        </div>
-
         {/* Match Format */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -310,6 +279,37 @@ export function SettingsScreen({
             <p className="text-[10px] text-muted-foreground leading-tight">
               Enter your token to sync matches across devices. Your data will be stored in
               Cloudflare KV.
+            </p>
+          </div>
+        </div>
+
+        {/* Calendar */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
+          </div>
+          <div className="space-y-2">
+            <SecretInput
+              value={calendarUrl}
+              onChange={setCalendarUrl}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Paste ProSoccerData subscription URL"
+              visible={showCalendarUrl}
+              onToggleVisibility={() => setShowCalendarUrl((visible) => !visible)}
+              showLabel="Show calendar URL"
+              hideLabel="Hide calendar URL"
+            />
+            <input
+              type="text"
+              value={calendarTeamName}
+              onChange={(e) => setCalendarTeamName(e.target.value)}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Detected automatically, for example IPU15"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Only scheduled games are shown. The team label is detected from the calendar when left blank.
             </p>
           </div>
         </div>
