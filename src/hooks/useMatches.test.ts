@@ -242,7 +242,9 @@ describe('useMatches timer control', () => {
     });
 
     expect(result.current.activeMatch!.isRunning).toBe(false);
-    expect(result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1]).toMatchObject({
+    expect(
+      result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1],
+    ).toMatchObject({
       type: 'period-end',
       label: 'End Period 1',
     });
