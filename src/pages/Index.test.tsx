@@ -4,6 +4,25 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Index from './Index';
 
+async function startMatchAndReachFinalPeriodEnd() {
+  render(<Index />);
+
+  fireEvent.click(await screen.findByRole('button', { name: /start new match/i }));
+  fireEvent.change(screen.getByPlaceholderText('Opponent'), { target: { value: 'Rivals' } });
+  fireEvent.click(screen.getByRole('button', { name: /kick off/i }));
+  await screen.findByText('⚽ Goal Keeper');
+
+  // Default settings.periodsCount is 4; walk through periods 1-3 to reach the final one.
+  for (const period of [1, 2, 3]) {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`end period ${period}`, 'i') }));
+    fireEvent.click(
+      screen.getByRole('button', { name: new RegExp(`start period ${period + 1}`, 'i') }),
+    );
+  }
+
+  fireEvent.click(screen.getByRole('button', { name: /end period 4/i }));
+}
+
 describe('Index match flow', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -82,5 +101,26 @@ describe('Index match flow', () => {
 
     await screen.findByText('⚽ Goal Keeper');
     expect(screen.getAllByText('Rivals FC').length).toBeGreaterThan(0);
+  });
+
+  it('lets the user continue playing from the final-whistle prompt instead of ending the match', async () => {
+    await startMatchAndReachFinalPeriodEnd();
+
+    await screen.findByText('Final whistle?');
+    fireEvent.click(screen.getByRole('button', { name: /continue game/i }));
+
+    await waitFor(() => expect(screen.queryByText('Final whistle?')).not.toBeInTheDocument());
+    expect(screen.getByText('⚽ Goal Keeper')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start period 5/i })).toBeInTheDocument();
+  });
+
+  it('archives the match when confirming End Match from the final-whistle prompt', async () => {
+    await startMatchAndReachFinalPeriodEnd();
+
+    await screen.findByText('Final whistle?');
+    fireEvent.click(screen.getByRole('button', { name: /^end match$/i }));
+
+    await screen.findByText('Ready to Play?');
+    expect(screen.queryByText('Final whistle?')).not.toBeInTheDocument();
   });
 });

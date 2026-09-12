@@ -106,6 +106,22 @@ describe('MatchActions', () => {
     expect(handlers.onEndMatch).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onUndo when Undo is enabled and clicked', () => {
+    const handlers = renderActions({ canUndo: true });
+
+    fireEvent.click(screen.getByRole('button', { name: /undo/i }));
+
+    expect(handlers.onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onAddEvent when the Event button is clicked', () => {
+    const handlers = renderActions();
+
+    fireEvent.click(screen.getByRole('button', { name: /^event$/i }));
+
+    expect(handlers.onAddEvent).toHaveBeenCalledTimes(1);
+  });
+
   it('hides the secondary actions (event/undo/end) when showSecondaryActions is false', () => {
     renderActions({ showSecondaryActions: false });
 
