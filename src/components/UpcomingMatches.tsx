@@ -42,7 +42,7 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
         </button>
       </div>
       <div className="divide-y divide-border/30">
-        {matches.slice(0, 3).map((match) => {
+        {matches.slice(0, 2).map((match) => {
           const start = new Date(match.start);
           return (
             <button
