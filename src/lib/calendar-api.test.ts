@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleCalendarRequest } from '@/lib/calendar-api';
 
-const validUrl =
-  'https://bocholtvv.prosoccerdata.com/api/v2/members/ics/file?id=1927&uuid=value';
+const validUrl = 'https://bocholtvv.prosoccerdata.com/api/v2/members/ics/file?id=1927&uuid=value';
 const calendar = `BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
@@ -36,9 +35,9 @@ describe('calendar API handler', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: validUrl }),
     });
-    const fetcher = vi.fn().mockResolvedValue(
-      new Response(calendar, { headers: { 'Content-Type': 'text/calendar' } }),
-    );
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(calendar, { headers: { 'Content-Type': 'text/calendar' } }));
 
     const response = await handleCalendarRequest(
       request,

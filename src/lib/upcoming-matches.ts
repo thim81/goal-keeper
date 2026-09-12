@@ -13,9 +13,9 @@ export function getUpcomingMatches(
   const configured = configuredTeamName.trim();
   const detected = configured
     ? null
-    : fixtures
+    : (fixtures
         .flatMap((fixture) => [fixture.homeTeam, fixture.awayTeam])
-        .find((team) => /^IPU[\p{L}\p{N}_-]*$/iu.test(team)) ?? null;
+        .find((team) => /^IPU[\p{L}\p{N}_-]*$/iu.test(team)) ?? null);
   const teamName = configured || detected;
 
   if (!teamName) return { matches: [], detectedTeamName: null };

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isAllowedCalendarUrl,
-  parseCalendarGames,
-} from '@/lib/calendar';
+import { isAllowedCalendarUrl, parseCalendarGames } from '@/lib/calendar';
 import { getUpcomingMatches } from '@/lib/upcoming-matches';
 
 const calendar = `BEGIN:VCALENDAR

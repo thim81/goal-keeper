@@ -51,7 +51,9 @@ describe('GoalTimeline', () => {
 
     const rows = screen.getAllByText(/Match Started|Alice|Bob/);
     const order = rows.map((el) => el.textContent);
-    expect(order.indexOf('Match Started')).toBeLessThan(order.findIndex((t) => t?.includes('Alice')));
+    expect(order.indexOf('Match Started')).toBeLessThan(
+      order.findIndex((t) => t?.includes('Alice')),
+    );
     expect(order.findIndex((t) => t?.includes('Alice'))).toBeLessThan(
       order.findIndex((t) => t?.includes('Bob')),
     );
