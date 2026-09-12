@@ -24,7 +24,7 @@ export function MatchTimer({
 
   useEffect(() => {
     const updateElapsed = () => {
-      let currentElapsed = 0;
+      let currentElapsed: number;
       if (isRunning) {
         currentElapsed = Math.floor((Date.now() - startedAt - totalPausedTime) / 1000);
       } else if (pausedAt) {
