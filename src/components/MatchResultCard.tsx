@@ -42,11 +42,11 @@ export function MatchResultCard({
             <span className="text-xs text-muted-foreground">{match.date}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-fit max-w-[100px] truncate font-semibold text-foreground">{homeTeamName}</span>
+            <span className="font-semibold text-foreground">{homeTeamName}</span>
             <span className="text-2xl font-black text-primary">{homeScore}</span>
             <span className="text-muted-foreground">-</span>
             <span className="text-2xl font-black text-accent">{awayScore}</span>
-            <span className="w-fit max-w-[100px] truncate font-semibold text-foreground">{awayTeamName}</span>
+            <span className="font-semibold text-foreground">{awayTeamName}</span>
           </div>
         </div>
         {showChevron && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
