@@ -51,7 +51,6 @@ export function SettingsScreen({
   const [teamName, setTeamName] = useState(settings.teamName);
   const [calendarUrl, setCalendarUrl] = useState(settings.calendarUrl);
   const [calendarTeamName, setCalendarTeamName] = useState(settings.calendarTeamName);
-  const [showCalendarUrl, setShowCalendarUrl] = useState(false);
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
   const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -290,15 +289,13 @@ export function SettingsScreen({
             <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
           </div>
           <div className="space-y-2">
-            <SecretInput
+            <input
+              type="url"
               value={calendarUrl}
-              onChange={setCalendarUrl}
+              onChange={(e) => setCalendarUrl(e.target.value)}
               onBlur={handleCalendarSettingsBlur}
               placeholder="Paste ProSoccerData subscription URL"
-              visible={showCalendarUrl}
-              onToggleVisibility={() => setShowCalendarUrl((visible) => !visible)}
-              showLabel="Show calendar URL"
-              hideLabel="Hide calendar URL"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
               type="text"
