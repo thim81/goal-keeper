@@ -100,8 +100,8 @@ export function MatchDetail({
       opponent: { yellow: 0, red: 0 },
     } as Record<'my-team' | 'opponent', { yellow: number; red: number }>,
   );
-  const myTeamHasCards = cardTotals['my-team'].yellow > 0 || cardTotals['my-team'].red > 0;
-  const opponentHasCards = cardTotals.opponent.yellow > 0 || cardTotals.opponent.red > 0;
+  const homeCardTotals = match.isHome ? cardTotals['my-team'] : cardTotals.opponent;
+  const awayCardTotals = match.isHome ? cardTotals.opponent : cardTotals['my-team'];
   const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
   const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
   const homeScore = match.isHome ? myTeamScore : opponentScore;
@@ -228,16 +228,16 @@ export function MatchDetail({
         </div>
         <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center">
           <div className="justify-self-center min-h-8 inline-flex items-center gap-1">
-            {myTeamHasCards && cardTotals['my-team'].yellow > 0 && (
+            {homeCardTotals.yellow > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-600">
                 <span className="inline-block h-5 w-4 rounded-[2px] border bg-yellow-400 border-yellow-500" />
-                {cardTotals['my-team'].yellow}
+                {homeCardTotals.yellow}
               </span>
             )}
-            {myTeamHasCards && cardTotals['my-team'].red > 0 && (
+            {homeCardTotals.red > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-red-500/15 text-red-600">
                 <span className="inline-block h-5 w-4 rounded-[2px] border bg-red-500 border-red-600" />
-                {cardTotals['my-team'].red}
+                {homeCardTotals.red}
               </span>
             )}
           </div>
@@ -253,16 +253,16 @@ export function MatchDetail({
             {isWin ? 'Victory!' : isDraw ? 'Draw' : 'Defeat'}
           </span>
           <div className="justify-self-center min-h-8 inline-flex items-center gap-1">
-            {opponentHasCards && cardTotals.opponent.yellow > 0 && (
+            {awayCardTotals.yellow > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-600">
                 <span className="inline-block h-5 w-4 rounded-[2px] border bg-yellow-400 border-yellow-500" />
-                {cardTotals.opponent.yellow}
+                {awayCardTotals.yellow}
               </span>
             )}
-            {opponentHasCards && cardTotals.opponent.red > 0 && (
+            {awayCardTotals.red > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-red-500/15 text-red-600">
                 <span className="inline-block h-5 w-4 rounded-[2px] border bg-red-500 border-red-600" />
-                {cardTotals.opponent.red}
+                {awayCardTotals.red}
               </span>
             )}
           </div>
