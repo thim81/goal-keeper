@@ -306,7 +306,8 @@ export function SettingsScreen({
               className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-[10px] text-muted-foreground leading-tight">
-              Only scheduled games are shown. The team label is detected from the calendar when left blank.
+              Only scheduled games are shown. The team label is detected from the calendar when left
+              blank.
             </p>
           </div>
         </div>
@@ -342,7 +343,7 @@ export function SettingsScreen({
               const file = e.target.files?.[0];
               if (!file) return;
               await onImportBackup(file);
-              e.currentTarget.value = '';
+              if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           />
           <p className="text-[10px] text-muted-foreground leading-tight">

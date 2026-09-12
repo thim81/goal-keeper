@@ -38,7 +38,9 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
           aria-label="Refresh upcoming matches"
           className="p-1.5 rounded-full hover:bg-secondary transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`w-4 h-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`}
+          />
         </button>
       </div>
       <div className="divide-y divide-border/30">
@@ -64,7 +66,9 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-foreground">{match.opponentName}</div>
-                <div className="text-xs text-muted-foreground">{match.isHome ? 'Home' : 'Away'}</div>
+                <div className="text-xs text-muted-foreground">
+                  {match.isHome ? 'Home' : 'Away'}
+                </div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
             </button>
