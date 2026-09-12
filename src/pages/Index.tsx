@@ -16,6 +16,7 @@ import { AddEventSheet } from '@/components/AddEventSheet';
 import { StartMatchSheet } from '@/components/StartMatchSheet';
 import { MatchHistory } from '@/components/MatchHistory';
 import { MatchResultCard } from '@/components/MatchResultCard';
+import { UpcomingMatches } from '@/components/UpcomingMatches';
 import { MatchDetail } from '@/components/MatchDetail';
 import { SettingsScreen } from '@/components/SettingsScreen';
 import {
@@ -41,6 +42,8 @@ import { PlayerAutocomplete } from '@/components/PlayerAutocomplete';
 import { createDefaultSeasonName } from '@/lib/seasons';
 import { buildBackupPayload, parseBackupPayload } from '@/lib/backup';
 import { getRecentMatchWithinDays } from '@/lib/recent-match';
+import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
+import type { UpcomingMatch } from '@/lib/upcoming-matches';
 import { GoalType, GameEventType, Match } from '@/types/match';
 import { toast } from 'sonner';
 
@@ -53,6 +56,10 @@ export default function Index() {
   const [showAddOpponentGoal, setShowAddOpponentGoal] = useState(false);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [showStartMatch, setShowStartMatch] = useState(false);
+  const [scheduledMatchDefaults, setScheduledMatchDefaults] = useState<{
+    opponentName: string;
+    isHome: boolean;
+  } | null>(null);
   const [showEndMatchPrompt, setShowEndMatchPrompt] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedMatchSeasonId, setSelectedMatchSeasonId] = useState<string | null>(null);
@@ -110,6 +117,7 @@ export default function Index() {
   const {
     settings,
     updateTeamName,
+    updateCalendarSettings,
     addPlayer,
     removePlayer,
     updatePeriods,
@@ -120,6 +128,16 @@ export default function Index() {
   } = useSettings();
 
   useTheme(settings.theme);
+
+  const handleDetectedCalendarTeamName = useCallback(
+    (teamName: string) => updateCalendarSettings(settings.calendarUrl, teamName),
+    [settings.calendarUrl, updateCalendarSettings],
+  );
+  const upcomingMatches = useUpcomingMatches(
+    settings.calendarUrl,
+    settings.calendarTeamName,
+    handleDetectedCalendarTeamName,
+  );
 
   const handleToggleSecondary = (open: boolean) => {
     setShowSecondaryActions(open);
@@ -205,8 +223,14 @@ export default function Index() {
 
   // Handle starting a new match
   const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
+    setScheduledMatchDefaults(null);
     startMatch(myTeamName, opponentName, isHome);
     setView('live');
+  };
+
+  const handleSelectUpcomingMatch = (match: UpcomingMatch) => {
+    setScheduledMatchDefaults({ opponentName: match.opponentName, isHome: match.isHome });
+    setShowStartMatch(true);
   };
 
   const handleStartPeriod = () => {
@@ -439,6 +463,7 @@ export default function Index() {
           settings={settings}
           onBack={() => setView(activeMatch ? 'live' : 'home')}
           onUpdateTeamName={updateTeamName}
+          onUpdateCalendarSettings={updateCalendarSettings}
           onAddPlayer={addPlayer}
           onRemovePlayer={removePlayer}
           onUpdatePeriods={updatePeriods}
@@ -758,11 +783,21 @@ export default function Index() {
             </div>
 
             <button
-              onClick={() => setShowStartMatch(true)}
+              onClick={() => {
+                setScheduledMatchDefaults(null);
+                setShowStartMatch(true);
+              }}
               className="w-full max-w-xs py-5 bg-primary text-primary-foreground font-bold text-xl rounded-2xl hover:bg-primary/90 transition-all active:scale-[0.98] btn-glow"
             >
               Start New Match
             </button>
+
+            <UpcomingMatches
+              matches={upcomingMatches.matches}
+              loaded={upcomingMatches.loaded}
+              onSelect={handleSelectUpcomingMatch}
+              onRefresh={upcomingMatches.refresh}
+            />
 
             {recentMatch && (
               <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
@@ -792,6 +827,8 @@ export default function Index() {
             onStartMatch={handleStartMatch}
             defaultTeamName={settings.teamName}
             opponentSuggestions={opponentSuggestions}
+            initialOpponentName={scheduledMatchDefaults?.opponentName}
+            initialIsHome={scheduledMatchDefaults?.isHome}
           />
         </div>
       )}

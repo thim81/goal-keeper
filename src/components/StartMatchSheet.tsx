@@ -8,6 +8,8 @@ interface StartMatchSheetProps {
   onStartMatch: (myTeamName: string, opponentName: string, isHome: boolean) => void;
   defaultTeamName?: string;
   opponentSuggestions?: string[];
+  initialOpponentName?: string;
+  initialIsHome?: boolean;
 }
 
 export function StartMatchSheet({
@@ -16,17 +18,21 @@ export function StartMatchSheet({
   onStartMatch,
   defaultTeamName,
   opponentSuggestions = [],
+  initialOpponentName = '',
+  initialIsHome = true,
 }: StartMatchSheetProps) {
   const [myTeamName, setMyTeamName] = useState('');
   const [opponentName, setOpponentName] = useState('');
   const [isHome, setIsHome] = useState(true);
 
-  // Update team name when sheet opens with default
+  // Apply defaults each time the sheet opens so scheduled matches can prefill it.
   useEffect(() => {
-    if (isOpen && defaultTeamName) {
-      setMyTeamName(defaultTeamName);
+    if (isOpen) {
+      setMyTeamName(defaultTeamName ?? '');
+      setOpponentName(initialOpponentName);
+      setIsHome(initialIsHome);
     }
-  }, [isOpen, defaultTeamName]);
+  }, [defaultTeamName, initialIsHome, initialOpponentName, isOpen]);
 
   const handleSubmit = () => {
     onStartMatch(myTeamName.trim() || 'My Team', opponentName.trim() || 'Opponent', isHome);

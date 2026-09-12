@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   ArrowLeft,
+  CalendarDays,
   Plus,
   X,
   Users,
@@ -22,6 +23,7 @@ interface SettingsScreenProps {
   settings: AppSettings;
   onBack: () => void;
   onUpdateTeamName: (name: string) => void;
+  onUpdateCalendarSettings: (url: string, teamName: string) => void;
   onAddPlayer: (name: string) => void;
   onRemovePlayer: (name: string) => void;
   onUpdatePeriods: (count: number, duration: number) => void;
@@ -36,6 +38,7 @@ export function SettingsScreen({
   settings,
   onBack,
   onUpdateTeamName,
+  onUpdateCalendarSettings,
   onAddPlayer,
   onRemovePlayer,
   onUpdatePeriods,
@@ -47,6 +50,9 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
+  const [calendarUrl, setCalendarUrl] = useState(settings.calendarUrl);
+  const [calendarTeamName, setCalendarTeamName] = useState(settings.calendarTeamName);
+  const [showCalendarUrl, setShowCalendarUrl] = useState(false);
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
   const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +68,10 @@ export function SettingsScreen({
     if (teamName.trim() && teamName !== settings.teamName) {
       onUpdateTeamName(teamName.trim());
     }
+  };
+
+  const handleCalendarSettingsBlur = () => {
+    onUpdateCalendarSettings(calendarUrl, calendarTeamName);
   };
 
   const handleSyncTokenBlur = () => {
@@ -108,6 +118,46 @@ export function SettingsScreen({
             placeholder="Enter your team name"
             className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
           />
+        </div>
+
+        {/* Calendar */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
+          </div>
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                type={showCalendarUrl ? 'text' : 'password'}
+                value={calendarUrl}
+                onChange={(e) => setCalendarUrl(e.target.value)}
+                onBlur={handleCalendarSettingsBlur}
+                placeholder="Paste ProSoccerData subscription URL"
+                className="w-full px-4 py-3 pr-12 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCalendarUrl((visible) => !visible)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground"
+                aria-label={showCalendarUrl ? 'Hide calendar URL' : 'Show calendar URL'}
+                title={showCalendarUrl ? 'Hide calendar URL' : 'Show calendar URL'}
+              >
+                {showCalendarUrl ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={calendarTeamName}
+              onChange={(e) => setCalendarTeamName(e.target.value)}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Detected automatically, for example IPU15"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Only scheduled games are shown. The team label is detected from the calendar when left blank.
+            </p>
+          </div>
         </div>
 
         {/* Match Format */}
