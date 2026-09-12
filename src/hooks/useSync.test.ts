@@ -80,9 +80,11 @@ describe('useSync manual refresh', () => {
       await Promise.resolve();
     });
 
-    act(() => {
+    await act(async () => {
+      const firstRequest = result.current.syncNow();
       result.current.syncNow();
-      result.current.syncNow();
+      await Promise.resolve();
+      void firstRequest;
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.current.isSyncing).toBe(true);
@@ -98,9 +100,9 @@ describe('useSync manual refresh', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    act(() => {
+    await act(async () => {
       vi.setSystemTime(Date.now() + 3000);
-      result.current.syncNow();
+      await result.current.syncNow();
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
