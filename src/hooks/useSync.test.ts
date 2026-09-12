@@ -25,6 +25,8 @@ const remoteResponse = () => new Response(JSON.stringify(remoteState));
 
 const settings = {
   teamName: 'My Team',
+  calendarUrl: '',
+  calendarTeamName: '',
   players: [],
   periodsCount: 4,
   periodDuration: 20,

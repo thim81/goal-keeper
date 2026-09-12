@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CalendarFixture } from '@/lib/calendar';
 import { getUpcomingMatches, type UpcomingMatch } from '@/lib/upcoming-matches';
 
@@ -54,6 +54,7 @@ export function useUpcomingMatches(
   const [matches, setMatches] = useState<UpcomingMatch[]>([]);
   const [games, setGames] = useState<CalendarFixture[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!games.length) {
@@ -70,13 +71,22 @@ export function useUpcomingMatches(
 
   const refresh = useCallback(
     async (force = true) => {
-      setLoaded(false);
-      setMatches([]);
-      setGames([]);
+      // Once we've shown a list, a later refresh (manual or automatic) should
+      // keep it visible instead of hiding the card while the new data loads.
+      const isRefreshOfExistingData = hasLoadedRef.current;
 
       if (!calendarUrl.trim()) {
         setLoaded(true);
+        setMatches([]);
+        setGames([]);
+        hasLoadedRef.current = true;
         return;
+      }
+
+      if (!isRefreshOfExistingData) {
+        setLoaded(false);
+        setMatches([]);
+        setGames([]);
       }
 
       const normalizedUrl = calendarUrl.trim();
@@ -85,6 +95,7 @@ export function useUpcomingMatches(
         if (cachedGames) {
           setGames(cachedGames);
           setLoaded(true);
+          hasLoadedRef.current = true;
           return;
         }
       }
@@ -102,9 +113,12 @@ export function useUpcomingMatches(
         writeCache(normalizedUrl, nextGames);
         setGames(nextGames);
       } catch {
-        setMatches([]);
+        // A failed refresh of an already-loaded list keeps showing the stale
+        // data rather than clearing it out from under the user.
+        if (!isRefreshOfExistingData) setMatches([]);
       } finally {
         setLoaded(true);
+        hasLoadedRef.current = true;
       }
     },
     [calendarUrl],

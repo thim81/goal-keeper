@@ -38,6 +38,8 @@ describe('useSettings calendar settings', () => {
     act(() => {
       result.current.setAllSettingsState({
         teamName: 'Goal Keeper',
+        calendarUrl: '',
+        calendarTeamName: '',
         players: [],
         periodsCount: 4,
         periodDuration: 20,

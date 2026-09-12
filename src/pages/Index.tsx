@@ -160,12 +160,29 @@ export default function Index() {
     (state: SyncState) => {
       setAllMatchesState(state);
       // Theme is a device-local preference and must not be overwritten by sync.
-      setAllSettingsState({ ...state.settings, theme: settings.theme });
+      setAllSettingsState({
+        ...state.settings,
+        calendarUrl:
+          typeof state.settings.calendarUrl === 'string'
+            ? state.settings.calendarUrl
+            : settings.calendarUrl,
+        calendarTeamName:
+          typeof state.settings.calendarTeamName === 'string'
+            ? state.settings.calendarTeamName
+            : settings.calendarTeamName,
+        theme: settings.theme,
+      });
       if (state.activeMatch) {
         setSyncScrollSignal((value) => value + 1);
       }
     },
-    [setAllMatchesState, setAllSettingsState, settings.theme],
+    [
+      setAllMatchesState,
+      setAllSettingsState,
+      settings.calendarTeamName,
+      settings.calendarUrl,
+      settings.theme,
+    ],
   );
 
   const { syncNow, isSyncing, isCoolingDown } = useSync(
@@ -219,7 +236,8 @@ export default function Index() {
   const recentMatch = useMemo(() => getRecentMatchWithinDays(matchHistory), [matchHistory]);
 
   const score = getScore();
-  const isPeriodEnded = activeMatch?.events?.at(-1)?.type === 'period-end';
+  const lastEvent = activeMatch?.events?.[activeMatch.events.length - 1];
+  const isPeriodEnded = lastEvent?.type === 'period-end';
 
   // Handle starting a new match
   const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
@@ -387,7 +405,7 @@ export default function Index() {
   const handleImportBackup = async (file: File) => {
     const text = await file.text();
     const parsed = parseBackupPayload(text);
-    if (!parsed.ok) {
+    if ('error' in parsed) {
       toast.error(parsed.error);
       return;
     }

@@ -110,4 +110,83 @@ describe('useUpcomingMatches', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
+
+  it('keeps showing the already-loaded matches while a manual refresh is in flight', async () => {
+    let resolveSecondFetch: (response: Response) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ games })))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveSecondFetch = resolve;
+          }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useUpcomingMatches(url, 'IPU15'));
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+
+    let refreshPromise: Promise<void>;
+    act(() => {
+      refreshPromise = result.current.refresh();
+    });
+
+    // The second fetch hasn't resolved yet, but the stale list must stay visible.
+    expect(result.current.matches).toHaveLength(1);
+    expect(result.current.loaded).toBe(true);
+
+    await act(async () => {
+      resolveSecondFetch!(new Response(JSON.stringify({ games })));
+      await refreshPromise;
+    });
+    expect(result.current.matches).toHaveLength(1);
+  });
+
+  it('keeps the stale list when a background refresh fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ games })))
+      .mockRejectedValueOnce(new Error('offline'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useUpcomingMatches(url, 'IPU15'));
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.matches).toHaveLength(1);
+    expect(result.current.loaded).toBe(true);
+  });
+
+  it('clears matches immediately when the subscription URL changes', async () => {
+    let resolveSecondFetch: (response: Response) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ games })))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveSecondFetch = resolve;
+          }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ subscriptionUrl }) => useUpcomingMatches(subscriptionUrl, 'IPU15'),
+      { initialProps: { subscriptionUrl: url } },
+    );
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+
+    rerender({ subscriptionUrl: `${url}&changed=1` });
+
+    await waitFor(() => expect(result.current.matches).toEqual([]));
+    expect(result.current.loaded).toBe(false);
+
+    await act(async () => {
+      resolveSecondFetch!(new Response(JSON.stringify({ games })));
+    });
+  });
 });
