@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  CalendarDays,
   Plus,
   X,
   Users,
@@ -13,15 +14,15 @@ import {
   Bug,
   Download,
   Upload,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
+import { SecretInput } from '@/components/SecretInput';
 
 interface SettingsScreenProps {
   settings: AppSettings;
   onBack: () => void;
   onUpdateTeamName: (name: string) => void;
+  onUpdateCalendarSettings: (url: string, teamName: string) => void;
   onAddPlayer: (name: string) => void;
   onRemovePlayer: (name: string) => void;
   onUpdatePeriods: (count: number, duration: number) => void;
@@ -36,6 +37,7 @@ export function SettingsScreen({
   settings,
   onBack,
   onUpdateTeamName,
+  onUpdateCalendarSettings,
   onAddPlayer,
   onRemovePlayer,
   onUpdatePeriods,
@@ -47,9 +49,16 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const [newPlayer, setNewPlayer] = useState('');
   const [teamName, setTeamName] = useState(settings.teamName);
+  const [calendarUrl, setCalendarUrl] = useState(settings.calendarUrl);
+  const [calendarTeamName, setCalendarTeamName] = useState(settings.calendarTeamName);
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
   const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCalendarUrl(settings.calendarUrl);
+    setCalendarTeamName(settings.calendarTeamName);
+  }, [settings.calendarTeamName, settings.calendarUrl]);
 
   const handleAddPlayer = () => {
     if (newPlayer.trim()) {
@@ -62,6 +71,10 @@ export function SettingsScreen({
     if (teamName.trim() && teamName !== settings.teamName) {
       onUpdateTeamName(teamName.trim());
     }
+  };
+
+  const handleCalendarSettingsBlur = () => {
+    onUpdateCalendarSettings(calendarUrl, calendarTeamName);
   };
 
   const handleSyncTokenBlur = () => {
@@ -252,28 +265,49 @@ export function SettingsScreen({
             <span className="text-sm font-semibold uppercase tracking-wider">Cloud Sync</span>
           </div>
           <div className="space-y-2">
-            <div className="relative">
-              <input
-                type={showSyncToken ? 'text' : 'password'}
-                value={syncToken}
-                onChange={(e) => setSyncToken(e.target.value)}
-                onBlur={handleSyncTokenBlur}
-                placeholder="Enter sync token"
-                className="w-full px-4 py-3 pr-12 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSyncToken((visible) => !visible)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground"
-                aria-label={showSyncToken ? 'Hide sync token' : 'Show sync token'}
-                title={showSyncToken ? 'Hide sync token' : 'Show sync token'}
-              >
-                {showSyncToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <SecretInput
+              value={syncToken}
+              onChange={setSyncToken}
+              onBlur={handleSyncTokenBlur}
+              placeholder="Enter sync token"
+              visible={showSyncToken}
+              onToggleVisibility={() => setShowSyncToken((visible) => !visible)}
+              showLabel="Show sync token"
+              hideLabel="Hide sync token"
+            />
             <p className="text-[10px] text-muted-foreground leading-tight">
               Enter your token to sync matches across devices. Your data will be stored in
               Cloudflare KV.
+            </p>
+          </div>
+        </div>
+
+        {/* Calendar */}
+        <div className="space-y-3 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
+          </div>
+          <div className="space-y-2">
+            <input
+              type="url"
+              value={calendarUrl}
+              onChange={(e) => setCalendarUrl(e.target.value)}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Paste ProSoccerData subscription URL"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              type="text"
+              value={calendarTeamName}
+              onChange={(e) => setCalendarTeamName(e.target.value)}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Detected automatically, for example IPU15"
+              className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Only scheduled games are shown. The team label is detected from the calendar when left
+              blank.
             </p>
           </div>
         </div>
@@ -309,7 +343,7 @@ export function SettingsScreen({
               const file = e.target.files?.[0];
               if (!file) return;
               await onImportBackup(file);
-              e.currentTarget.value = '';
+              if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           />
           <p className="text-[10px] text-muted-foreground leading-tight">

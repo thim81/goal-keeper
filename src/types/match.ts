@@ -75,6 +75,8 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export interface AppSettings {
   teamName: string;
+  calendarUrl: string;
+  calendarTeamName: string;
   players: string[];
   periodsCount: number;
   periodDuration: number; // in minutes
@@ -85,6 +87,8 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   teamName: 'My Team',
+  calendarUrl: '',
+  calendarTeamName: '',
   players: [],
   periodsCount: 4,
   periodDuration: 20,

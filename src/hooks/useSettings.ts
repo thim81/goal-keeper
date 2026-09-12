@@ -23,6 +23,14 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, teamName }));
   }, []);
 
+  const updateCalendarSettings = useCallback((calendarUrl: string, calendarTeamName: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      calendarUrl: calendarUrl.trim(),
+      calendarTeamName: calendarTeamName.trim(),
+    }));
+  }, []);
+
   const updatePlayers = useCallback((players: string[]) => {
     setSettings((prev) => ({ ...prev, players }));
   }, []);
@@ -57,12 +65,13 @@ export function useSettings() {
   }, []);
 
   const setAllSettingsState = useCallback((newSettings: AppSettings) => {
-    setSettings(newSettings);
+    setSettings({ ...DEFAULT_SETTINGS, ...newSettings });
   }, []);
 
   return {
     settings,
     updateTeamName,
+    updateCalendarSettings,
     updatePlayers,
     addPlayer,
     removePlayer,

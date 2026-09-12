@@ -74,6 +74,16 @@ npm install
 npm run dev
 ```
 
+To run the app with Cloudflare Pages Functions locally, use Wrangler:
+
+```bash
+npm run dev:pages
+```
+
+This serves the built app and the `functions/` directory locally. Changes to
+the frontend or functions require restarting the command because the app is
+built into `dist` before Wrangler starts.
+
 4. Build for production:
 ```bash
 npm run build
