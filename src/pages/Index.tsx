@@ -803,13 +803,6 @@ export default function Index() {
               </div>
             )}
 
-            <UpcomingMatches
-              matches={upcomingMatches.matches}
-              loaded={upcomingMatches.loaded}
-              onSelect={handleSelectUpcomingMatch}
-              onRefresh={upcomingMatches.refresh}
-            />
-
             {activeSeasonMatchCount > 0 && (
               <button
                 onClick={() => setView('history')}
@@ -818,6 +811,13 @@ export default function Index() {
                 View {activeSeasonMatchCount} past match{activeSeasonMatchCount !== 1 ? 'es' : ''}
               </button>
             )}
+
+            <UpcomingMatches
+              matches={upcomingMatches.matches}
+              loaded={upcomingMatches.loaded}
+              onSelect={handleSelectUpcomingMatch}
+              onRefresh={upcomingMatches.refresh}
+            />
           </div>
 
           {/* Start Match Sheet */}
