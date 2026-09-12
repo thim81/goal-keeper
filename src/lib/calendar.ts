@@ -35,7 +35,13 @@ export function parseCalendarGames(
   return calendar
     .getAllSubcomponents('vevent')
     .map((component) => new ICAL.Event(component))
-    .filter((event) => event.uid.startsWith('game|'))
+    .filter(
+      (event) =>
+        typeof event.uid === 'string' &&
+        event.uid.startsWith('game|') &&
+        typeof event.summary === 'string' &&
+        Boolean(event.startDate),
+    )
     .map((event) => {
       const teams = event.summary.split(/\s+-\s+/).map((team) => team.trim());
       if (teams.length !== 2 || teams.some((team) => !team)) return null;

@@ -42,4 +42,45 @@ describe('SettingsScreen calendar settings', () => {
       'IPU15',
     );
   });
+
+  it('resyncs the local team field when settings change while the screen is open', () => {
+    const onUpdateCalendarSettings = vi.fn();
+    const view = render(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, calendarTeamName: '' }}
+        onBack={vi.fn()}
+        onUpdateTeamName={vi.fn()}
+        onUpdateCalendarSettings={onUpdateCalendarSettings}
+        onAddPlayer={vi.fn()}
+        onRemovePlayer={vi.fn()}
+        onUpdatePeriods={vi.fn()}
+        onUpdateSyncToken={vi.fn()}
+        onUpdateTheme={vi.fn()}
+        onUpdateDebug={vi.fn()}
+        onExportBackup={vi.fn()}
+        onImportBackup={vi.fn()}
+      />,
+    );
+
+    view.rerender(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, calendarTeamName: 'IPU15' }}
+        onBack={vi.fn()}
+        onUpdateTeamName={vi.fn()}
+        onUpdateCalendarSettings={onUpdateCalendarSettings}
+        onAddPlayer={vi.fn()}
+        onRemovePlayer={vi.fn()}
+        onUpdatePeriods={vi.fn()}
+        onUpdateSyncToken={vi.fn()}
+        onUpdateTheme={vi.fn()}
+        onUpdateDebug={vi.fn()}
+        onExportBackup={vi.fn()}
+        onImportBackup={vi.fn()}
+      />,
+    );
+
+    fireEvent.blur(screen.getByPlaceholderText('Paste ProSoccerData subscription URL'));
+
+    expect(onUpdateCalendarSettings).toHaveBeenCalledWith('', 'IPU15');
+  });
 });

@@ -93,4 +93,27 @@ END:VCALENDAR`;
 
     expect(parseCalendarGames(malformed, new Date('2026-09-12T09:00:00Z'))).toEqual([]);
   });
+
+  it('skips an event with missing UID or SUMMARY without dropping valid games', () => {
+    const partiallyMalformed = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260919T111500Z
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260920T111500Z
+SUMMARY:IPU15 - Valid Opponent
+UID:game|valid
+END:VEVENT
+END:VCALENDAR`;
+
+    expect(parseCalendarGames(partiallyMalformed, new Date('2026-09-12T09:00:00Z'))).toEqual([
+      {
+        id: 'game|valid',
+        start: '2026-09-20T11:15:00.000Z',
+        homeTeam: 'IPU15',
+        awayTeam: 'Valid Opponent',
+      },
+    ]);
+  });
 });

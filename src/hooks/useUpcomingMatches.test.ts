@@ -59,4 +59,23 @@ describe('useUpcomingMatches', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('does not refetch when detection updates the configured team name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ games })));
+    vi.stubGlobal('fetch', fetchMock);
+    let detectedTeamName = '';
+    const onDetectedTeamName = vi.fn((teamName: string) => {
+      detectedTeamName = teamName;
+    });
+    const { result, rerender } = renderHook(
+      ({ teamName }) => useUpcomingMatches(url, teamName, onDetectedTeamName),
+      { initialProps: { teamName: '' } },
+    );
+
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+    rerender({ teamName: detectedTeamName });
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

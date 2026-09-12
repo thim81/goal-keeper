@@ -12,11 +12,26 @@ export function useUpcomingMatches(
   onDetectedTeamName?: (teamName: string) => void,
 ) {
   const [matches, setMatches] = useState<UpcomingMatch[]>([]);
+  const [games, setGames] = useState<CalendarFixture[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!games.length) {
+      setMatches([]);
+      return;
+    }
+
+    const result = getUpcomingMatches(games, calendarTeamName);
+    if (!calendarTeamName.trim() && result.detectedTeamName) {
+      onDetectedTeamName?.(result.detectedTeamName);
+    }
+    setMatches(result.matches);
+  }, [calendarTeamName, games, onDetectedTeamName]);
 
   const refresh = useCallback(async () => {
     setLoaded(false);
     setMatches([]);
+    setGames([]);
 
     if (!calendarUrl.trim()) {
       setLoaded(true);
@@ -32,19 +47,13 @@ export function useUpcomingMatches(
       if (!response.ok) throw new Error('Calendar request failed');
 
       const payload = (await response.json()) as CalendarResponse;
-      const games = Array.isArray(payload.games) ? payload.games : [];
-      const result = getUpcomingMatches(games, calendarTeamName);
-
-      if (!calendarTeamName.trim() && result.detectedTeamName) {
-        onDetectedTeamName?.(result.detectedTeamName);
-      }
-      setMatches(result.matches);
+      setGames(Array.isArray(payload.games) ? payload.games : []);
     } catch {
       setMatches([]);
     } finally {
       setLoaded(true);
     }
-  }, [calendarTeamName, calendarUrl, onDetectedTeamName]);
+  }, [calendarUrl]);
 
   useEffect(() => {
     void refresh();

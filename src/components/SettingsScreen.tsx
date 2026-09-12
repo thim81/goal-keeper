@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   CalendarDays,
@@ -14,10 +14,9 @@ import {
   Bug,
   Download,
   Upload,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { AppSettings, Theme } from '@/types/match';
+import { SecretInput } from '@/components/SecretInput';
 
 interface SettingsScreenProps {
   settings: AppSettings;
@@ -56,6 +55,11 @@ export function SettingsScreen({
   const [syncToken, setSyncToken] = useState(settings.syncToken || '');
   const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCalendarUrl(settings.calendarUrl);
+    setCalendarTeamName(settings.calendarTeamName);
+  }, [settings.calendarTeamName, settings.calendarUrl]);
 
   const handleAddPlayer = () => {
     if (newPlayer.trim()) {
@@ -127,25 +131,16 @@ export function SettingsScreen({
             <span className="text-sm font-semibold uppercase tracking-wider">Upcoming Matches</span>
           </div>
           <div className="space-y-2">
-            <div className="relative">
-              <input
-                type={showCalendarUrl ? 'text' : 'password'}
-                value={calendarUrl}
-                onChange={(e) => setCalendarUrl(e.target.value)}
-                onBlur={handleCalendarSettingsBlur}
-                placeholder="Paste ProSoccerData subscription URL"
-                className="w-full px-4 py-3 pr-12 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={() => setShowCalendarUrl((visible) => !visible)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground"
-                aria-label={showCalendarUrl ? 'Hide calendar URL' : 'Show calendar URL'}
-                title={showCalendarUrl ? 'Hide calendar URL' : 'Show calendar URL'}
-              >
-                {showCalendarUrl ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <SecretInput
+              value={calendarUrl}
+              onChange={setCalendarUrl}
+              onBlur={handleCalendarSettingsBlur}
+              placeholder="Paste ProSoccerData subscription URL"
+              visible={showCalendarUrl}
+              onToggleVisibility={() => setShowCalendarUrl((visible) => !visible)}
+              showLabel="Show calendar URL"
+              hideLabel="Hide calendar URL"
+            />
             <input
               type="text"
               value={calendarTeamName}
@@ -302,25 +297,16 @@ export function SettingsScreen({
             <span className="text-sm font-semibold uppercase tracking-wider">Cloud Sync</span>
           </div>
           <div className="space-y-2">
-            <div className="relative">
-              <input
-                type={showSyncToken ? 'text' : 'password'}
-                value={syncToken}
-                onChange={(e) => setSyncToken(e.target.value)}
-                onBlur={handleSyncTokenBlur}
-                placeholder="Enter sync token"
-                className="w-full px-4 py-3 pr-12 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSyncToken((visible) => !visible)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground"
-                aria-label={showSyncToken ? 'Hide sync token' : 'Show sync token'}
-                title={showSyncToken ? 'Hide sync token' : 'Show sync token'}
-              >
-                {showSyncToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <SecretInput
+              value={syncToken}
+              onChange={setSyncToken}
+              onBlur={handleSyncTokenBlur}
+              placeholder="Enter sync token"
+              visible={showSyncToken}
+              onToggleVisibility={() => setShowSyncToken((visible) => !visible)}
+              showLabel="Show sync token"
+              hideLabel="Hide sync token"
+            />
             <p className="text-[10px] text-muted-foreground leading-tight">
               Enter your token to sync matches across devices. Your data will be stored in
               Cloudflare KV.
