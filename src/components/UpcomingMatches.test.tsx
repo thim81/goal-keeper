@@ -36,4 +36,31 @@ describe('UpcomingMatches', () => {
     fireEvent.click(screen.getByText('Opponent U15'));
     expect(onSelect).toHaveBeenCalledWith(matches[0]);
   });
+
+  it('disables the refresh button and spins the icon while refreshing', async () => {
+    let resolveRefresh: () => void;
+    const onRefresh = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    render(<UpcomingMatches matches={matches} loaded onSelect={vi.fn()} onRefresh={onRefresh} />);
+
+    const refreshButton = screen.getByLabelText('Refresh upcoming matches');
+    fireEvent.click(refreshButton);
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(refreshButton).toBeDisabled();
+    expect(refreshButton.querySelector('svg')).toHaveClass('animate-spin');
+
+    // A second click while refreshing must not trigger another refresh.
+    fireEvent.click(refreshButton);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    resolveRefresh!();
+    await screen.findByLabelText('Refresh upcoming matches');
+    expect(refreshButton).not.toBeDisabled();
+    expect(refreshButton.querySelector('svg')).not.toHaveClass('animate-spin');
+  });
 });
