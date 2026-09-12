@@ -55,6 +55,7 @@ export function useUpcomingMatches(
   const [games, setGames] = useState<CalendarFixture[]>([]);
   const [loaded, setLoaded] = useState(false);
   const hasLoadedRef = useRef(false);
+  const loadedUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!games.length) {
@@ -71,15 +72,18 @@ export function useUpcomingMatches(
 
   const refresh = useCallback(
     async (force = true) => {
+      const normalizedUrl = calendarUrl.trim();
+      const urlChanged = hasLoadedRef.current && loadedUrlRef.current !== normalizedUrl;
       // Once we've shown a list, a later refresh (manual or automatic) should
       // keep it visible instead of hiding the card while the new data loads.
-      const isRefreshOfExistingData = hasLoadedRef.current;
+      const isRefreshOfExistingData = hasLoadedRef.current && !urlChanged;
 
-      if (!calendarUrl.trim()) {
+      if (!normalizedUrl) {
         setLoaded(true);
         setMatches([]);
         setGames([]);
         hasLoadedRef.current = true;
+        loadedUrlRef.current = normalizedUrl;
         return;
       }
 
@@ -89,13 +93,13 @@ export function useUpcomingMatches(
         setGames([]);
       }
 
-      const normalizedUrl = calendarUrl.trim();
       if (!force) {
         const cachedGames = readFreshCache(normalizedUrl);
         if (cachedGames) {
           setGames(cachedGames);
           setLoaded(true);
           hasLoadedRef.current = true;
+          loadedUrlRef.current = normalizedUrl;
           return;
         }
       }
@@ -119,6 +123,7 @@ export function useUpcomingMatches(
       } finally {
         setLoaded(true);
         hasLoadedRef.current = true;
+        loadedUrlRef.current = normalizedUrl;
       }
     },
     [calendarUrl],
