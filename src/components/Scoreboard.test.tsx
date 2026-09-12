@@ -88,9 +88,7 @@ describe('Scoreboard', () => {
 
   it('does nothing when held without an onOpponentLongPress callback', () => {
     vi.useFakeTimers();
-    render(
-      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
-    );
+    render(<Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />);
 
     expect(() => {
       fireEvent.pointerDown(screen.getByText('Rivals'));
@@ -121,9 +119,7 @@ describe('Scoreboard', () => {
   });
 
   it('does not suppress an ordinary tap that was never a long press', () => {
-    render(
-      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
-    );
+    render(<Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />);
 
     expect(fireEvent.click(screen.getByText('Rivals'))).toBe(true);
   });

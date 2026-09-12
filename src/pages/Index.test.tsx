@@ -259,9 +259,7 @@ describe('Index history and season dialogs', () => {
     fireEvent.change(nameInput, { target: { value: 'Playoffs' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
-    expect(screen.getByTitle('Long press to rename season')).toHaveTextContent(
-      'Playoffs (Active)',
-    );
+    expect(screen.getByTitle('Long press to rename season')).toHaveTextContent('Playoffs (Active)');
   });
 
   it('exports a backup containing the current settings and season data', async () => {

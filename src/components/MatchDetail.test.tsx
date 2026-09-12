@@ -148,15 +148,11 @@ describe('MatchDetail', () => {
 
   it('suppresses the native context menu on both the home-side and away-side editable names', () => {
     const awaySideResult = render(<MatchDetail match={awayMatch} onBack={vi.fn()} />);
-    expect(
-      fireEvent.contextMenu(screen.getByTitle('Opponent (long press to edit)')),
-    ).toBe(false);
+    expect(fireEvent.contextMenu(screen.getByTitle('Opponent (long press to edit)'))).toBe(false);
     awaySideResult.unmount();
 
     render(<MatchDetail match={homeMatch} onBack={vi.fn()} />);
-    expect(
-      fireEvent.contextMenu(screen.getByTitle('Rivals FC (long press to edit)')),
-    ).toBe(false);
+    expect(fireEvent.contextMenu(screen.getByTitle('Rivals FC (long press to edit)'))).toBe(false);
   });
 
   it('does nothing when the editable name is tapped without a preceding long press', () => {

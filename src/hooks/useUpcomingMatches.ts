@@ -68,44 +68,47 @@ export function useUpcomingMatches(
     setMatches(result.matches);
   }, [calendarTeamName, games, onDetectedTeamName]);
 
-  const refresh = useCallback(async (force = true) => {
-    setLoaded(false);
-    setMatches([]);
-    setGames([]);
+  const refresh = useCallback(
+    async (force = true) => {
+      setLoaded(false);
+      setMatches([]);
+      setGames([]);
 
-    if (!calendarUrl.trim()) {
-      setLoaded(true);
-      return;
-    }
-
-    const normalizedUrl = calendarUrl.trim();
-    if (!force) {
-      const cachedGames = readFreshCache(normalizedUrl);
-      if (cachedGames) {
-        setGames(cachedGames);
+      if (!calendarUrl.trim()) {
         setLoaded(true);
         return;
       }
-    }
 
-    try {
-      const response = await fetch('/api/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: normalizedUrl }),
-      });
-      if (!response.ok) throw new Error('Calendar request failed');
+      const normalizedUrl = calendarUrl.trim();
+      if (!force) {
+        const cachedGames = readFreshCache(normalizedUrl);
+        if (cachedGames) {
+          setGames(cachedGames);
+          setLoaded(true);
+          return;
+        }
+      }
 
-      const payload = (await response.json()) as CalendarResponse;
-      const nextGames = Array.isArray(payload.games) ? payload.games : [];
-      writeCache(normalizedUrl, nextGames);
-      setGames(nextGames);
-    } catch {
-      setMatches([]);
-    } finally {
-      setLoaded(true);
-    }
-  }, [calendarUrl]);
+      try {
+        const response = await fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: normalizedUrl }),
+        });
+        if (!response.ok) throw new Error('Calendar request failed');
+
+        const payload = (await response.json()) as CalendarResponse;
+        const nextGames = Array.isArray(payload.games) ? payload.games : [];
+        writeCache(normalizedUrl, nextGames);
+        setGames(nextGames);
+      } catch {
+        setMatches([]);
+      } finally {
+        setLoaded(true);
+      }
+    },
+    [calendarUrl],
+  );
 
   useEffect(() => {
     void refresh(false);
