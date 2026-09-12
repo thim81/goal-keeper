@@ -6,6 +6,46 @@ interface CalendarResponse {
   games?: CalendarFixture[];
 }
 
+interface CalendarCache {
+  fetchedAt: number;
+  games: CalendarFixture[];
+}
+
+const CALENDAR_CACHE_PREFIX = 'football-tracker-calendar-cache:';
+const CALENDAR_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+
+function getCacheKey(url: string) {
+  return `${CALENDAR_CACHE_PREFIX}${url}`;
+}
+
+function readFreshCache(url: string): CalendarFixture[] | null {
+  try {
+    const raw = localStorage.getItem(getCacheKey(url));
+    if (!raw) return null;
+
+    const cache = JSON.parse(raw) as Partial<CalendarCache>;
+    if (
+      typeof cache.fetchedAt !== 'number' ||
+      !Array.isArray(cache.games) ||
+      Date.now() - cache.fetchedAt >= CALENDAR_CACHE_MAX_AGE
+    ) {
+      return null;
+    }
+
+    return cache.games;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(url: string, games: CalendarFixture[]) {
+  try {
+    localStorage.setItem(getCacheKey(url), JSON.stringify({ fetchedAt: Date.now(), games }));
+  } catch {
+    // Caching is an optimization, so storage failures should not block fetching.
+  }
+}
+
 export function useUpcomingMatches(
   calendarUrl: string,
   calendarTeamName: string,
@@ -28,7 +68,7 @@ export function useUpcomingMatches(
     setMatches(result.matches);
   }, [calendarTeamName, games, onDetectedTeamName]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = true) => {
     setLoaded(false);
     setMatches([]);
     setGames([]);
@@ -38,16 +78,28 @@ export function useUpcomingMatches(
       return;
     }
 
+    const normalizedUrl = calendarUrl.trim();
+    if (!force) {
+      const cachedGames = readFreshCache(normalizedUrl);
+      if (cachedGames) {
+        setGames(cachedGames);
+        setLoaded(true);
+        return;
+      }
+    }
+
     try {
       const response = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: calendarUrl.trim() }),
+        body: JSON.stringify({ url: normalizedUrl }),
       });
       if (!response.ok) throw new Error('Calendar request failed');
 
       const payload = (await response.json()) as CalendarResponse;
-      setGames(Array.isArray(payload.games) ? payload.games : []);
+      const nextGames = Array.isArray(payload.games) ? payload.games : [];
+      writeCache(normalizedUrl, nextGames);
+      setGames(nextGames);
     } catch {
       setMatches([]);
     } finally {
@@ -56,7 +108,7 @@ export function useUpcomingMatches(
   }, [calendarUrl]);
 
   useEffect(() => {
-    void refresh();
+    void refresh(false);
   }, [refresh]);
 
   return { matches, loaded, refresh };

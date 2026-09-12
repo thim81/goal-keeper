@@ -14,7 +14,11 @@ const games = [
 ];
 
 describe('useUpcomingMatches', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   it('loads normalized games and detects the calendar team', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ games }))));
@@ -77,5 +81,33 @@ describe('useUpcomingMatches', () => {
     await waitFor(() => expect(result.current.matches).toHaveLength(1));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses a fresh local cache instead of fetching on mount', async () => {
+    localStorage.setItem(
+      `football-tracker-calendar-cache:${url}`,
+      JSON.stringify({ fetchedAt: Date.now(), games }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useUpcomingMatches(url, 'IPU15'));
+
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('fetches again when the local cache is older than 24 hours', async () => {
+    const now = Date.now();
+    localStorage.setItem(
+      `football-tracker-calendar-cache:${url}`,
+      JSON.stringify({ fetchedAt: now - 24 * 60 * 60 * 1000, games }),
+    );
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ games })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderHook(() => useUpcomingMatches(url, 'IPU15'));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 });
