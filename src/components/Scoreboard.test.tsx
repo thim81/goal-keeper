@@ -85,4 +85,77 @@ describe('Scoreboard', () => {
 
     expect(onOpponentLongPress).not.toHaveBeenCalled();
   });
+
+  it('does nothing when held without an onOpponentLongPress callback', () => {
+    vi.useFakeTimers();
+    render(
+      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
+    );
+
+    expect(() => {
+      fireEvent.pointerDown(screen.getByText('Rivals'));
+      vi.advanceTimersByTime(500);
+    }).not.toThrow();
+  });
+
+  it('clears a pending long press when started again, and a redundant release is a no-op', () => {
+    vi.useFakeTimers();
+    const onOpponentLongPress = vi.fn();
+    render(
+      <Scoreboard
+        match={createMatch({ isHome: true })}
+        myTeamScore={0}
+        opponentScore={0}
+        onOpponentLongPress={onOpponentLongPress}
+      />,
+    );
+    const opponentButton = screen.getByText('Rivals');
+
+    fireEvent.pointerDown(opponentButton);
+    fireEvent.pointerDown(opponentButton);
+    fireEvent.pointerUp(opponentButton);
+    fireEvent.pointerUp(opponentButton);
+    vi.advanceTimersByTime(500);
+
+    expect(onOpponentLongPress).not.toHaveBeenCalled();
+  });
+
+  it('does not suppress an ordinary tap that was never a long press', () => {
+    render(
+      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
+    );
+
+    expect(fireEvent.click(screen.getByText('Rivals'))).toBe(true);
+  });
+
+  it('suppresses the click that immediately follows a completed long press', () => {
+    vi.useFakeTimers();
+    const onOpponentLongPress = vi.fn();
+    render(
+      <Scoreboard
+        match={createMatch({ isHome: true })}
+        myTeamScore={0}
+        opponentScore={0}
+        onOpponentLongPress={onOpponentLongPress}
+      />,
+    );
+    const opponentButton = screen.getByText('Rivals');
+
+    fireEvent.pointerDown(opponentButton);
+    vi.advanceTimersByTime(500);
+    expect(onOpponentLongPress).toHaveBeenCalledTimes(1);
+
+    expect(fireEvent.click(opponentButton)).toBe(false);
+  });
+
+  it('suppresses the native context menu on the editable opponent name, on both sides', () => {
+    const homeResult = render(
+      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
+    );
+    expect(fireEvent.contextMenu(screen.getByText('Rivals'))).toBe(false);
+    homeResult.unmount();
+
+    render(<Scoreboard match={createMatch({ isHome: false })} myTeamScore={0} opponentScore={0} />);
+    expect(fireEvent.contextMenu(screen.getByText('Rivals'))).toBe(false);
+  });
 });
