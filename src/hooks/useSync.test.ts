@@ -62,7 +62,7 @@ describe('useSync manual refresh', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onSyncState).toHaveBeenLastCalledWith(remoteState);
     const { toast } = await import('sonner');
-    expect(toast.success).toHaveBeenLastCalledWith('Goals Synced');
+    expect(toast.success).toHaveBeenLastCalledWith('Goals Synced', { duration: 2000 });
   });
 
   it('ignores a second request in flight and during the three-second cooldown', async () => {

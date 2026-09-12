@@ -50,7 +50,7 @@ export function useSync(
       if (remoteState) {
         onSyncState(remoteState);
         lastPushedState.current = JSON.stringify(remoteState);
-        toast.success('Goals Synced');
+        toast.success('Goals Synced', { duration: 2000 });
       }
       return remoteState;
     },
