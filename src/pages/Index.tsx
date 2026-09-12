@@ -736,7 +736,7 @@ export default function Index() {
                 <DialogTitle>Final whistle?</DialogTitle>
                 <DialogDescription>Ready to end the game and save the result?</DialogDescription>
               </DialogHeader>
-              <DialogFooter className="!flex-row !justify-center">
+              <DialogFooter className="!flex-row !justify-center !gap-2 !space-x-0">
                 <Button variant="secondary" onClick={() => setShowEndMatchPrompt(false)}>
                   Continue Game
                 </Button>
