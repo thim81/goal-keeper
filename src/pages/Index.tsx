@@ -792,13 +792,6 @@ export default function Index() {
               Start New Match
             </button>
 
-            <UpcomingMatches
-              matches={upcomingMatches.matches}
-              loaded={upcomingMatches.loaded}
-              onSelect={handleSelectUpcomingMatch}
-              onRefresh={upcomingMatches.refresh}
-            />
-
             {recentMatch && (
               <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
                 <MatchResultCard
@@ -809,6 +802,13 @@ export default function Index() {
                 />
               </div>
             )}
+
+            <UpcomingMatches
+              matches={upcomingMatches.matches}
+              loaded={upcomingMatches.loaded}
+              onSelect={handleSelectUpcomingMatch}
+              onRefresh={upcomingMatches.refresh}
+            />
 
             {activeSeasonMatchCount > 0 && (
               <button
