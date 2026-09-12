@@ -26,7 +26,7 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
 
   return (
     <section className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+      <div className="flex items-center justify-between px-3 py-1 border-b border-border/30">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Upcoming matches</h2>
@@ -39,7 +39,7 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
           className="p-1.5 rounded-full hover:bg-secondary transition-colors disabled:opacity-50"
         >
           <RefreshCw
-            className={`w-4 h-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`}
+            className={`w-3 h-3 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`}
           />
         </button>
       </div>
@@ -51,9 +51,9 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
               key={match.id}
               type="button"
               onClick={() => onSelect(match)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary/30 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-1 text-left hover:bg-secondary/30 transition-colors"
             >
-              <div className="w-14 shrink-0 text-center">
+              <div className="w-12 shrink-0 text-left">
                 <div className="text-xs font-semibold text-foreground">
                   {start.toLocaleDateString('nl-BE', { weekday: 'short' })}
                 </div>
