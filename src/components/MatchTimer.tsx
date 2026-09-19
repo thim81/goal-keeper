@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Clock } from "lucide-react";
 
 interface MatchTimerProps {
   startedAt: number;
@@ -52,16 +52,16 @@ export function MatchTimer({
   const periodElapsedSeconds = Math.max(
     0,
     Math.floor(
-      ((isRunning ? Date.now() : pausedAt ?? Date.now()) - periodStart - periodPausedTime) / 1000,
+      ((isRunning ? Date.now() : (pausedAt ?? Date.now())) - periodStart - periodPausedTime) / 1000,
     ),
   );
   const periodMinutes = Math.floor(periodElapsedSeconds / 60);
   const periodHasExceededLimit = periodElapsedSeconds > periodDuration * 60;
 
   // Start time
-  const startTime = new Date(startedAt).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
+  const startTime = new Date(startedAt).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   return (
@@ -78,16 +78,16 @@ export function MatchTimer({
         <span
           className={`inline-flex h-6 items-center text-xs font-semibold px-2 py-1 rounded ${
             periodHasExceededLimit
-              ? 'text-orange-500 bg-orange-500/10 border border-orange-500/20'
-              : 'text-primary bg-primary/10 border border-primary/20'
+              ? "text-orange-500 bg-orange-500/10 border border-orange-500/20"
+              : "text-primary bg-primary/10 border border-primary/20"
           }`}
         >
           {periodMinutes} min
         </span>
         <span
-          className={`font-mono text-lg font-bold tabular-nums ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}
+          className={`font-mono text-lg font-bold tabular-nums ${isRunning ? "text-primary" : "text-muted-foreground"}`}
         >
-          {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
         </span>
       </div>
     </div>

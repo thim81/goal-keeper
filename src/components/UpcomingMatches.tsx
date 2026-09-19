@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { CalendarDays, ChevronRight, RefreshCw } from 'lucide-react';
-import type { UpcomingMatch } from '@/lib/upcoming-matches';
+import { useState } from "react";
+import { CalendarDays, ChevronRight, RefreshCw } from "lucide-react";
+import type { UpcomingMatch } from "@/lib/upcoming-matches";
 
 interface UpcomingMatchesProps {
   matches: UpcomingMatch[];
@@ -39,7 +39,7 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
           className="p-1.5 rounded-full hover:bg-secondary transition-colors disabled:opacity-50"
         >
           <RefreshCw
-            className={`w-3 h-3 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`}
+            className={`w-3 h-3 text-muted-foreground ${refreshing ? "animate-spin" : ""}`}
           />
         </button>
       </div>
@@ -55,19 +55,19 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
             >
               <div className="w-12 shrink-0 text-left">
                 <div className="text-xs font-semibold text-foreground">
-                  {start.toLocaleDateString('nl-BE', { weekday: 'short' })}
+                  {start.toLocaleDateString("nl-BE", { weekday: "short" })}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {start.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}
+                  {start.toLocaleDateString("nl-BE", { day: "numeric", month: "short" })}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {start.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}
+                  {start.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-foreground">{match.opponentName}</div>
                 <div className="text-xs text-muted-foreground">
-                  {match.isHome ? 'Home' : 'Away'}
+                  {match.isHome ? "Home" : "Away"}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Match } from '@/types/match';
-import { GoalTimeline } from './GoalTimeline';
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { ArrowLeft } from "lucide-react";
+import { Match } from "@/types/match";
+import { GoalTimeline } from "./GoalTimeline";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { PlayerAutocomplete } from './PlayerAutocomplete';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PlayerAutocomplete } from "./PlayerAutocomplete";
 
 interface MatchDetailProps {
   match: Match;
@@ -46,21 +46,21 @@ export function MatchDetail({
 
   const myTeamScore = match.goals.filter(
     (g) =>
-      (g.team === 'my-team' && g.type !== 'own-goal') ||
-      (g.team === 'opponent' && g.type === 'own-goal'),
+      (g.team === "my-team" && g.type !== "own-goal") ||
+      (g.team === "opponent" && g.type === "own-goal"),
   ).length;
 
   const opponentScore = match.goals.filter(
     (g) =>
-      (g.team === 'opponent' && g.type !== 'own-goal') ||
-      (g.team === 'my-team' && g.type === 'own-goal'),
+      (g.team === "opponent" && g.type !== "own-goal") ||
+      (g.team === "my-team" && g.type === "own-goal"),
   ).length;
 
   const isWin = myTeamScore > opponentScore;
   const isDraw = myTeamScore === opponentScore;
 
   // Calculate scorer and assist statistics
-  const myTeamGoals = match.goals.filter((g) => g.team === 'my-team' && g.type !== 'own-goal');
+  const myTeamGoals = match.goals.filter((g) => g.team === "my-team" && g.type !== "own-goal");
 
   const scorerStats = myTeamGoals.reduce(
     (acc, goal) => {
@@ -88,26 +88,26 @@ export function MatchDetail({
   const cardTotals = match.events.reduce(
     (acc, event) => {
       if (!event.team) return acc;
-      if (event.type === 'yellow-card') {
+      if (event.type === "yellow-card") {
         acc[event.team].yellow += 1;
-      } else if (event.type === 'red-card') {
+      } else if (event.type === "red-card") {
         acc[event.team].red += 1;
       }
       return acc;
     },
     {
-      'my-team': { yellow: 0, red: 0 },
+      "my-team": { yellow: 0, red: 0 },
       opponent: { yellow: 0, red: 0 },
-    } as Record<'my-team' | 'opponent', { yellow: number; red: number }>,
+    } as Record<"my-team" | "opponent", { yellow: number; red: number }>,
   );
-  const homeCardTotals = match.isHome ? cardTotals['my-team'] : cardTotals.opponent;
-  const awayCardTotals = match.isHome ? cardTotals.opponent : cardTotals['my-team'];
+  const homeCardTotals = match.isHome ? cardTotals["my-team"] : cardTotals.opponent;
+  const awayCardTotals = match.isHome ? cardTotals.opponent : cardTotals["my-team"];
   const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
   const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
   const homeScore = match.isHome ? myTeamScore : opponentScore;
   const awayScore = match.isHome ? opponentScore : myTeamScore;
-  const homeScoreColor = match.isHome ? 'text-primary' : 'text-accent';
-  const awayScoreColor = match.isHome ? 'text-accent' : 'text-primary';
+  const homeScoreColor = match.isHome ? "text-primary" : "text-accent";
+  const awayScoreColor = match.isHome ? "text-accent" : "text-primary";
   const homeIsOpponent = !match.isHome;
   const awayIsOpponent = match.isHome;
 
@@ -144,7 +144,7 @@ export function MatchDetail({
   return (
     <div
       className="flex flex-col safe-top overflow-hidden"
-      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+      style={{ height: "calc(var(--vh, 1vh) * 100)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
@@ -157,11 +157,11 @@ export function MatchDetail({
         <div>
           <h1 className="text-lg font-bold text-foreground">Match Details</h1>
           <p className="text-xs text-muted-foreground">
-            {new Date(match.startedAt).toLocaleDateString('en-GB', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
+            {new Date(match.startedAt).toLocaleDateString("en-GB", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
             })}
           </p>
         </div>
@@ -244,13 +244,13 @@ export function MatchDetail({
           <span
             className={`justify-self-center text-sm font-bold px-3 py-1 rounded-full ${
               isWin
-                ? 'bg-primary/20 text-primary'
+                ? "bg-primary/20 text-primary"
                 : isDraw
-                  ? 'bg-goal/20 text-goal'
-                  : 'bg-accent/20 text-accent'
+                  ? "bg-goal/20 text-goal"
+                  : "bg-accent/20 text-accent"
             }`}
           >
-            {isWin ? 'Victory!' : isDraw ? 'Draw' : 'Defeat'}
+            {isWin ? "Victory!" : isDraw ? "Draw" : "Defeat"}
           </span>
           <div className="justify-self-center min-h-8 inline-flex items-center gap-1">
             {awayCardTotals.yellow > 0 && (

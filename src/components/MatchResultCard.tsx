@@ -1,10 +1,10 @@
-import { ChevronRight } from 'lucide-react';
-import type { ButtonHTMLAttributes } from 'react';
-import type { MatchSummary } from '@/types/match';
+import { ChevronRight } from "lucide-react";
+import type { ButtonHTMLAttributes } from "react";
+import type { MatchSummary } from "@/types/match";
 
 type MatchResultCardProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  'children' | 'onClick'
+  "children" | "onClick"
 > & {
   match: MatchSummary;
   onSelect: () => void;
@@ -15,13 +15,13 @@ export function MatchResultCard({
   match,
   onSelect,
   showChevron = true,
-  className = '',
+  className = "",
   ...buttonProps
 }: MatchResultCardProps) {
   const isWin = match.myTeamScore > match.opponentScore;
   const isDraw = match.myTeamScore === match.opponentScore;
-  const resultColor = isWin ? 'text-primary' : isDraw ? 'text-goal' : 'text-accent';
-  const resultBg = isWin ? 'bg-primary/10' : isDraw ? 'bg-goal/10' : 'bg-accent/10';
+  const resultColor = isWin ? "text-primary" : isDraw ? "text-goal" : "text-accent";
+  const resultBg = isWin ? "bg-primary/10" : isDraw ? "bg-goal/10" : "bg-accent/10";
   const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
   const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
   const homeScore = match.isHome ? match.myTeamScore : match.opponentScore;
@@ -37,7 +37,7 @@ export function MatchResultCard({
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <span className={`text-xs font-bold px-2 py-1 rounded ${resultBg} ${resultColor}`}>
-              {isWin ? 'WIN' : isDraw ? 'DRAW' : 'LOSS'}
+              {isWin ? "WIN" : isDraw ? "DRAW" : "LOSS"}
             </span>
             <span className="text-xs text-muted-foreground">{match.date}</span>
           </div>

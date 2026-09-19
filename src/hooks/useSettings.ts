@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { AppSettings, DEFAULT_SETTINGS, Theme } from '@/types/match';
+import { useState, useEffect, useCallback } from "react";
+import { AppSettings, DEFAULT_SETTINGS, Theme } from "@/types/match";
 
-const SETTINGS_KEY = 'football-tracker-settings';
+const SETTINGS_KEY = "football-tracker-settings";
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);

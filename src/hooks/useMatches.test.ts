@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import '@testing-library/jest-dom/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useMatches } from './useMatches';
+import "@testing-library/jest-dom/vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useMatches } from "./useMatches";
 
 async function setupWithMatch(overrides?: {
   myTeamName?: string;
@@ -13,26 +13,26 @@ async function setupWithMatch(overrides?: {
   await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
   act(() => {
     result.current.startMatch(
-      overrides?.myTeamName ?? 'My Team',
-      overrides?.opponentName ?? 'Opponent',
+      overrides?.myTeamName ?? "My Team",
+      overrides?.opponentName ?? "Opponent",
       overrides?.isHome ?? true,
     );
   });
   return result;
 }
 
-describe('useMatches period history', () => {
+describe("useMatches period history", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('stores the actual current period when a match ends', async () => {
+  it("stores the actual current period when a match ends", async () => {
     const { result } = renderHook(() => useMatches());
 
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
     });
     act(() => {
       result.current.endPeriod();
@@ -46,13 +46,13 @@ describe('useMatches period history', () => {
     expect(season.fullMatches[savedMatchId].currentPeriod).toBe(1);
   });
 
-  it('allows starting additional periods after the configured count', async () => {
+  it("allows starting additional periods after the configured count", async () => {
     const { result } = renderHook(() => useMatches());
 
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
       result.current.endPeriod();
     });
     act(() => {
@@ -64,40 +64,40 @@ describe('useMatches period history', () => {
   });
 });
 
-describe('useMatches goals, events and score', () => {
+describe("useMatches goals, events and score", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('tallies normal goals scored by both teams', async () => {
+  it("tallies normal goals scored by both teams", async () => {
     const result = await setupWithMatch();
 
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
-      result.current.addGoal('opponent');
-      result.current.addGoal('my-team', 'Bob');
+      result.current.addGoal("my-team", "Alice");
+      result.current.addGoal("opponent");
+      result.current.addGoal("my-team", "Bob");
     });
 
     expect(result.current.getScore()).toEqual({ myTeam: 2, opponent: 1 });
   });
 
-  it('credits own goals to the opposing team', async () => {
+  it("credits own goals to the opposing team", async () => {
     const result = await setupWithMatch();
 
     act(() => {
-      result.current.addGoal('my-team', undefined, undefined, 'own-goal');
-      result.current.addGoal('opponent', undefined, undefined, 'own-goal');
+      result.current.addGoal("my-team", undefined, undefined, "own-goal");
+      result.current.addGoal("opponent", undefined, undefined, "own-goal");
     });
 
     expect(result.current.getScore()).toEqual({ myTeam: 1, opponent: 1 });
   });
 
-  it('removes a specific goal via deleteGoal without touching the others', async () => {
+  it("removes a specific goal via deleteGoal without touching the others", async () => {
     const result = await setupWithMatch();
 
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
-      result.current.addGoal('opponent');
+      result.current.addGoal("my-team", "Alice");
+      result.current.addGoal("opponent");
     });
     const [firstGoal] = result.current.activeMatch!.goals;
 
@@ -106,37 +106,37 @@ describe('useMatches goals, events and score', () => {
     });
 
     expect(result.current.activeMatch!.goals).toHaveLength(1);
-    expect(result.current.activeMatch!.goals[0].team).toBe('opponent');
+    expect(result.current.activeMatch!.goals[0].team).toBe("opponent");
   });
 
-  it('adds and removes events with team/player metadata', async () => {
+  it("adds and removes events with team/player metadata", async () => {
     const result = await setupWithMatch();
 
     act(() => {
-      result.current.addEvent('yellow-card', 'Yellow card', {
-        team: 'opponent',
-        player: 'Carl',
+      result.current.addEvent("yellow-card", "Yellow card", {
+        team: "opponent",
+        player: "Carl",
       });
     });
-    const cardEvent = result.current.activeMatch!.events.find((e) => e.type === 'yellow-card');
-    expect(cardEvent).toMatchObject({ team: 'opponent', player: 'Carl', label: 'Yellow card' });
+    const cardEvent = result.current.activeMatch!.events.find((e) => e.type === "yellow-card");
+    expect(cardEvent).toMatchObject({ team: "opponent", player: "Carl", label: "Yellow card" });
 
     act(() => {
       result.current.deleteEvent(cardEvent!.id);
     });
-    expect(result.current.activeMatch!.events.some((e) => e.type === 'yellow-card')).toBe(false);
+    expect(result.current.activeMatch!.events.some((e) => e.type === "yellow-card")).toBe(false);
   });
 
-  it('updates a period event time and the match start time for the first period', async () => {
+  it("updates a period event time and the match start time for the first period", async () => {
     const result = await setupWithMatch();
     const firstStart = result.current.activeMatch!.events[0];
 
     act(() => {
-      result.current.updateEventTime(firstStart.id, '09:30');
+      result.current.updateEventTime(firstStart.id, "09:30");
     });
 
     expect(result.current.activeMatch!.events[0]).toMatchObject({
-      time: '09:30',
+      time: "09:30",
       timestamp: new Date(firstStart.timestamp).setHours(9, 30, 0, 0),
     });
     expect(result.current.activeMatch!.startedAt).toBe(
@@ -144,28 +144,27 @@ describe('useMatches goals, events and score', () => {
     );
   });
 
-  it('does not update the match start when editing a period-end event', async () => {
+  it("does not update the match start when editing a period-end event", async () => {
     const result = await setupWithMatch();
     const startedAt = result.current.activeMatch!.startedAt;
     act(() => {
       result.current.endPeriod();
     });
-    const periodEnd = result.current.activeMatch!.events[
-      result.current.activeMatch!.events.length - 1
-    ];
+    const periodEnd =
+      result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1];
 
     act(() => {
-      result.current.updateEventTime(periodEnd.id, '10:15');
+      result.current.updateEventTime(periodEnd.id, "10:15");
     });
 
     expect(result.current.activeMatch!.startedAt).toBe(startedAt);
     expect(
       result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1],
-    ).toMatchObject({ time: '10:15' });
+    ).toMatchObject({ time: "10:15" });
   });
 });
 
-describe('useMatches undoLast', () => {
+describe("useMatches undoLast", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -174,19 +173,19 @@ describe('useMatches undoLast', () => {
     vi.useRealTimers();
   });
 
-  it('undoes the most recent goal when it postdates the last event', async () => {
+  it("undoes the most recent goal when it postdates the last event", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
     });
 
     vi.setSystemTime(1_000_500);
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
+      result.current.addGoal("my-team", "Alice");
     });
 
     act(() => {
@@ -197,34 +196,34 @@ describe('useMatches undoLast', () => {
     expect(result.current.activeMatch!.events).toHaveLength(1);
   });
 
-  it('undoes the most recent event when it postdates the last goal', async () => {
+  it("undoes the most recent event when it postdates the last goal", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
     });
 
     vi.setSystemTime(1_000_500);
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
+      result.current.addGoal("my-team", "Alice");
     });
     vi.setSystemTime(1_001_000);
     act(() => {
-      result.current.addEvent('yellow-card', 'Yellow card');
+      result.current.addEvent("yellow-card", "Yellow card");
     });
 
     act(() => {
       result.current.undoLast();
     });
 
-    expect(result.current.activeMatch!.events.some((e) => e.type === 'yellow-card')).toBe(false);
+    expect(result.current.activeMatch!.events.some((e) => e.type === "yellow-card")).toBe(false);
     expect(result.current.activeMatch!.goals).toHaveLength(1);
   });
 
-  it('removes the initial start event when undone with no goals yet, and is a no-op after that', async () => {
+  it("removes the initial start event when undone with no goals yet, and is a no-op after that", async () => {
     const result = await setupWithMatch();
     expect(result.current.activeMatch!.events).toHaveLength(1);
 
@@ -241,7 +240,7 @@ describe('useMatches undoLast', () => {
   });
 });
 
-describe('useMatches timer control', () => {
+describe("useMatches timer control", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -250,7 +249,7 @@ describe('useMatches timer control', () => {
     vi.useRealTimers();
   });
 
-  it('accumulates paused time across a pause/resume cycle', async () => {
+  it("accumulates paused time across a pause/resume cycle", async () => {
     const result = await setupWithMatch();
 
     vi.useFakeTimers();
@@ -271,14 +270,14 @@ describe('useMatches timer control', () => {
     expect(result.current.activeMatch!.totalPausedTime).toBe(5000);
   });
 
-  it('initializes period timing when a match starts', async () => {
+  it("initializes period timing when a match starts", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     vi.useFakeTimers();
     vi.setSystemTime(2_000_000);
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
     });
 
     expect(result.current.activeMatch).toMatchObject({
@@ -287,14 +286,14 @@ describe('useMatches timer control', () => {
     });
   });
 
-  it('tracks paused time for the current period and resets it for the next period', async () => {
+  it("tracks paused time for the current period and resets it for the next period", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     vi.useFakeTimers();
     vi.setSystemTime(2_000_000);
     act(() => {
-      result.current.startMatch('My Team', 'Opponent', true);
+      result.current.startMatch("My Team", "Opponent", true);
     });
 
     vi.setSystemTime(2_010_000);
@@ -326,19 +325,19 @@ describe('useMatches timer control', () => {
     });
   });
 
-  it('keeps legacy matches readable when period timing fields are missing', async () => {
+  it("keeps legacy matches readable when period timing fields are missing", async () => {
     const legacyMatch = {
-      id: 'legacy',
-      myTeamName: 'My Team',
-      opponentName: 'Opponent',
+      id: "legacy",
+      myTeamName: "My Team",
+      opponentName: "Opponent",
       isHome: true,
       goals: [],
       events: [
         {
-          id: 'start',
-          type: 'start' as const,
-          label: 'Start Period 1',
-          time: '12:00',
+          id: "start",
+          type: "start" as const,
+          label: "Start Period 1",
+          time: "12:00",
           timestamp: 1_000_000,
         },
       ],
@@ -348,17 +347,17 @@ describe('useMatches timer control', () => {
       totalPausedTime: 0,
       currentPeriod: 1,
     };
-    localStorage.setItem('football-tracker-active-match', JSON.stringify(legacyMatch));
+    localStorage.setItem("football-tracker-active-match", JSON.stringify(legacyMatch));
 
     const { result } = renderHook(() => useMatches());
-    await waitFor(() => expect(result.current.activeMatch?.id).toBe('legacy'));
+    await waitFor(() => expect(result.current.activeMatch?.id).toBe("legacy"));
 
-    expect(result.current.activeMatch).toMatchObject({ id: 'legacy', currentPeriod: 1 });
-    expect(result.current.activeMatch).not.toHaveProperty('periodStartedAt');
-    expect(result.current.activeMatch).not.toHaveProperty('periodPausedTime');
+    expect(result.current.activeMatch).toMatchObject({ id: "legacy", currentPeriod: 1 });
+    expect(result.current.activeMatch).not.toHaveProperty("periodStartedAt");
+    expect(result.current.activeMatch).not.toHaveProperty("periodPausedTime");
   });
 
-  it('marks the match paused and logs a period-end event on endPeriod', async () => {
+  it("marks the match paused and logs a period-end event on endPeriod", async () => {
     const result = await setupWithMatch();
 
     act(() => {
@@ -369,27 +368,27 @@ describe('useMatches timer control', () => {
     expect(
       result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1],
     ).toMatchObject({
-      type: 'period-end',
-      label: 'End Period 1',
+      type: "period-end",
+      label: "End Period 1",
     });
   });
 });
 
-describe('useMatches endMatch summary', () => {
+describe("useMatches endMatch summary", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('computes the final score and card counts, including own goals, and archives the match', async () => {
-    const result = await setupWithMatch({ opponentName: 'Rivals' });
+  it("computes the final score and card counts, including own goals, and archives the match", async () => {
+    const result = await setupWithMatch({ opponentName: "Rivals" });
 
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
-      result.current.addGoal('opponent');
-      result.current.addGoal('my-team', undefined, undefined, 'own-goal');
-      result.current.addEvent('yellow-card');
-      result.current.addEvent('yellow-card');
-      result.current.addEvent('red-card');
+      result.current.addGoal("my-team", "Alice");
+      result.current.addGoal("opponent");
+      result.current.addGoal("my-team", undefined, undefined, "own-goal");
+      result.current.addEvent("yellow-card");
+      result.current.addEvent("yellow-card");
+      result.current.addEvent("red-card");
     });
 
     const matchId = result.current.activeMatch!.id;
@@ -402,7 +401,7 @@ describe('useMatches endMatch summary', () => {
     const summary = season.matches[0];
     expect(summary).toMatchObject({
       id: matchId,
-      opponentName: 'Rivals',
+      opponentName: "Rivals",
       myTeamScore: 1,
       opponentScore: 2,
       yellowCardCount: 2,
@@ -412,12 +411,12 @@ describe('useMatches endMatch summary', () => {
   });
 });
 
-describe('useMatches match management', () => {
+describe("useMatches match management", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('deletes a historical match from the active season', async () => {
+  it("deletes a historical match from the active season", async () => {
     const result = await setupWithMatch();
     act(() => {
       result.current.endMatch();
@@ -433,43 +432,43 @@ describe('useMatches match management', () => {
     expect(season.fullMatches[matchId]).toBeUndefined();
   });
 
-  it('renames the opponent on a historical match in both the summary and full record', async () => {
-    const result = await setupWithMatch({ opponentName: 'Old Name' });
+  it("renames the opponent on a historical match in both the summary and full record", async () => {
+    const result = await setupWithMatch({ opponentName: "Old Name" });
     act(() => {
       result.current.endMatch();
     });
     const matchId = result.current.seasons[result.current.activeSeasonId!].matches[0].id;
 
     act(() => {
-      result.current.renameHistoricalOpponent(matchId, ' New Name ');
+      result.current.renameHistoricalOpponent(matchId, " New Name ");
     });
 
     const season = result.current.seasons[result.current.activeSeasonId!];
-    expect(season.matches[0].opponentName).toBe('New Name');
-    expect(season.fullMatches[matchId].opponentName).toBe('New Name');
+    expect(season.matches[0].opponentName).toBe("New Name");
+    expect(season.fullMatches[matchId].opponentName).toBe("New Name");
   });
 
-  it('renames the opponent on the live match', async () => {
-    const result = await setupWithMatch({ opponentName: 'Old Name' });
+  it("renames the opponent on the live match", async () => {
+    const result = await setupWithMatch({ opponentName: "Old Name" });
 
     act(() => {
-      result.current.renameOpponent(' New Name ');
+      result.current.renameOpponent(" New Name ");
     });
-    expect(result.current.activeMatch!.opponentName).toBe('New Name');
+    expect(result.current.activeMatch!.opponentName).toBe("New Name");
 
     act(() => {
-      result.current.renameOpponent('   ');
+      result.current.renameOpponent("   ");
     });
-    expect(result.current.activeMatch!.opponentName).toBe('New Name');
+    expect(result.current.activeMatch!.opponentName).toBe("New Name");
   });
 });
 
-describe('useMatches season lifecycle', () => {
+describe("useMatches season lifecycle", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('blocks closing or reopening a season while a match is in progress', async () => {
+  it("blocks closing or reopening a season while a match is in progress", async () => {
     const result = await setupWithMatch();
 
     expect(result.current.canCloseSeason).toBe(false);
@@ -483,12 +482,12 @@ describe('useMatches season lifecycle', () => {
 
     let reopened = true;
     act(() => {
-      reopened = result.current.reopenSeason('any-season-id');
+      reopened = result.current.reopenSeason("any-season-id");
     });
     expect(reopened).toBe(false);
   });
 
-  it('closes the active season and starts a fresh one when no match is active', async () => {
+  it("closes the active season and starts a fresh one when no match is active", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
     const originalSeasonId = result.current.activeSeasonId!;
@@ -497,19 +496,19 @@ describe('useMatches season lifecycle', () => {
 
     let created = false;
     act(() => {
-      created = result.current.closeAndStartNewSeason({ name: '2027-2028' });
+      created = result.current.closeAndStartNewSeason({ name: "2027-2028" });
     });
 
     expect(created).toBe(true);
     expect(result.current.activeSeasonId).not.toBe(originalSeasonId);
-    expect(result.current.seasons[originalSeasonId].status).toBe('closed');
+    expect(result.current.seasons[originalSeasonId].status).toBe("closed");
     expect(result.current.seasons[result.current.activeSeasonId!]).toMatchObject({
-      status: 'active',
-      name: '2027-2028',
+      status: "active",
+      name: "2027-2028",
     });
   });
 
-  it('reopens a closed season and closes the currently active one in its place', async () => {
+  it("reopens a closed season and closes the currently active one in its place", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
     const originalSeasonId = result.current.activeSeasonId!;
@@ -526,11 +525,11 @@ describe('useMatches season lifecycle', () => {
 
     expect(reopened).toBe(true);
     expect(result.current.activeSeasonId).toBe(originalSeasonId);
-    expect(result.current.seasons[originalSeasonId].status).toBe('active');
-    expect(result.current.seasons[newSeasonId].status).toBe('closed');
+    expect(result.current.seasons[originalSeasonId].status).toBe("active");
+    expect(result.current.seasons[newSeasonId].status).toBe("closed");
   });
 
-  it('refuses to reopen a season that is not closed', async () => {
+  it("refuses to reopen a season that is not closed", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
@@ -542,27 +541,27 @@ describe('useMatches season lifecycle', () => {
     expect(reopened).toBe(false);
   });
 
-  it('lists the active season first regardless of when the other seasons started', async () => {
+  it("lists the active season first regardless of when the other seasons started", async () => {
     const { result } = renderHook(() => useMatches());
     await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
 
     act(() => {
-      result.current.closeAndStartNewSeason({ name: 'Newest Season' });
+      result.current.closeAndStartNewSeason({ name: "Newest Season" });
     });
 
     const summaries = result.current.getSeasonSummaries();
     expect(summaries[0]).toMatchObject({
       id: result.current.activeSeasonId,
-      status: 'active',
-      name: 'Newest Season',
+      status: "active",
+      name: "Newest Season",
     });
     expect(summaries).toHaveLength(2);
   });
 
-  it('returns season stats for a known season and null for an unknown one', async () => {
+  it("returns season stats for a known season and null for an unknown one", async () => {
     const result = await setupWithMatch();
     act(() => {
-      result.current.addGoal('my-team', 'Alice');
+      result.current.addGoal("my-team", "Alice");
     });
     act(() => {
       result.current.endMatch();
@@ -570,6 +569,6 @@ describe('useMatches season lifecycle', () => {
 
     const stats = result.current.getSeasonStatsById(result.current.activeSeasonId!);
     expect(stats).toMatchObject({ wins: 1, goalsFor: 1, goalsAgainst: 0 });
-    expect(result.current.getSeasonStatsById('does-not-exist')).toBeNull();
+    expect(result.current.getSeasonStatsById("does-not-exist")).toBeNull();
   });
 });

@@ -1,18 +1,18 @@
-export type GoalType = 'normal' | 'penalty' | 'own-goal' | 'head';
+export type GoalType = "normal" | "penalty" | "own-goal" | "head";
 
 export type GameEventType =
-  | 'start'
-  | 'pause'
-  | 'resume'
-  | 'half-time'
-  | 'full-time'
-  | 'period-end'
-  | 'yellow-card'
-  | 'red-card';
+  | "start"
+  | "pause"
+  | "resume"
+  | "half-time"
+  | "full-time"
+  | "period-end"
+  | "yellow-card"
+  | "red-card";
 
 export interface Goal {
   id: string;
-  team: 'my-team' | 'opponent';
+  team: "my-team" | "opponent";
   scorer?: string;
   assist?: string;
   type: GoalType;
@@ -24,7 +24,7 @@ export interface GameEvent {
   id: string;
   type: GameEventType;
   label?: string; // e.g. "End of Period 1"
-  team?: 'my-team' | 'opponent';
+  team?: "my-team" | "opponent";
   player?: string;
   time: string;
   timestamp: number;
@@ -61,7 +61,7 @@ export interface MatchSummary {
   endedAt: number;
 }
 
-export type SeasonStatus = 'active' | 'closed';
+export type SeasonStatus = "active" | "closed";
 
 export interface Season {
   id: string;
@@ -73,7 +73,7 @@ export interface Season {
   fullMatches: Record<string, Match>;
 }
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = "light" | "dark" | "system";
 
 export interface AppSettings {
   teamName: string;
@@ -88,13 +88,13 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  teamName: 'My Team',
-  calendarUrl: '',
-  calendarTeamName: '',
+  teamName: "My Team",
+  calendarUrl: "",
+  calendarTeamName: "",
   players: [],
   periodsCount: 4,
   periodDuration: 20,
-  syncToken: '',
-  theme: 'system',
+  syncToken: "",
+  theme: "system",
   debug: false,
 };

@@ -1,4 +1,4 @@
-import ICAL from 'ical.js';
+import ICAL from "ical.js";
 
 export interface CalendarFixture {
   id: string;
@@ -11,14 +11,14 @@ export function isAllowedCalendarUrl(value: string): boolean {
   try {
     const url = new URL(value);
     const isProSoccerDataHost =
-      url.hostname === 'prosoccerdata.com' || url.hostname.endsWith('.prosoccerdata.com');
+      url.hostname === "prosoccerdata.com" || url.hostname.endsWith(".prosoccerdata.com");
 
     return (
-      url.protocol === 'https:' &&
+      url.protocol === "https:" &&
       isProSoccerDataHost &&
-      url.pathname === '/api/v2/members/ics/file' &&
-      Boolean(url.searchParams.get('id')) &&
-      Boolean(url.searchParams.get('uuid'))
+      url.pathname === "/api/v2/members/ics/file" &&
+      Boolean(url.searchParams.get("id")) &&
+      Boolean(url.searchParams.get("uuid"))
     );
   } catch {
     return false;
@@ -33,13 +33,13 @@ export function parseCalendarGames(
   const calendar = new ICAL.Component(ICAL.parse(source));
 
   return calendar
-    .getAllSubcomponents('vevent')
+    .getAllSubcomponents("vevent")
     .map((component) => new ICAL.Event(component))
     .filter(
       (event) =>
-        typeof event.uid === 'string' &&
-        event.uid.startsWith('game|') &&
-        typeof event.summary === 'string' &&
+        typeof event.uid === "string" &&
+        event.uid.startsWith("game|") &&
+        typeof event.summary === "string" &&
         Boolean(event.startDate),
     )
     .map((event) => {

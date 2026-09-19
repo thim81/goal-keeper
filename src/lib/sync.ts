@@ -1,4 +1,4 @@
-import { Match, MatchSummary, Season } from '@/types/match';
+import { Match, MatchSummary, Season } from "@/types/match";
 
 export interface SyncState {
   matches: MatchSummary[];
@@ -11,9 +11,9 @@ export interface SyncState {
 
 export async function fetchRemoteState(token: string): Promise<SyncState | null> {
   try {
-    const response = await fetch('/api/state', {
+    const response = await fetch("/api/state", {
       headers: {
-        'x-auth-token': token,
+        "x-auth-token": token,
       },
     });
 
@@ -22,34 +22,34 @@ export async function fetchRemoteState(token: string): Promise<SyncState | null>
     }
 
     if (!response.ok) {
-      throw new Error('Failed to fetch remote state');
+      throw new Error("Failed to fetch remote state");
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Sync fetch error:', error);
+    console.error("Sync fetch error:", error);
     return null;
   }
 }
 
 export async function pushLocalState(token: string, state: SyncState): Promise<boolean> {
   try {
-    const response = await fetch('/api/state', {
-      method: 'POST',
+    const response = await fetch("/api/state", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-auth-token': token,
+        "Content-Type": "application/json",
+        "x-auth-token": token,
       },
       body: JSON.stringify(state),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to push local state');
+      throw new Error("Failed to push local state");
     }
 
     return true;
   } catch (error) {
-    console.error('Sync push error:', error);
+    console.error("Sync push error:", error);
     return false;
   }
 }

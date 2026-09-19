@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode } from "react";
 
 interface LiveMatchLayoutProps {
   header: ReactNode;
@@ -38,14 +38,14 @@ export function LiveMatchLayout({
         const safeAreaBottom =
           parseInt(
             getComputedStyle(document.documentElement)
-              .getPropertyValue('env(safe-area-inset-bottom, 0px)')
-              .replace('px', ''),
+              .getPropertyValue("env(safe-area-inset-bottom, 0px)")
+              .replace("px", ""),
           ) || 0;
 
         // Get --vh value
         const vh =
           parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue('--vh').replace('px', ''),
+            getComputedStyle(document.documentElement).getPropertyValue("--vh").replace("px", ""),
           ) || 0;
 
         setInfo({
@@ -59,15 +59,15 @@ export function LiveMatchLayout({
       }
     };
     updateHeights();
-    window.addEventListener('resize', updateHeights);
-    return () => window.removeEventListener('resize', updateHeights);
+    window.addEventListener("resize", updateHeights);
+    return () => window.removeEventListener("resize", updateHeights);
   }, []);
 
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col safe-top ${debug ? 'bg-red-500/10' : ''}`}
-      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+      className={`flex flex-col safe-top ${debug ? "bg-red-500/10" : ""}`}
+      style={{ height: "calc(var(--vh, 1vh) * 100)" }}
     >
       {/* Debug overlay */}
       {debug && (
@@ -82,15 +82,15 @@ export function LiveMatchLayout({
       )}
 
       {/* Fixed Header */}
-      <div className={`flex-shrink-0 ${debug ? 'bg-blue-500/10' : ''}`}>{header}</div>
+      <div className={`flex-shrink-0 ${debug ? "bg-blue-500/10" : ""}`}>{header}</div>
 
       {/* Fixed Scoreboard/Top Section */}
-      <div className={`flex-shrink-0 ${debug ? 'bg-green-500/10' : ''}`}>{top}</div>
+      <div className={`flex-shrink-0 ${debug ? "bg-green-500/10" : ""}`}>{top}</div>
 
       {/* Scrollable Timeline - This grows to fill space */}
       <div
         ref={timelineRef}
-        className={`flex-1 overflow-y-auto overscroll-contain p-4 relative ${debug ? 'bg-orange-500/10' : ''}`}
+        className={`flex-1 overflow-y-auto overscroll-contain p-4 relative ${debug ? "bg-orange-500/10" : ""}`}
       >
         {timeline}
       </div>
@@ -99,14 +99,14 @@ export function LiveMatchLayout({
       <div
         ref={actionsRef}
         className={`flex-shrink-0 bg-background/80 backdrop-blur-sm border-t border-border/30 px-4 pt-2 relative ${
-          debug ? 'bg-purple-500/20' : ''
+          debug ? "bg-purple-500/20" : ""
         }`}
         style={{
           paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px))`,
         }}
       >
         {actionsHandle ? (
-          <div className={debug ? 'bg-yellow-500/20' : ''}>{actionsHandle}</div>
+          <div className={debug ? "bg-yellow-500/20" : ""}>{actionsHandle}</div>
         ) : null}
         {actions}
       </div>

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CalendarFixture } from '@/lib/calendar';
-import { getUpcomingMatches, type UpcomingMatch } from '@/lib/upcoming-matches';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CalendarFixture } from "@/lib/calendar";
+import { getUpcomingMatches, type UpcomingMatch } from "@/lib/upcoming-matches";
 
 interface CalendarResponse {
   games?: CalendarFixture[];
@@ -11,7 +11,7 @@ interface CalendarCache {
   games: CalendarFixture[];
 }
 
-const CALENDAR_CACHE_PREFIX = 'football-tracker-calendar-cache:';
+const CALENDAR_CACHE_PREFIX = "football-tracker-calendar-cache:";
 const CALENDAR_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 
 function getCacheKey(url: string) {
@@ -25,7 +25,7 @@ function readFreshCache(url: string): CalendarFixture[] | null {
 
     const cache = JSON.parse(raw) as Partial<CalendarCache>;
     if (
-      typeof cache.fetchedAt !== 'number' ||
+      typeof cache.fetchedAt !== "number" ||
       !Array.isArray(cache.games) ||
       Date.now() - cache.fetchedAt >= CALENDAR_CACHE_MAX_AGE
     ) {
@@ -105,12 +105,12 @@ export function useUpcomingMatches(
       }
 
       try {
-        const response = await fetch('/api/calendar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/calendar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: normalizedUrl }),
         });
-        if (!response.ok) throw new Error('Calendar request failed');
+        if (!response.ok) throw new Error("Calendar request failed");
 
         const payload = (await response.json()) as CalendarResponse;
         const nextGames = Array.isArray(payload.games) ? payload.games : [];

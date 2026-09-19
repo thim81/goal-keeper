@@ -1,22 +1,22 @@
 // @vitest-environment jsdom
-import '@testing-library/jest-dom/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useSync } from './useSync';
-import type { SyncState } from '@/lib/sync';
+import "@testing-library/jest-dom/vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useSync } from "./useSync";
+import type { SyncState } from "@/lib/sync";
 
 const remoteState: SyncState = {
   matches: [],
   activeMatch: null,
   fullMatches: {},
-  activeSeasonId: 'season-1',
+  activeSeasonId: "season-1",
   seasons: {},
   settings: {
-    teamName: 'My Team',
+    teamName: "My Team",
     players: [],
     periodsCount: 4,
     periodDuration: 20,
-    syncToken: 'token',
+    syncToken: "token",
     debug: false,
   },
 };
@@ -24,36 +24,36 @@ const remoteState: SyncState = {
 const remoteResponse = () => new Response(JSON.stringify(remoteState));
 
 const settings = {
-  teamName: 'My Team',
-  calendarUrl: '',
-  calendarTeamName: '',
+  teamName: "My Team",
+  calendarUrl: "",
+  calendarTeamName: "",
   players: [],
   periodsCount: 4,
   periodDuration: 20,
-  syncToken: 'token',
-  theme: 'system' as const,
+  syncToken: "token",
+  theme: "system" as const,
   debug: false,
 };
 
-vi.mock('sonner', () => ({
+vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
   },
 }));
 
-describe('useSync manual refresh', () => {
+describe("useSync manual refresh", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  it('pulls remote state and reuses the existing success toast', async () => {
+  it("pulls remote state and reuses the existing success toast", async () => {
     const fetchMock = vi.fn().mockImplementation(remoteResponse);
-    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
     const onSyncState = vi.fn();
 
     const { result } = renderHook(() =>
-      useSync('token', {}, 'season-1', null, settings, onSyncState),
+      useSync("token", {}, "season-1", null, settings, onSyncState),
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
@@ -63,11 +63,11 @@ describe('useSync manual refresh', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onSyncState).toHaveBeenLastCalledWith(remoteState);
-    const { toast } = await import('sonner');
-    expect(toast.success).toHaveBeenLastCalledWith('Goals Synced', { duration: 2000 });
+    const { toast } = await import("sonner");
+    expect(toast.success).toHaveBeenLastCalledWith("Goals Synced", { duration: 2000 });
   });
 
-  it('ignores a second request in flight and during the three-second cooldown', async () => {
+  it("ignores a second request in flight and during the three-second cooldown", async () => {
     vi.useFakeTimers();
     let resolveManual: (response: Response) => void = () => undefined;
     const fetchMock = vi
@@ -75,9 +75,9 @@ describe('useSync manual refresh', () => {
       .mockImplementationOnce(remoteResponse)
       .mockImplementationOnce(() => new Promise<Response>((resolve) => (resolveManual = resolve)))
       .mockImplementation(remoteResponse);
-    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderHook(() => useSync('token', {}, 'season-1', null, settings, vi.fn()));
+    const { result } = renderHook(() => useSync("token", {}, "season-1", null, settings, vi.fn()));
     await act(async () => {
       await Promise.resolve();
     });

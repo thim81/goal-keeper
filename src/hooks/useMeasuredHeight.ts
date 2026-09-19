@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from "react";
 
 export function useMeasuredHeight<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
@@ -15,7 +15,7 @@ export function useMeasuredHeight<T extends HTMLElement>() {
 
     updateHeight();
 
-    if (typeof ResizeObserver === 'undefined') return;
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(updateHeight);
     observer.observe(el);
     return () => observer.disconnect();

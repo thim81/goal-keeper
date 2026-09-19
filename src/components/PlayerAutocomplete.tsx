@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react';
-import { cn } from '@/lib/utils';
-import { getOpponentSuggestions } from '@/lib/opponent-suggestions';
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from "react";
+import { cn } from "@/lib/utils";
+import { getOpponentSuggestions } from "@/lib/opponent-suggestions";
 
 interface PlayerAutocompleteProps {
   value: string;
@@ -35,8 +35,8 @@ export function PlayerAutocomplete({
         setIsOpen(false);
       }
     };
-    document.addEventListener('pointerdown', handlePointerDownOutside);
-    return () => document.removeEventListener('pointerdown', handlePointerDownOutside);
+    document.addEventListener("pointerdown", handlePointerDownOutside);
+    return () => document.removeEventListener("pointerdown", handlePointerDownOutside);
   }, []);
 
   const handleSelect = (player: string) => {
@@ -47,25 +47,25 @@ export function PlayerAutocomplete({
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!isVisible) {
-      if (event.key === 'ArrowDown' && suggestions.length > 0) {
+      if (event.key === "ArrowDown" && suggestions.length > 0) {
         event.preventDefault();
         setIsOpen(true);
-      } else if (event.key === 'Enter') {
+      } else if (event.key === "Enter") {
         onEnter?.();
       }
       return;
     }
 
-    if (event.key === 'ArrowDown') {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((index) => (index + 1) % suggestions.length);
-    } else if (event.key === 'ArrowUp') {
+    } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((index) => (index - 1 + suggestions.length) % suggestions.length);
-    } else if (event.key === 'Enter') {
+    } else if (event.key === "Enter") {
       event.preventDefault();
       handleSelect(suggestions[activeIndex]);
-    } else if (event.key === 'Escape') {
+    } else if (event.key === "Escape") {
       event.preventDefault();
       setIsOpen(false);
     }
@@ -87,7 +87,7 @@ export function PlayerAutocomplete({
         }}
         placeholder={placeholder}
         className={cn(
-          'w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-base',
+          "w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-base",
           inputClassName,
         )}
         autoFocus={autoFocus}
@@ -116,8 +116,8 @@ export function PlayerAutocomplete({
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(player)}
                 className={`w-full px-4 py-3 text-left text-foreground transition-colors ${
-                  index === activeIndex ? 'bg-primary/10 text-primary' : 'hover:bg-primary/20'
-                } ${index !== suggestions.length - 1 ? 'border-b border-border/50' : ''}`}
+                  index === activeIndex ? "bg-primary/10 text-primary" : "hover:bg-primary/20"
+                } ${index !== suggestions.length - 1 ? "border-b border-border/50" : ""}`}
               >
                 {player}
               </button>

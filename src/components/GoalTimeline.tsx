@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Goal, GameEvent } from '@/types/match';
+import { useEffect, useRef, useState } from "react";
+import { Goal, GameEvent } from "@/types/match";
 import {
   Trophy,
   Target,
@@ -10,7 +10,7 @@ import {
   Clock,
   Flag,
   Trash2,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 interface GoalTimelineProps {
   goals: Goal[];
   events: GameEvent[];
@@ -36,48 +36,48 @@ const goalTypeIcons = {
   normal: Trophy,
   head: CircleDot,
   penalty: Target,
-  'own-goal': AlertCircle,
+  "own-goal": AlertCircle,
 };
 
 const goalTypeLabels = {
-  normal: '',
-  head: 'HEAD',
-  penalty: 'PEN',
-  'own-goal': 'OG',
+  normal: "",
+  head: "HEAD",
+  penalty: "PEN",
+  "own-goal": "OG",
 };
 
 const eventTypeIcons = {
   start: Play,
   pause: Pause,
   resume: Play,
-  'half-time': Clock,
-  'full-time': Flag,
-  'period-end': Clock,
+  "half-time": Clock,
+  "full-time": Flag,
+  "period-end": Clock,
 };
 
 const eventTypeLabels = {
-  start: 'Match Started',
-  pause: 'Pause',
-  resume: 'Resume',
-  'half-time': 'Half Time',
-  'full-time': 'Full Time',
-  'period-end': 'Period End',
-  'yellow-card': 'Yellow Card',
-  'red-card': 'Red Card',
+  start: "Match Started",
+  pause: "Pause",
+  resume: "Resume",
+  "half-time": "Half Time",
+  "full-time": "Full Time",
+  "period-end": "Period End",
+  "yellow-card": "Yellow Card",
+  "red-card": "Red Card",
 };
 
 const eventTypeIconColors = {
-  start: 'text-muted-foreground',
-  pause: 'text-muted-foreground',
-  resume: 'text-muted-foreground',
-  'half-time': 'text-muted-foreground',
-  'full-time': 'text-muted-foreground',
-  'period-end': 'text-muted-foreground',
-  'yellow-card': 'text-yellow-500',
-  'red-card': 'text-red-500',
+  start: "text-muted-foreground",
+  pause: "text-muted-foreground",
+  resume: "text-muted-foreground",
+  "half-time": "text-muted-foreground",
+  "full-time": "text-muted-foreground",
+  "period-end": "text-muted-foreground",
+  "yellow-card": "text-yellow-500",
+  "red-card": "text-red-500",
 };
 
-type TimelineItem = { kind: 'goal'; data: Goal } | { kind: 'event'; data: GameEvent };
+type TimelineItem = { kind: "goal"; data: Goal } | { kind: "event"; data: GameEvent };
 
 export function GoalTimeline({
   goals,
@@ -92,8 +92,8 @@ export function GoalTimeline({
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
   const timelineItems: TimelineItem[] = [
-    ...goals.map((g) => ({ kind: 'goal' as const, data: g })),
-    ...events.map((e) => ({ kind: 'event' as const, data: e })),
+    ...goals.map((g) => ({ kind: "goal" as const, data: g })),
+    ...events.map((e) => ({ kind: "event" as const, data: e })),
   ].sort((a, b) => a.data.timestamp - b.data.timestamp);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -108,7 +108,7 @@ export function GoalTimeline({
       // Use rAF so layout is updated before we scroll
       requestAnimationFrame(() => {
         // Scroll the parent container (LiveMatchLayout handles scrolling)
-        const el = scrollRef.current?.closest('.overflow-y-auto');
+        const el = scrollRef.current?.closest(".overflow-y-auto");
         if (!el) return;
         el.scrollTop = el.scrollHeight;
       });
@@ -120,7 +120,7 @@ export function GoalTimeline({
     if (!editable || timelineItems.length === 0 || hasAutoScrolledOnMountRef.current) return;
 
     requestAnimationFrame(() => {
-      const el = scrollRef.current?.closest('.overflow-y-auto');
+      const el = scrollRef.current?.closest(".overflow-y-auto");
       if (!el) return;
       el.scrollTop = el.scrollHeight;
     });
@@ -132,7 +132,7 @@ export function GoalTimeline({
     if (scrollToBottomSignal === 0) return;
 
     requestAnimationFrame(() => {
-      const el = scrollRef.current?.closest('.overflow-y-auto');
+      const el = scrollRef.current?.closest(".overflow-y-auto");
       if (!el) return;
       el.scrollTop = el.scrollHeight;
     });
@@ -151,7 +151,7 @@ export function GoalTimeline({
   const longPressTriggeredRef = useRef(false);
   const longPressStartXRef = useRef(0);
   const [editingEvent, setEditingEvent] = useState<GameEvent | null>(null);
-  const [editingEventTime, setEditingEventTime] = useState('');
+  const [editingEventTime, setEditingEventTime] = useState("");
 
   const clearLongPress = () => {
     if (longPressTimerRef.current !== null) {
@@ -173,7 +173,7 @@ export function GoalTimeline({
     longPressStartXRef.current = e.clientX;
     clearLongPress();
     const event = events.find((item) => item.id === eventId);
-    if (event && onUpdateEventTime && (event.type === 'start' || event.type === 'period-end')) {
+    if (event && onUpdateEventTime && (event.type === "start" || event.type === "period-end")) {
       longPressTimerRef.current = window.setTimeout(() => {
         longPressTriggeredRef.current = true;
         setEditingEvent(event);
@@ -317,27 +317,27 @@ export function GoalTimeline({
   return (
     <div ref={scrollRef} className="space-y-2 pb-2">
       {timelineItems.map((item, index) => {
-        if (item.kind === 'event') {
+        if (item.kind === "event") {
           const event = item.data;
           const eventTeamName =
-            event.team === 'my-team'
+            event.team === "my-team"
               ? myTeamName
-              : event.team === 'opponent'
+              : event.team === "opponent"
                 ? opponentName
                 : undefined;
-          const isCardEvent = event.type === 'yellow-card' || event.type === 'red-card';
+          const isCardEvent = event.type === "yellow-card" || event.type === "red-card";
           const Icon = !isCardEvent ? eventTypeIcons[event.type] : null;
-          const iconColor = !isCardEvent ? eventTypeIconColors[event.type] : '';
-          const cardDetails = [eventTeamName, event.player].filter(Boolean).join(' • ');
+          const iconColor = !isCardEvent ? eventTypeIconColors[event.type] : "";
+          const cardDetails = [eventTeamName, event.player].filter(Boolean).join(" • ");
           const eventText = isCardEvent
-            ? cardDetails || event.label || 'Card'
+            ? cardDetails || event.label || "Card"
             : event.label || eventTypeLabels[event.type];
           const swipeX = eventSwipeX[event.id] ?? 0;
           const canSwipeDelete = editable && !!onDeleteEvent;
           const canEditTime =
             editable &&
             !!onUpdateEventTime &&
-            (event.type === 'start' || event.type === 'period-end');
+            (event.type === "start" || event.type === "period-end");
 
           return (
             <div
@@ -360,7 +360,7 @@ export function GoalTimeline({
 
                 {/* Foreground row (slides left) */}
                 <div
-                  className={`flex items-center gap-2 py-1 px-3 bg-secondary group touch-pan-y ${canEditTime ? 'select-none' : ''}`}
+                  className={`flex items-center gap-2 py-1 px-3 bg-secondary group touch-pan-y ${canEditTime ? "select-none" : ""}`}
                   onPointerDown={canSwipeDelete ? onEventPointerDown(event.id) : undefined}
                   onPointerMove={canSwipeDelete ? onEventPointerMove : undefined}
                   onPointerUp={canSwipeDelete ? onEventPointerEnd : undefined}
@@ -369,23 +369,23 @@ export function GoalTimeline({
                   onContextMenu={canEditTime ? (event) => event.preventDefault() : undefined}
                   style={{
                     transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
-                    transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
+                    transition: draggingRef.current ? "none" : "transform 160ms ease-out",
                     ...(canEditTime
-                      ? { WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }
+                      ? { WebkitUserSelect: "none", WebkitTouchCallout: "none" }
                       : {}),
                   }}
                 >
                   <div
                     className={`rounded-lg flex items-center justify-center ${
-                      isCardEvent ? 'w-8 h-8 ml-1' : 'p-2 bg-muted-foreground/10'
+                      isCardEvent ? "w-8 h-8 ml-1" : "p-2 bg-muted-foreground/10"
                     }`}
                   >
                     {isCardEvent ? (
                       <span
                         className={`inline-block h-5 w-4 rounded-[2px] border ${
-                          event.type === 'yellow-card'
-                            ? 'bg-yellow-400 border-yellow-500'
-                            : 'bg-red-500 border-red-600'
+                          event.type === "yellow-card"
+                            ? "bg-yellow-400 border-yellow-500"
+                            : "bg-red-500 border-red-600"
                         }`}
                       />
                     ) : (
@@ -422,7 +422,7 @@ export function GoalTimeline({
 
         const goal = item.data;
         const Icon = goalTypeIcons[goal.type];
-        const isMyTeam = goal.team === 'my-team';
+        const isMyTeam = goal.team === "my-team";
         const teamName = isMyTeam ? myTeamName : opponentName;
 
         const swipeX = goalSwipeX[goal.id] ?? 0;
@@ -448,13 +448,13 @@ export function GoalTimeline({
 
               {/* Foreground row (slides left) */}
               <div
-                className={`${swipeX !== 0 ? 'bg-secondary' : 'goal-gradient'} rounded-xl py-1 px-3 border border-border/30 group touch-pan-y ${
-                  isMyTeam ? 'border-l-4 border-l-primary' : 'border-l-4 border-l-accent'
+                className={`${swipeX !== 0 ? "bg-secondary" : "goal-gradient"} rounded-xl py-1 px-3 border border-border/30 group touch-pan-y ${
+                  isMyTeam ? "border-l-4 border-l-primary" : "border-l-4 border-l-accent"
                 }`}
                 style={{
                   transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
-                  transition: goalDraggingRef.current ? 'none' : 'transform 160ms ease-out',
-                  backgroundClip: 'padding-box',
+                  transition: goalDraggingRef.current ? "none" : "transform 160ms ease-out",
+                  backgroundClip: "padding-box",
                 }}
                 onPointerDown={canSwipeDelete ? onGoalPointerDown(goal.id) : undefined}
                 onPointerMove={canSwipeDelete ? onGoalPointerMove : undefined}
@@ -465,9 +465,9 @@ export function GoalTimeline({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`p-2 rounded-lg ${isMyTeam ? 'bg-primary/20' : 'bg-accent/20'}`}
+                      className={`p-2 rounded-lg ${isMyTeam ? "bg-primary/20" : "bg-accent/20"}`}
                     >
-                      <Icon className={`w-4 h-4 ${isMyTeam ? 'text-primary' : 'text-accent'}`} />
+                      <Icon className={`w-4 h-4 ${isMyTeam ? "text-primary" : "text-accent"}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -475,9 +475,9 @@ export function GoalTimeline({
                         {goalTypeLabels[goal.type] && (
                           <span
                             className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                              goal.type === 'own-goal'
-                                ? 'bg-accent/20 text-accent'
-                                : 'bg-goal/20 text-goal'
+                              goal.type === "own-goal"
+                                ? "bg-accent/20 text-accent"
+                                : "bg-goal/20 text-goal"
                             }`}
                           >
                             {goalTypeLabels[goal.type]}

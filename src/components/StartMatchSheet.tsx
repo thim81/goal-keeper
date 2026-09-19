@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { X, Play, Home, Plane } from 'lucide-react';
-import { PlayerAutocomplete } from './PlayerAutocomplete';
+import { useState, useEffect } from "react";
+import { X, Play, Home, Plane } from "lucide-react";
+import { PlayerAutocomplete } from "./PlayerAutocomplete";
 
 interface StartMatchSheetProps {
   isOpen: boolean;
@@ -18,26 +18,26 @@ export function StartMatchSheet({
   onStartMatch,
   defaultTeamName,
   opponentSuggestions = [],
-  initialOpponentName = '',
+  initialOpponentName = "",
   initialIsHome = true,
 }: StartMatchSheetProps) {
-  const [myTeamName, setMyTeamName] = useState('');
-  const [opponentName, setOpponentName] = useState('');
+  const [myTeamName, setMyTeamName] = useState("");
+  const [opponentName, setOpponentName] = useState("");
   const [isHome, setIsHome] = useState(true);
 
   // Apply defaults each time the sheet opens so scheduled matches can prefill it.
   useEffect(() => {
     if (isOpen) {
-      setMyTeamName(defaultTeamName ?? '');
+      setMyTeamName(defaultTeamName ?? "");
       setOpponentName(initialOpponentName);
       setIsHome(initialIsHome);
     }
   }, [defaultTeamName, initialIsHome, initialOpponentName, isOpen]);
 
   const handleSubmit = () => {
-    onStartMatch(myTeamName.trim() || 'My Team', opponentName.trim() || 'Opponent', isHome);
-    setMyTeamName('');
-    setOpponentName('');
+    onStartMatch(myTeamName.trim() || "My Team", opponentName.trim() || "Opponent", isHome);
+    setMyTeamName("");
+    setOpponentName("");
     setIsHome(true);
     onClose();
   };
@@ -107,13 +107,13 @@ export function StartMatchSheet({
                 onClick={() => setIsHome(true)}
                 className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
                   isHome
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-secondary hover:border-primary/50'
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-secondary hover:border-primary/50"
                 }`}
               >
-                <Home className={`w-5 h-5 ${isHome ? 'text-primary' : 'text-muted-foreground'}`} />
+                <Home className={`w-5 h-5 ${isHome ? "text-primary" : "text-muted-foreground"}`} />
                 <span
-                  className={`font-semibold ${isHome ? 'text-primary' : 'text-muted-foreground'}`}
+                  className={`font-semibold ${isHome ? "text-primary" : "text-muted-foreground"}`}
                 >
                   Home
                 </span>
@@ -123,15 +123,15 @@ export function StartMatchSheet({
                 onClick={() => setIsHome(false)}
                 className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
                   !isHome
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-secondary hover:border-primary/50'
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-secondary hover:border-primary/50"
                 }`}
               >
                 <Plane
-                  className={`w-5 h-5 ${!isHome ? 'text-primary' : 'text-muted-foreground'}`}
+                  className={`w-5 h-5 ${!isHome ? "text-primary" : "text-muted-foreground"}`}
                 />
                 <span
-                  className={`font-semibold ${!isHome ? 'text-primary' : 'text-muted-foreground'}`}
+                  className={`font-semibold ${!isHome ? "text-primary" : "text-muted-foreground"}`}
                 >
                   Away
                 </span>

@@ -1,4 +1,4 @@
-import type { CalendarFixture } from './calendar';
+import type { CalendarFixture } from "./calendar";
 
 export interface UpcomingMatch extends CalendarFixture {
   opponentName: string;
