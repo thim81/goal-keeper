@@ -234,6 +234,93 @@ describe('useMatches timer control', () => {
     expect(result.current.activeMatch!.totalPausedTime).toBe(5000);
   });
 
+  it('initializes period timing when a match starts', async () => {
+    const { result } = renderHook(() => useMatches());
+    await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
+
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000_000);
+    act(() => {
+      result.current.startMatch('My Team', 'Opponent', true);
+    });
+
+    expect(result.current.activeMatch).toMatchObject({
+      periodStartedAt: 2_000_000,
+      periodPausedTime: 0,
+    });
+  });
+
+  it('tracks paused time for the current period and resets it for the next period', async () => {
+    const { result } = renderHook(() => useMatches());
+    await waitFor(() => expect(result.current.activeSeasonId).toBeTruthy());
+
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000_000);
+    act(() => {
+      result.current.startMatch('My Team', 'Opponent', true);
+    });
+
+    vi.setSystemTime(2_010_000);
+    act(() => {
+      result.current.toggleTimer();
+    });
+    expect(result.current.activeMatch!.pausedAt).toBe(2_010_000);
+
+    vi.setSystemTime(2_015_000);
+    act(() => {
+      result.current.toggleTimer();
+    });
+    expect(result.current.activeMatch!.periodPausedTime).toBe(5_000);
+
+    vi.setSystemTime(2_020_000);
+    act(() => {
+      result.current.endPeriod();
+    });
+    vi.setSystemTime(2_025_000);
+    act(() => {
+      result.current.startPeriod();
+    });
+
+    expect(result.current.activeMatch).toMatchObject({
+      periodStartedAt: 2_025_000,
+      periodPausedTime: 0,
+      totalPausedTime: 10_000,
+      currentPeriod: 2,
+    });
+  });
+
+  it('keeps legacy matches readable when period timing fields are missing', async () => {
+    const legacyMatch = {
+      id: 'legacy',
+      myTeamName: 'My Team',
+      opponentName: 'Opponent',
+      isHome: true,
+      goals: [],
+      events: [
+        {
+          id: 'start',
+          type: 'start' as const,
+          label: 'Start Period 1',
+          time: '12:00',
+          timestamp: 1_000_000,
+        },
+      ],
+      startedAt: 1_000_000,
+      isActive: true,
+      isRunning: true,
+      totalPausedTime: 0,
+      currentPeriod: 1,
+    };
+    localStorage.setItem('football-tracker-active-match', JSON.stringify(legacyMatch));
+
+    const { result } = renderHook(() => useMatches());
+    await waitFor(() => expect(result.current.activeMatch?.id).toBe('legacy'));
+
+    expect(result.current.activeMatch).toMatchObject({ id: 'legacy', currentPeriod: 1 });
+    expect(result.current.activeMatch).not.toHaveProperty('periodStartedAt');
+    expect(result.current.activeMatch).not.toHaveProperty('periodPausedTime');
+  });
+
   it('marks the match paused and logs a period-end event on endPeriod', async () => {
     const result = await setupWithMatch();
 

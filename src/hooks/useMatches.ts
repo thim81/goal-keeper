@@ -129,6 +129,7 @@ export function useMatches() {
     (myTeamName: string, opponentName: string, isHome: boolean) => {
       if (!activeSeasonId) return;
 
+      const startedAt = Date.now();
       const newMatch: Match = {
         id: generateId(),
         myTeamName: myTeamName || 'My Team',
@@ -141,14 +142,16 @@ export function useMatches() {
             type: 'start',
             label: 'Start Period 1',
             time: getCurrentTime(),
-            timestamp: Date.now(),
+            timestamp: startedAt,
           },
         ],
-        startedAt: Date.now(),
+        startedAt,
         isActive: true,
         isRunning: true,
         totalPausedTime: 0,
         currentPeriod: 1,
+        periodStartedAt: startedAt,
+        periodPausedTime: 0,
       };
 
       setActiveMatch(newMatch);
@@ -262,6 +265,8 @@ export function useMatches() {
         isRunning: true,
         pausedAt: undefined,
         totalPausedTime: prev.totalPausedTime + additionalPausedTime,
+        periodStartedAt: Date.now(),
+        periodPausedTime: 0,
         currentPeriod: newPeriod,
         events: [...prev.events, newEvent],
       };
@@ -301,6 +306,7 @@ export function useMatches() {
         isRunning: true,
         pausedAt: undefined,
         totalPausedTime: prev.totalPausedTime + additionalPausedTime,
+        periodPausedTime: (prev.periodPausedTime ?? 0) + additionalPausedTime,
       };
     });
   }, []);

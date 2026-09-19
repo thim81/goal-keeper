@@ -44,6 +44,8 @@ export interface Match {
   pausedAt?: number;
   totalPausedTime: number;
   currentPeriod: number;
+  periodStartedAt?: number;
+  periodPausedTime?: number;
 }
 
 export interface MatchSummary {

@@ -9,6 +9,8 @@ interface MatchTimerProps {
   totalPausedTime: number;
   pausedAt?: number;
   currentPeriod: number;
+  periodStartedAt?: number;
+  periodPausedTime?: number;
 }
 
 export function MatchTimer({
@@ -19,6 +21,8 @@ export function MatchTimer({
   totalPausedTime,
   pausedAt,
   currentPeriod,
+  periodStartedAt,
+  periodPausedTime = 0,
 }: MatchTimerProps) {
   const [elapsed, setElapsed] = useState(0);
 
@@ -44,6 +48,15 @@ export function MatchTimer({
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
+  const periodStart = periodStartedAt ?? startedAt;
+  const periodElapsedSeconds = Math.max(
+    0,
+    Math.floor(
+      ((isRunning ? Date.now() : pausedAt ?? Date.now()) - periodStart - periodPausedTime) / 1000,
+    ),
+  );
+  const periodMinutes = Math.floor(periodElapsedSeconds / 60);
+  const periodHasExceededLimit = periodElapsedSeconds > periodDuration * 60;
 
   // Start time
   const startTime = new Date(startedAt).toLocaleTimeString('en-GB', {
@@ -52,15 +65,24 @@ export function MatchTimer({
   });
 
   return (
-    <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3 mt-3">
+    <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-2 mt-3">
       <div className="flex items-center gap-2">
         <Clock className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm text-muted-foreground">Started {startTime}</span>
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
+        <span className="inline-flex h-6 items-center text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
           Period {currentPeriod}/{periodsCount}
+        </span>
+        <span
+          className={`inline-flex h-6 items-center text-xs font-semibold px-2 py-1 rounded ${
+            periodHasExceededLimit
+              ? 'text-orange-500 bg-orange-500/10 border border-orange-500/20'
+              : 'text-primary bg-primary/10 border border-primary/20'
+          }`}
+        >
+          {periodMinutes} min
         </span>
         <span
           className={`font-mono text-lg font-bold tabular-nums ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}

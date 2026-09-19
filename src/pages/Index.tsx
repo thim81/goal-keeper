@@ -238,6 +238,9 @@ export default function Index() {
   const score = getScore();
   const lastEvent = activeMatch?.events?.[activeMatch.events.length - 1];
   const isPeriodEnded = lastEvent?.type === 'period-end';
+  const periodStartedAt =
+    activeMatch?.periodStartedAt ??
+    [...(activeMatch?.events ?? [])].reverse().find((event) => event.type === 'start')?.timestamp;
 
   // Handle starting a new match
   const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
@@ -650,6 +653,8 @@ export default function Index() {
                 totalPausedTime={activeMatch.totalPausedTime}
                 pausedAt={activeMatch.pausedAt}
                 currentPeriod={activeMatch.currentPeriod}
+                periodStartedAt={periodStartedAt}
+                periodPausedTime={activeMatch.periodPausedTime}
               />
             </div>
           }
