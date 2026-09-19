@@ -244,6 +244,43 @@ export function useMatches() {
     [activeMatch],
   );
 
+  const updateEventTime = useCallback((eventId: string, time: string) => {
+    const matchTime = /^(\d{2}):(\d{2})$/.exec(time);
+    if (!matchTime) return;
+
+    const hours = Number(matchTime[1]);
+    const minutes = Number(matchTime[2]);
+    if (hours > 23 || minutes > 59) return;
+
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      const event = prev.events.find((item) => item.id === eventId);
+      if (!event || (event.type !== 'start' && event.type !== 'period-end')) return prev;
+
+      const eventDate = new Date(event.timestamp);
+      eventDate.setHours(hours, minutes, 0, 0);
+      const timestamp = eventDate.getTime();
+      const events = prev.events.map((item) =>
+        item.id === eventId ? { ...item, time, timestamp } : item,
+      );
+      const firstStart = prev.events.find((item) => item.type === 'start');
+      const currentPeriodStart = [...prev.events]
+        .reverse()
+        .find((item) => item.type === 'start');
+
+      return {
+        ...prev,
+        events,
+        ...(event.type === 'start' && firstStart?.id === eventId
+          ? { startedAt: timestamp }
+          : {}),
+        ...(event.type === 'start' && currentPeriodStart?.id === eventId
+          ? { periodStartedAt: timestamp }
+          : {}),
+      };
+    });
+  }, []);
+
   const startPeriod = useCallback(() => {
     setActiveMatch((prev) => {
       if (!prev) return null;
@@ -578,6 +615,7 @@ export function useMatches() {
     deleteGoal,
     addEvent,
     deleteEvent,
+    updateEventTime,
     undoLast,
     endMatch,
     getMatchDetails,

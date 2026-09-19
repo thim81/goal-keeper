@@ -93,6 +93,7 @@ export default function Index() {
     deleteGoal,
     addEvent,
     deleteEvent,
+    updateEventTime,
     undoLast,
     endMatch,
     deleteMatch,
@@ -672,6 +673,7 @@ export default function Index() {
                 editable
                 onDeleteGoal={deleteGoal}
                 onDeleteEvent={deleteEvent}
+                onUpdateEventTime={updateEventTime}
               />
             </>
           }

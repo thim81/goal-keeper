@@ -11,6 +11,15 @@ import {
   Flag,
   Trash2,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 interface GoalTimelineProps {
   goals: Goal[];
   events: GameEvent[];
@@ -20,6 +29,7 @@ interface GoalTimelineProps {
   editable?: boolean;
   onDeleteGoal?: (id: string) => void;
   onDeleteEvent?: (id: string) => void;
+  onUpdateEventTime?: (id: string, time: string) => void;
 }
 
 const goalTypeIcons = {
@@ -78,6 +88,7 @@ export function GoalTimeline({
   editable = false,
   onDeleteGoal,
   onDeleteEvent,
+  onUpdateEventTime,
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
   const timelineItems: TimelineItem[] = [
@@ -136,6 +147,20 @@ export function GoalTimeline({
   const startXRef = useRef(0);
   const startSwipeRef = useRef(0);
   const draggingRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const longPressStartXRef = useRef(0);
+  const [editingEvent, setEditingEvent] = useState<GameEvent | null>(null);
+  const [editingEventTime, setEditingEventTime] = useState('');
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearLongPress, []);
 
   const closeAllEventSwipes = () => setEventSwipeX({});
 
@@ -144,6 +169,17 @@ export function GoalTimeline({
 
     // Only handle horizontal swipes (pointer events work on iOS Safari and desktop)
     draggingRef.current = true;
+    longPressTriggeredRef.current = false;
+    longPressStartXRef.current = e.clientX;
+    clearLongPress();
+    const event = events.find((item) => item.id === eventId);
+    if (event && onUpdateEventTime && (event.type === 'start' || event.type === 'period-end')) {
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTriggeredRef.current = true;
+        setEditingEvent(event);
+        setEditingEventTime(event.time);
+      }, 500);
+    }
     activeEventIdRef.current = eventId;
     startXRef.current = e.clientX;
     startSwipeRef.current = eventSwipeX[eventId] ?? 0;
@@ -164,6 +200,7 @@ export function GoalTimeline({
 
   const onEventPointerMove = (e: React.PointerEvent) => {
     if (!draggingRef.current) return;
+    if (Math.abs(e.clientX - longPressStartXRef.current) > 8) clearLongPress();
     const eventId = activeEventIdRef.current;
     if (!eventId) return;
 
@@ -176,6 +213,7 @@ export function GoalTimeline({
   };
 
   const onEventPointerEnd = () => {
+    clearLongPress();
     if (!draggingRef.current) return;
     draggingRef.current = false;
 
@@ -190,6 +228,10 @@ export function GoalTimeline({
   };
 
   const onEventRowClick = (eventId: string) => () => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
     // If user taps elsewhere while a row is open, close it.
     if ((eventSwipeX[eventId] ?? 0) !== 0) {
       setEventSwipeX((prev) => ({ ...prev, [eventId]: 0 }));
@@ -464,6 +506,42 @@ export function GoalTimeline({
           </div>
         );
       })}
+      <Dialog
+        open={editingEvent !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingEvent(null);
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit period time</DialogTitle>
+            <DialogDescription>Adjust the time for this period event.</DialogDescription>
+          </DialogHeader>
+          <input
+            type="time"
+            value={editingEventTime}
+            onChange={(event) => setEditingEventTime(event.target.value)}
+            className="w-full rounded-xl bg-secondary px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setEditingEvent(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (editingEvent && editingEventTime) {
+                  onUpdateEventTime?.(editingEvent.id, editingEventTime);
+                }
+                setEditingEvent(null);
+              }}
+              disabled={!editingEventTime}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

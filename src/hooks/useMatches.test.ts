@@ -126,6 +126,43 @@ describe('useMatches goals, events and score', () => {
     });
     expect(result.current.activeMatch!.events.some((e) => e.type === 'yellow-card')).toBe(false);
   });
+
+  it('updates a period event time and the match start time for the first period', async () => {
+    const result = await setupWithMatch();
+    const firstStart = result.current.activeMatch!.events[0];
+
+    act(() => {
+      result.current.updateEventTime(firstStart.id, '09:30');
+    });
+
+    expect(result.current.activeMatch!.events[0]).toMatchObject({
+      time: '09:30',
+      timestamp: new Date(firstStart.timestamp).setHours(9, 30, 0, 0),
+    });
+    expect(result.current.activeMatch!.startedAt).toBe(
+      new Date(firstStart.timestamp).setHours(9, 30, 0, 0),
+    );
+  });
+
+  it('does not update the match start when editing a period-end event', async () => {
+    const result = await setupWithMatch();
+    const startedAt = result.current.activeMatch!.startedAt;
+    act(() => {
+      result.current.endPeriod();
+    });
+    const periodEnd = result.current.activeMatch!.events[
+      result.current.activeMatch!.events.length - 1
+    ];
+
+    act(() => {
+      result.current.updateEventTime(periodEnd.id, '10:15');
+    });
+
+    expect(result.current.activeMatch!.startedAt).toBe(startedAt);
+    expect(
+      result.current.activeMatch!.events[result.current.activeMatch!.events.length - 1],
+    ).toMatchObject({ time: '10:15' });
+  });
 });
 
 describe('useMatches undoLast', () => {

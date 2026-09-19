@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { GoalTimeline } from './GoalTimeline';
 import type { Goal, GameEvent } from '@/types/match';
@@ -29,6 +30,10 @@ function swipe(element: Element, distance: number) {
 }
 
 describe('GoalTimeline', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('shows an empty state when there are no goals or events', () => {
     render(
       <GoalTimeline goals={[]} events={[]} myTeamName="My Team" opponentName="Rivals" editable />,
@@ -130,5 +135,63 @@ describe('GoalTimeline', () => {
     swipe(screen.getByText('Alice'), -60);
 
     expect(screen.queryByRole('button', { name: /delete goal/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the period time editor on long press and saves the selected time', () => {
+    vi.useFakeTimers();
+    const onUpdateEventTime = vi.fn();
+    const periodStart: GameEvent = { ...event, id: 'start-1', type: 'start', label: 'Start Period 1' };
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[periodStart]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onDeleteEvent={vi.fn()}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+
+    const row = screen.getByText('Start Period 1');
+    fireEvent.pointerDown(row, { clientX: 0 });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const input = screen.getByDisplayValue('20:00');
+    fireEvent.change(input, { target: { value: '20:30' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(onUpdateEventTime).toHaveBeenCalledWith('start-1', '20:30');
+  });
+
+  it('keeps swipe-to-delete behavior when the row moves horizontally', () => {
+    vi.useFakeTimers();
+    const onUpdateEventTime = vi.fn();
+    const onDeleteEvent = vi.fn();
+    const periodStart: GameEvent = { ...event, id: 'start-2', type: 'start', label: 'Start Period 1' };
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[periodStart]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onDeleteEvent={onDeleteEvent}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+
+    const row = screen.getByText('Start Period 1');
+    fireEvent.pointerDown(row, { clientX: 0 });
+    fireEvent.pointerMove(row, { clientX: -60 });
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    fireEvent.pointerUp(row);
+
+    expect(screen.getByRole('button', { name: /delete event/i })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
