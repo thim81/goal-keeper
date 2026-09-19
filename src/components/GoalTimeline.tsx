@@ -334,6 +334,10 @@ export function GoalTimeline({
             : event.label || eventTypeLabels[event.type];
           const swipeX = eventSwipeX[event.id] ?? 0;
           const canSwipeDelete = editable && !!onDeleteEvent;
+          const canEditTime =
+            editable &&
+            !!onUpdateEventTime &&
+            (event.type === 'start' || event.type === 'period-end');
 
           return (
             <div
@@ -356,16 +360,20 @@ export function GoalTimeline({
 
                 {/* Foreground row (slides left) */}
                 <div
-                  className="flex items-center gap-2 py-1 px-3 bg-secondary group touch-pan-y"
-                  style={{
-                    transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
-                    transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
-                  }}
+                  className={`flex items-center gap-2 py-1 px-3 bg-secondary group touch-pan-y ${canEditTime ? 'select-none' : ''}`}
                   onPointerDown={canSwipeDelete ? onEventPointerDown(event.id) : undefined}
                   onPointerMove={canSwipeDelete ? onEventPointerMove : undefined}
                   onPointerUp={canSwipeDelete ? onEventPointerEnd : undefined}
                   onPointerCancel={canSwipeDelete ? onEventPointerEnd : undefined}
                   onClick={canSwipeDelete ? onEventRowClick(event.id) : undefined}
+                  onContextMenu={canEditTime ? (event) => event.preventDefault() : undefined}
+                  style={{
+                    transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
+                    transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
+                    ...(canEditTime
+                      ? { WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }
+                      : {}),
+                  }}
                 >
                   <div
                     className={`rounded-lg flex items-center justify-center ${
