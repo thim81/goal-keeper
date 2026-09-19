@@ -521,7 +521,7 @@ export function GoalTimeline({
             type="time"
             value={editingEventTime}
             onChange={(event) => setEditingEventTime(event.target.value)}
-            className="w-full rounded-xl bg-secondary px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="mx-auto h-10 w-32 rounded-lg bg-secondary px-3 py-2 text-center text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             autoFocus
           />
           <DialogFooter>
