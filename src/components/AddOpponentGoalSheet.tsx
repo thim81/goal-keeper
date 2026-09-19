@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { X, Trophy, Target, AlertCircle, CircleDot } from 'lucide-react';
-import { GoalType } from '@/types/match';
+import { useState } from "react";
+import { X, Trophy, Target, AlertCircle, CircleDot } from "lucide-react";
+import { GoalType } from "@/types/match";
 
 interface AddOpponentGoalSheetProps {
   isOpen: boolean;
@@ -10,10 +10,10 @@ interface AddOpponentGoalSheetProps {
 }
 
 const goalTypes: { type: GoalType; label: string; icon: typeof Trophy }[] = [
-  { type: 'normal', label: 'Normal', icon: Trophy },
-  { type: 'head', label: 'Header', icon: CircleDot },
-  { type: 'penalty', label: 'Penalty', icon: Target },
-  { type: 'own-goal', label: 'Own Goal', icon: AlertCircle },
+  { type: "normal", label: "Normal", icon: Trophy },
+  { type: "head", label: "Header", icon: CircleDot },
+  { type: "penalty", label: "Penalty", icon: Target },
+  { type: "own-goal", label: "Own Goal", icon: AlertCircle },
 ];
 
 export function AddOpponentGoalSheet({
@@ -22,11 +22,11 @@ export function AddOpponentGoalSheet({
   onAddGoal,
   opponentName,
 }: AddOpponentGoalSheetProps) {
-  const [goalType, setGoalType] = useState<GoalType>('normal');
+  const [goalType, setGoalType] = useState<GoalType>("normal");
 
   const handleSubmit = () => {
     onAddGoal(goalType);
-    setGoalType('normal');
+    setGoalType("normal");
     onClose();
   };
 
@@ -63,15 +63,15 @@ export function AddOpponentGoalSheet({
                 onClick={() => setGoalType(type)}
                 className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                   goalType === type
-                    ? 'border-accent bg-accent/10'
-                    : 'border-border bg-secondary hover:border-accent/50'
+                    ? "border-accent bg-accent/10"
+                    : "border-border bg-secondary hover:border-accent/50"
                 }`}
               >
                 <Icon
-                  className={`w-5 h-5 ${goalType === type ? 'text-accent' : 'text-muted-foreground'}`}
+                  className={`w-5 h-5 ${goalType === type ? "text-accent" : "text-muted-foreground"}`}
                 />
                 <span
-                  className={`text-[10px] font-medium ${goalType === type ? 'text-accent' : 'text-muted-foreground'}`}
+                  className={`text-[10px] font-medium ${goalType === type ? "text-accent" : "text-muted-foreground"}`}
                 >
                   {label}
                 </span>

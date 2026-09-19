@@ -1,5 +1,5 @@
-import { useEffect, useRef, type MouseEvent } from 'react';
-import { Match } from '@/types/match';
+import { useEffect, useRef, type MouseEvent } from "react";
+import { Match } from "@/types/match";
 
 interface ScoreboardProps {
   match: Match;
@@ -17,8 +17,8 @@ export function Scoreboard({
   const leftTeamName = match.isHome ? match.myTeamName : match.opponentName;
   const rightTeamName = match.isHome ? match.opponentName : match.myTeamName;
 
-  const leftLabel = match.isHome ? 'Home' : 'Home';
-  const rightLabel = match.isHome ? 'Away' : 'Away';
+  const leftLabel = match.isHome ? "Home" : "Home";
+  const rightLabel = match.isHome ? "Away" : "Away";
 
   const leftScore = match.isHome ? myTeamScore : opponentScore;
   const rightScore = match.isHome ? opponentScore : myTeamScore;
@@ -26,8 +26,8 @@ export function Scoreboard({
   const isMyTeamLeft = match.isHome;
   const leftIsOpponent = !match.isHome;
   const rightIsOpponent = match.isHome;
-  const leftScoreClass = isMyTeamLeft ? 'text-primary' : 'text-accent';
-  const rightScoreClass = isMyTeamLeft ? 'text-accent' : 'text-primary';
+  const leftScoreClass = isMyTeamLeft ? "text-primary" : "text-accent";
+  const rightScoreClass = isMyTeamLeft ? "text-accent" : "text-primary";
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 

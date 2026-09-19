@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { X, Trophy, Target, AlertCircle, CircleDot } from 'lucide-react';
-import { GoalType } from '@/types/match';
-import { PlayerAutocomplete } from './PlayerAutocomplete';
+import { useState } from "react";
+import { X, Trophy, Target, AlertCircle, CircleDot } from "lucide-react";
+import { GoalType } from "@/types/match";
+import { PlayerAutocomplete } from "./PlayerAutocomplete";
 
 interface AddGoalSheetProps {
   isOpen: boolean;
@@ -11,23 +11,23 @@ interface AddGoalSheetProps {
 }
 
 const goalTypes: { type: GoalType; label: string; icon: typeof Trophy }[] = [
-  { type: 'normal', label: 'Normal', icon: Trophy },
-  { type: 'head', label: 'Header', icon: CircleDot },
-  { type: 'penalty', label: 'Penalty', icon: Target },
-  { type: 'own-goal', label: 'Own Goal', icon: AlertCircle },
+  { type: "normal", label: "Normal", icon: Trophy },
+  { type: "head", label: "Header", icon: CircleDot },
+  { type: "penalty", label: "Penalty", icon: Target },
+  { type: "own-goal", label: "Own Goal", icon: AlertCircle },
 ];
 
 export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGoalSheetProps) {
-  const [scorer, setScorer] = useState('');
-  const [assist, setAssist] = useState('');
-  const [goalType, setGoalType] = useState<GoalType>('normal');
+  const [scorer, setScorer] = useState("");
+  const [assist, setAssist] = useState("");
+  const [goalType, setGoalType] = useState<GoalType>("normal");
 
   const handleSubmit = () => {
     if (!scorer.trim()) return;
     onAddGoal(scorer.trim(), assist.trim(), goalType);
-    setScorer('');
-    setAssist('');
-    setGoalType('normal');
+    setScorer("");
+    setAssist("");
+    setGoalType("normal");
     onClose();
   };
 
@@ -93,15 +93,15 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
                   onClick={() => setGoalType(type)}
                   className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                     goalType === type
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border bg-secondary hover:border-primary/50'
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-secondary hover:border-primary/50"
                   }`}
                 >
                   <Icon
-                    className={`w-5 h-5 ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
+                    className={`w-5 h-5 ${goalType === type ? "text-primary" : "text-muted-foreground"}`}
                   />
                   <span
-                    className={`text-[10px] font-medium ${goalType === type ? 'text-primary' : 'text-muted-foreground'}`}
+                    className={`text-[10px] font-medium ${goalType === type ? "text-primary" : "text-muted-foreground"}`}
                   >
                     {label}
                   </span>

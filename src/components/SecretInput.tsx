@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from "lucide-react";
 
 interface SecretInputProps {
   value: string;
@@ -24,7 +24,7 @@ export function SecretInput({
   return (
     <div className="relative">
       <input
-        type={visible ? 'text' : 'password'}
+        type={visible ? "text" : "password"}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}

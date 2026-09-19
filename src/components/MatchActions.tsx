@@ -1,4 +1,4 @@
-import { Undo2, Flag, Plus, ClipboardList, Play, Pause, Square, StepForward } from 'lucide-react';
+import { Undo2, Flag, Plus, ClipboardList, Play, Pause, Square, StepForward } from "lucide-react";
 
 interface MatchActionsProps {
   onAddMyGoal: () => void;
@@ -117,7 +117,7 @@ export function MatchActions({
 
       {/* Secondary actions */}
       {showSecondaryActions && (
-        <div className={`flex gap-3 ${secondaryClassName ?? ''}`}>
+        <div className={`flex gap-3 ${secondaryClassName ?? ""}`}>
           <button
             onClick={onAddEvent}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-secondary-foreground font-medium rounded-xl hover:bg-secondary/80 transition-colors"

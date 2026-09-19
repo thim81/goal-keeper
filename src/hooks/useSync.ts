@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { fetchRemoteState, pushLocalState, SyncState } from '@/lib/sync';
-import { Match, AppSettings, Season } from '@/types/match';
-import { toast } from 'sonner';
+import { useEffect, useRef, useCallback, useState } from "react";
+import { fetchRemoteState, pushLocalState, SyncState } from "@/lib/sync";
+import { Match, AppSettings, Season } from "@/types/match";
+import { toast } from "sonner";
 
 export function useSync(
   syncToken: string | undefined,
@@ -12,7 +12,7 @@ export function useSync(
   onSyncState: (state: SyncState) => void,
 ) {
   const isInitialMount = useRef(true);
-  const lastPushedState = useRef<string>('');
+  const lastPushedState = useRef<string>("");
   const manualSyncInFlight = useRef(false);
   const manualSyncCooldownUntil = useRef(0);
   const manualSyncCooldownTimer = useRef<number | null>(null);
@@ -50,7 +50,7 @@ export function useSync(
       if (remoteState) {
         onSyncState(remoteState);
         lastPushedState.current = JSON.stringify(remoteState);
-        toast.success('Goals Synced', { duration: 2000 });
+        toast.success("Goals Synced", { duration: 2000 });
       }
       return remoteState;
     },

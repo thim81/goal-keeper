@@ -1,14 +1,14 @@
-import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Scoreboard } from './Scoreboard';
-import type { Match } from '@/types/match';
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { Scoreboard } from "./Scoreboard";
+import type { Match } from "@/types/match";
 
 function createMatch(overrides: Partial<Match> = {}): Match {
   return {
-    id: 'm1',
-    myTeamName: 'My Team',
-    opponentName: 'Rivals',
+    id: "m1",
+    myTeamName: "My Team",
+    opponentName: "Rivals",
     isHome: true,
     goals: [],
     events: [],
@@ -21,34 +21,34 @@ function createMatch(overrides: Partial<Match> = {}): Match {
   };
 }
 
-describe('Scoreboard', () => {
+describe("Scoreboard", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('places my team on the left with its own score when home', () => {
+  it("places my team on the left with its own score when home", () => {
     const { container } = render(
       <Scoreboard match={createMatch({ isHome: true })} myTeamScore={2} opponentScore={1} />,
     );
-    const [leftSide, rightSide] = container.querySelectorAll('.flex-1.basis-0');
+    const [leftSide, rightSide] = container.querySelectorAll(".flex-1.basis-0");
 
-    expect(within(leftSide as HTMLElement).getByText('My Team')).toBeInTheDocument();
-    expect(within(rightSide as HTMLElement).getByText('Rivals')).toBeInTheDocument();
-    expect(within(leftSide as HTMLElement).getByText('My Team').tagName).toBe('P');
-    expect(within(rightSide as HTMLElement).getByText('Rivals').tagName).toBe('BUTTON');
+    expect(within(leftSide as HTMLElement).getByText("My Team")).toBeInTheDocument();
+    expect(within(rightSide as HTMLElement).getByText("Rivals")).toBeInTheDocument();
+    expect(within(leftSide as HTMLElement).getByText("My Team").tagName).toBe("P");
+    expect(within(rightSide as HTMLElement).getByText("Rivals").tagName).toBe("BUTTON");
   });
 
-  it('places the opponent on the left with its score when away', () => {
+  it("places the opponent on the left with its score when away", () => {
     const { container } = render(
       <Scoreboard match={createMatch({ isHome: false })} myTeamScore={2} opponentScore={1} />,
     );
-    const [leftSide, rightSide] = container.querySelectorAll('.flex-1.basis-0');
+    const [leftSide, rightSide] = container.querySelectorAll(".flex-1.basis-0");
 
-    expect(within(leftSide as HTMLElement).getByText('Rivals').tagName).toBe('BUTTON');
-    expect(within(rightSide as HTMLElement).getByText('My Team').tagName).toBe('P');
+    expect(within(leftSide as HTMLElement).getByText("Rivals").tagName).toBe("BUTTON");
+    expect(within(rightSide as HTMLElement).getByText("My Team").tagName).toBe("P");
   });
 
-  it('triggers the long-press callback after holding the opponent name for 500ms', () => {
+  it("triggers the long-press callback after holding the opponent name for 500ms", () => {
     vi.useFakeTimers();
     const onOpponentLongPress = vi.fn();
     render(
@@ -60,13 +60,13 @@ describe('Scoreboard', () => {
       />,
     );
 
-    fireEvent.pointerDown(screen.getByText('Rivals'));
+    fireEvent.pointerDown(screen.getByText("Rivals"));
     vi.advanceTimersByTime(500);
 
     expect(onOpponentLongPress).toHaveBeenCalledTimes(1);
   });
 
-  it('does not trigger the long-press callback on a quick tap', () => {
+  it("does not trigger the long-press callback on a quick tap", () => {
     vi.useFakeTimers();
     const onOpponentLongPress = vi.fn();
     render(
@@ -78,7 +78,7 @@ describe('Scoreboard', () => {
       />,
     );
 
-    const opponentButton = screen.getByText('Rivals');
+    const opponentButton = screen.getByText("Rivals");
     fireEvent.pointerDown(opponentButton);
     fireEvent.pointerUp(opponentButton);
     vi.advanceTimersByTime(500);
@@ -86,17 +86,17 @@ describe('Scoreboard', () => {
     expect(onOpponentLongPress).not.toHaveBeenCalled();
   });
 
-  it('does nothing when held without an onOpponentLongPress callback', () => {
+  it("does nothing when held without an onOpponentLongPress callback", () => {
     vi.useFakeTimers();
     render(<Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />);
 
     expect(() => {
-      fireEvent.pointerDown(screen.getByText('Rivals'));
+      fireEvent.pointerDown(screen.getByText("Rivals"));
       vi.advanceTimersByTime(500);
     }).not.toThrow();
   });
 
-  it('clears a pending long press when started again, and a redundant release is a no-op', () => {
+  it("clears a pending long press when started again, and a redundant release is a no-op", () => {
     vi.useFakeTimers();
     const onOpponentLongPress = vi.fn();
     render(
@@ -107,7 +107,7 @@ describe('Scoreboard', () => {
         onOpponentLongPress={onOpponentLongPress}
       />,
     );
-    const opponentButton = screen.getByText('Rivals');
+    const opponentButton = screen.getByText("Rivals");
 
     fireEvent.pointerDown(opponentButton);
     fireEvent.pointerDown(opponentButton);
@@ -118,13 +118,13 @@ describe('Scoreboard', () => {
     expect(onOpponentLongPress).not.toHaveBeenCalled();
   });
 
-  it('does not suppress an ordinary tap that was never a long press', () => {
+  it("does not suppress an ordinary tap that was never a long press", () => {
     render(<Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />);
 
-    expect(fireEvent.click(screen.getByText('Rivals'))).toBe(true);
+    expect(fireEvent.click(screen.getByText("Rivals"))).toBe(true);
   });
 
-  it('suppresses the click that immediately follows a completed long press', () => {
+  it("suppresses the click that immediately follows a completed long press", () => {
     vi.useFakeTimers();
     const onOpponentLongPress = vi.fn();
     render(
@@ -135,7 +135,7 @@ describe('Scoreboard', () => {
         onOpponentLongPress={onOpponentLongPress}
       />,
     );
-    const opponentButton = screen.getByText('Rivals');
+    const opponentButton = screen.getByText("Rivals");
 
     fireEvent.pointerDown(opponentButton);
     vi.advanceTimersByTime(500);
@@ -144,14 +144,14 @@ describe('Scoreboard', () => {
     expect(fireEvent.click(opponentButton)).toBe(false);
   });
 
-  it('suppresses the native context menu on the editable opponent name, on both sides', () => {
+  it("suppresses the native context menu on the editable opponent name, on both sides", () => {
     const homeResult = render(
       <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
     );
-    expect(fireEvent.contextMenu(screen.getByText('Rivals'))).toBe(false);
+    expect(fireEvent.contextMenu(screen.getByText("Rivals"))).toBe(false);
     homeResult.unmount();
 
     render(<Scoreboard match={createMatch({ isHome: false })} myTeamScore={0} opponentScore={0} />);
-    expect(fireEvent.contextMenu(screen.getByText('Rivals'))).toBe(false);
+    expect(fireEvent.contextMenu(screen.getByText("Rivals"))).toBe(false);
   });
 });

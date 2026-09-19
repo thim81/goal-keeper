@@ -1,4 +1,4 @@
-import { SyncState } from '@/lib/sync';
+import { SyncState } from "@/lib/sync";
 
 export interface BackupPayloadV1 {
   version: 1;
@@ -22,37 +22,37 @@ export function buildBackupPayload(
 export function parseBackupPayload(text: string): ParsedBackup {
   try {
     const raw = JSON.parse(text) as Partial<BackupPayloadV1>;
-    if (raw.version !== 1 || !raw.state || typeof raw.state !== 'object') {
-      return { ok: false, error: 'Invalid backup format' };
+    if (raw.version !== 1 || !raw.state || typeof raw.state !== "object") {
+      return { ok: false, error: "Invalid backup format" };
     }
 
     const state = raw.state as SyncState;
-    if (!state.settings || typeof state.settings !== 'object') {
-      return { ok: false, error: 'Backup is missing settings' };
+    if (!state.settings || typeof state.settings !== "object") {
+      return { ok: false, error: "Backup is missing settings" };
     }
 
-    const hasSeasons = 'seasons' in state;
+    const hasSeasons = "seasons" in state;
     if (hasSeasons) {
-      if (!state.seasons || typeof state.seasons !== 'object') {
-        return { ok: false, error: 'Backup has invalid seasons data' };
+      if (!state.seasons || typeof state.seasons !== "object") {
+        return { ok: false, error: "Backup has invalid seasons data" };
       }
-      if (typeof state.activeSeasonId !== 'string') {
-        return { ok: false, error: 'Backup is missing activeSeasonId' };
+      if (typeof state.activeSeasonId !== "string") {
+        return { ok: false, error: "Backup is missing activeSeasonId" };
       }
       if (!state.seasons[state.activeSeasonId]) {
-        return { ok: false, error: 'Backup activeSeasonId does not match any season' };
+        return { ok: false, error: "Backup activeSeasonId does not match any season" };
       }
     } else {
       if (!Array.isArray(state.matches)) {
-        return { ok: false, error: 'Backup has invalid matches data' };
+        return { ok: false, error: "Backup has invalid matches data" };
       }
-      if (!state.fullMatches || typeof state.fullMatches !== 'object') {
-        return { ok: false, error: 'Backup has invalid fullMatches data' };
+      if (!state.fullMatches || typeof state.fullMatches !== "object") {
+        return { ok: false, error: "Backup has invalid fullMatches data" };
       }
     }
 
     return { ok: true, state };
   } catch {
-    return { ok: false, error: 'Backup file is not valid JSON' };
+    return { ok: false, error: "Backup file is not valid JSON" };
   }
 }

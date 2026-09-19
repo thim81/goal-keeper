@@ -1,10 +1,10 @@
-import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { AddOpponentGoalSheet } from './AddOpponentGoalSheet';
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { AddOpponentGoalSheet } from "./AddOpponentGoalSheet";
 
-describe('AddOpponentGoalSheet', () => {
-  it('renders nothing when closed', () => {
+describe("AddOpponentGoalSheet", () => {
+  it("renders nothing when closed", () => {
     const { container } = render(
       <AddOpponentGoalSheet
         isOpen={false}
@@ -16,36 +16,36 @@ describe('AddOpponentGoalSheet', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('defaults to a normal goal and closes on submit', () => {
+  it("defaults to a normal goal and closes on submit", () => {
     const onAddGoal = vi.fn();
     const onClose = vi.fn();
     render(
       <AddOpponentGoalSheet isOpen onClose={onClose} onAddGoal={onAddGoal} opponentName="Rivals" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /add goal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add goal/i }));
 
-    expect(onAddGoal).toHaveBeenCalledWith('normal');
+    expect(onAddGoal).toHaveBeenCalledWith("normal");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('submits the selected goal type', () => {
+  it("submits the selected goal type", () => {
     const onAddGoal = vi.fn();
     render(
       <AddOpponentGoalSheet isOpen onClose={vi.fn()} onAddGoal={onAddGoal} opponentName="Rivals" />,
     );
 
-    fireEvent.click(screen.getByText('Own Goal'));
-    fireEvent.click(screen.getByRole('button', { name: /add goal/i }));
+    fireEvent.click(screen.getByText("Own Goal"));
+    fireEvent.click(screen.getByRole("button", { name: /add goal/i }));
 
-    expect(onAddGoal).toHaveBeenCalledWith('own-goal');
+    expect(onAddGoal).toHaveBeenCalledWith("own-goal");
   });
 
-  it('shows the opponent name in the header', () => {
+  it("shows the opponent name in the header", () => {
     render(
       <AddOpponentGoalSheet isOpen onClose={vi.fn()} onAddGoal={vi.fn()} opponentName="Rivals" />,
     );
 
-    expect(screen.getByText('Rivals Goal')).toBeInTheDocument();
+    expect(screen.getByText("Rivals Goal")).toBeInTheDocument();
   });
 });

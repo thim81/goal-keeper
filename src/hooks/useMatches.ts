@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Match,
   Goal,
@@ -7,7 +7,7 @@ import {
   GameEvent,
   GameEventType,
   Season,
-} from '@/types/match';
+} from "@/types/match";
 import {
   closeSeasonAndCreateNext,
   createDefaultSeasonName,
@@ -15,14 +15,14 @@ import {
   migrateLegacyDataToSeasons,
   renameSeason,
   reopenSeasonAsActive,
-} from '@/lib/seasons';
-import { SyncState } from '@/lib/sync';
+} from "@/lib/seasons";
+import { SyncState } from "@/lib/sync";
 
-const LEGACY_MATCHES_KEY = 'football-tracker-matches';
-const LEGACY_FULL_MATCHES_KEY = 'football-tracker-full-matches';
-const ACTIVE_MATCH_KEY = 'football-tracker-active-match';
-const SEASONS_KEY = 'football-tracker-seasons';
-const ACTIVE_SEASON_KEY = 'football-tracker-active-season-id';
+const LEGACY_MATCHES_KEY = "football-tracker-matches";
+const LEGACY_FULL_MATCHES_KEY = "football-tracker-full-matches";
+const ACTIVE_MATCH_KEY = "football-tracker-active-match";
+const SEASONS_KEY = "football-tracker-seasons";
+const ACTIVE_SEASON_KEY = "football-tracker-active-season-id";
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -30,7 +30,7 @@ function generateId(): string {
 
 function getCurrentTime(): string {
   const now = new Date();
-  return now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
 function createEmptyActiveSeason(now: number = Date.now()): {
@@ -44,7 +44,7 @@ function createEmptyActiveSeason(now: number = Date.now()): {
         id: seasonId,
         name: createDefaultSeasonName(now),
         startAt: now,
-        status: 'active',
+        status: "active",
         matches: [],
         fullMatches: {},
       },
@@ -79,7 +79,7 @@ export function useMatches() {
       const resolvedActiveSeasonId =
         savedActiveSeasonId && parsedSeasons[savedActiveSeasonId]
           ? savedActiveSeasonId
-          : (Object.values(parsedSeasons).find((season) => season.status === 'active')?.id ??
+          : (Object.values(parsedSeasons).find((season) => season.status === "active")?.id ??
             Object.keys(parsedSeasons)[0] ??
             null);
 
@@ -91,10 +91,10 @@ export function useMatches() {
     }
 
     const legacyHistory = JSON.parse(
-      localStorage.getItem(LEGACY_MATCHES_KEY) || '[]',
+      localStorage.getItem(LEGACY_MATCHES_KEY) || "[]",
     ) as MatchSummary[];
     const legacyFullMatches = JSON.parse(
-      localStorage.getItem(LEGACY_FULL_MATCHES_KEY) || '{}',
+      localStorage.getItem(LEGACY_FULL_MATCHES_KEY) || "{}",
     ) as Record<string, Match>;
     const hasLegacy = legacyHistory.length > 0 || Object.keys(legacyFullMatches).length > 0;
     const migrated = hasLegacy
@@ -132,15 +132,15 @@ export function useMatches() {
       const startedAt = Date.now();
       const newMatch: Match = {
         id: generateId(),
-        myTeamName: myTeamName || 'My Team',
-        opponentName: opponentName || 'Opponent',
+        myTeamName: myTeamName || "My Team",
+        opponentName: opponentName || "Opponent",
         isHome,
         goals: [],
         events: [
           {
             id: generateId(),
-            type: 'start',
-            label: 'Start Period 1',
+            type: "start",
+            label: "Start Period 1",
             time: getCurrentTime(),
             timestamp: startedAt,
           },
@@ -160,13 +160,13 @@ export function useMatches() {
   );
 
   const addGoal = useCallback(
-    (team: 'my-team' | 'opponent', scorer?: string, assist?: string, type: GoalType = 'normal') => {
+    (team: "my-team" | "opponent", scorer?: string, assist?: string, type: GoalType = "normal") => {
       if (!activeMatch) return;
       const newGoal: Goal = {
         id: generateId(),
         team,
-        scorer: team === 'my-team' ? scorer : undefined,
-        assist: team === 'my-team' ? assist : undefined,
+        scorer: team === "my-team" ? scorer : undefined,
+        assist: team === "my-team" ? assist : undefined,
         type,
         time: getCurrentTime(),
         timestamp: Date.now(),
@@ -203,7 +203,7 @@ export function useMatches() {
     (
       type: GameEventType,
       label?: string,
-      options?: { team?: 'my-team' | 'opponent'; player?: string },
+      options?: { team?: "my-team" | "opponent"; player?: string },
     ) => {
       if (!activeMatch) return;
 
@@ -255,7 +255,7 @@ export function useMatches() {
     setActiveMatch((prev) => {
       if (!prev) return null;
       const event = prev.events.find((item) => item.id === eventId);
-      if (!event || (event.type !== 'start' && event.type !== 'period-end')) return prev;
+      if (!event || (event.type !== "start" && event.type !== "period-end")) return prev;
 
       const eventDate = new Date(event.timestamp);
       eventDate.setHours(hours, minutes, 0, 0);
@@ -263,18 +263,14 @@ export function useMatches() {
       const events = prev.events.map((item) =>
         item.id === eventId ? { ...item, time, timestamp } : item,
       );
-      const firstStart = prev.events.find((item) => item.type === 'start');
-      const currentPeriodStart = [...prev.events]
-        .reverse()
-        .find((item) => item.type === 'start');
+      const firstStart = prev.events.find((item) => item.type === "start");
+      const currentPeriodStart = [...prev.events].reverse().find((item) => item.type === "start");
 
       return {
         ...prev,
         events,
-        ...(event.type === 'start' && firstStart?.id === eventId
-          ? { startedAt: timestamp }
-          : {}),
-        ...(event.type === 'start' && currentPeriodStart?.id === eventId
+        ...(event.type === "start" && firstStart?.id === eventId ? { startedAt: timestamp } : {}),
+        ...(event.type === "start" && currentPeriodStart?.id === eventId
           ? { periodStartedAt: timestamp }
           : {}),
       };
@@ -286,11 +282,11 @@ export function useMatches() {
       if (!prev) return null;
       const lastEvent = prev.events[prev.events.length - 1];
       const newPeriod =
-        lastEvent?.type === 'period-end' ? prev.currentPeriod + 1 : prev.currentPeriod;
+        lastEvent?.type === "period-end" ? prev.currentPeriod + 1 : prev.currentPeriod;
 
       const newEvent: GameEvent = {
         id: generateId(),
-        type: 'start',
+        type: "start",
         label: `Start Period ${newPeriod}`,
         time: getCurrentTime(),
         timestamp: Date.now(),
@@ -316,7 +312,7 @@ export function useMatches() {
 
       const newEvent: GameEvent = {
         id: generateId(),
-        type: 'period-end',
+        type: "period-end",
         label: `End Period ${prev.currentPeriod}`,
         time: getCurrentTime(),
         timestamp: Date.now(),
@@ -366,20 +362,20 @@ export function useMatches() {
 
     const myTeamScore = activeMatch.goals.filter(
       (goal) =>
-        (goal.team === 'my-team' && goal.type !== 'own-goal') ||
-        (goal.team === 'opponent' && goal.type === 'own-goal'),
+        (goal.team === "my-team" && goal.type !== "own-goal") ||
+        (goal.team === "opponent" && goal.type === "own-goal"),
     ).length;
 
     const opponentScore = activeMatch.goals.filter(
       (goal) =>
-        (goal.team === 'opponent' && goal.type !== 'own-goal') ||
-        (goal.team === 'my-team' && goal.type === 'own-goal'),
+        (goal.team === "opponent" && goal.type !== "own-goal") ||
+        (goal.team === "my-team" && goal.type === "own-goal"),
     ).length;
 
     const yellowCardCount = activeMatch.events.filter(
-      (event) => event.type === 'yellow-card',
+      (event) => event.type === "yellow-card",
     ).length;
-    const redCardCount = activeMatch.events.filter((event) => event.type === 'red-card').length;
+    const redCardCount = activeMatch.events.filter((event) => event.type === "red-card").length;
     const endedAt = Date.now();
 
     const summary: MatchSummary = {
@@ -391,10 +387,10 @@ export function useMatches() {
       opponentScore,
       yellowCardCount,
       redCardCount,
-      date: new Date(activeMatch.startedAt).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
+      date: new Date(activeMatch.startedAt).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       }),
       endedAt,
     };
@@ -516,13 +512,13 @@ export function useMatches() {
     if (!activeMatch) return { myTeam: 0, opponent: 0 };
     const myTeam = activeMatch.goals.filter(
       (goal) =>
-        (goal.team === 'my-team' && goal.type !== 'own-goal') ||
-        (goal.team === 'opponent' && goal.type === 'own-goal'),
+        (goal.team === "my-team" && goal.type !== "own-goal") ||
+        (goal.team === "opponent" && goal.type === "own-goal"),
     ).length;
     const opponent = activeMatch.goals.filter(
       (goal) =>
-        (goal.team === 'opponent' && goal.type !== 'own-goal') ||
-        (goal.team === 'my-team' && goal.type === 'own-goal'),
+        (goal.team === "opponent" && goal.type !== "own-goal") ||
+        (goal.team === "my-team" && goal.type === "own-goal"),
     ).length;
     return { myTeam, opponent };
   }, [activeMatch]);
@@ -559,7 +555,7 @@ export function useMatches() {
     (seasonId: string): boolean => {
       if (!activeSeasonId || activeMatch) return false;
       const season = seasons[seasonId];
-      if (!season || season.status !== 'closed') return false;
+      if (!season || season.status !== "closed") return false;
       const next = reopenSeasonAsActive(seasons, activeSeasonId, seasonId);
       setSeasons(next.seasons);
       setActiveSeasonId(next.activeSeasonId);
@@ -582,8 +578,8 @@ export function useMatches() {
   const getSeasonSummaries = useCallback(() => {
     return Object.values(seasons)
       .sort((a, b) => {
-        if (a.status === 'active' && b.status !== 'active') return -1;
-        if (a.status !== 'active' && b.status === 'active') return 1;
+        if (a.status === "active" && b.status !== "active") return -1;
+        if (a.status !== "active" && b.status === "active") return 1;
         return b.startAt - a.startAt;
       })
       .map((season) => ({

@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
-import { X, Play, Pause, ArrowLeft } from 'lucide-react';
-import { GameEventType } from '@/types/match';
-import { PlayerAutocomplete } from './PlayerAutocomplete';
+import { useEffect, useState } from "react";
+import { X, Play, Pause, ArrowLeft } from "lucide-react";
+import { GameEventType } from "@/types/match";
+import { PlayerAutocomplete } from "./PlayerAutocomplete";
 
 interface AddEventSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onAddEvent: (
     type: GameEventType,
-    options?: { team?: 'my-team' | 'opponent'; player?: string },
+    options?: { team?: "my-team" | "opponent"; player?: string },
   ) => void;
   myTeamName: string;
   opponentName: string;
@@ -16,13 +16,13 @@ interface AddEventSheetProps {
 }
 
 const eventTypes: { type: GameEventType; label: string; icon: typeof Play; color: string }[] = [
-  { type: 'pause', label: 'Pause Timer', icon: Pause, color: 'text-goal' },
-  { type: 'resume', label: 'Resume Timer', icon: Play, color: 'text-primary' },
+  { type: "pause", label: "Pause Timer", icon: Pause, color: "text-goal" },
+  { type: "resume", label: "Resume Timer", icon: Play, color: "text-primary" },
 ];
 
 const cardEvents: { type: GameEventType; label: string; cardClassName: string }[] = [
-  { type: 'yellow-card', label: 'Yellow Card', cardClassName: 'bg-yellow-400 border-yellow-500' },
-  { type: 'red-card', label: 'Red Card', cardClassName: 'bg-red-500 border-red-600' },
+  { type: "yellow-card", label: "Yellow Card", cardClassName: "bg-yellow-400 border-yellow-500" },
+  { type: "red-card", label: "Red Card", cardClassName: "bg-red-500 border-red-600" },
 ] as const;
 
 export function AddEventSheet({
@@ -33,20 +33,20 @@ export function AddEventSheet({
   opponentName,
   knownPlayers,
 }: AddEventSheetProps) {
-  const [pendingCardType, setPendingCardType] = useState<'yellow-card' | 'red-card' | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<'my-team' | 'opponent'>('my-team');
-  const [player, setPlayer] = useState('');
+  const [pendingCardType, setPendingCardType] = useState<"yellow-card" | "red-card" | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<"my-team" | "opponent">("my-team");
+  const [player, setPlayer] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
       setPendingCardType(null);
-      setSelectedTeam('my-team');
-      setPlayer('');
+      setSelectedTeam("my-team");
+      setPlayer("");
     }
   }, [isOpen]);
 
   const handleSelect = (type: GameEventType) => {
-    if (type === 'yellow-card' || type === 'red-card') {
+    if (type === "yellow-card" || type === "red-card") {
       setPendingCardType(type);
       return;
     }
@@ -130,13 +130,13 @@ export function AddEventSheet({
             <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
               <span
                 className={`inline-block h-5 w-4 rounded-[2px] border ${
-                  pendingCardType === 'yellow-card'
-                    ? 'bg-yellow-400 border-yellow-500'
-                    : 'bg-red-500 border-red-600'
+                  pendingCardType === "yellow-card"
+                    ? "bg-yellow-400 border-yellow-500"
+                    : "bg-red-500 border-red-600"
                 }`}
               />
               <span className="font-semibold text-foreground">
-                {pendingCardType === 'yellow-card' ? 'Yellow Card' : 'Red Card'}
+                {pendingCardType === "yellow-card" ? "Yellow Card" : "Red Card"}
               </span>
             </div>
 
@@ -145,22 +145,22 @@ export function AddEventSheet({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedTeam('my-team')}
+                  onClick={() => setSelectedTeam("my-team")}
                   className={`rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
-                    selectedTeam === 'my-team'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-foreground hover:bg-secondary/80'
+                    selectedTeam === "my-team"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-foreground hover:bg-secondary/80"
                   }`}
                 >
                   {myTeamName}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedTeam('opponent')}
+                  onClick={() => setSelectedTeam("opponent")}
                   className={`rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
-                    selectedTeam === 'opponent'
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-secondary text-foreground hover:bg-secondary/80'
+                    selectedTeam === "opponent"
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-secondary text-foreground hover:bg-secondary/80"
                   }`}
                 >
                   {opponentName}
@@ -175,8 +175,8 @@ export function AddEventSheet({
               <PlayerAutocomplete
                 value={player}
                 onChange={setPlayer}
-                players={selectedTeam === 'my-team' ? knownPlayers : []}
-                placeholder={selectedTeam === 'my-team' ? 'Which player?' : 'Opponent player name'}
+                players={selectedTeam === "my-team" ? knownPlayers : []}
+                placeholder={selectedTeam === "my-team" ? "Which player?" : "Opponent player name"}
               />
             </div>
 

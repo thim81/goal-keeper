@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -14,9 +14,9 @@ import {
   Bug,
   Download,
   Upload,
-} from 'lucide-react';
-import { AppSettings, Theme } from '@/types/match';
-import { SecretInput } from '@/components/SecretInput';
+} from "lucide-react";
+import { AppSettings, Theme } from "@/types/match";
+import { SecretInput } from "@/components/SecretInput";
 
 interface SettingsScreenProps {
   settings: AppSettings;
@@ -47,11 +47,11 @@ export function SettingsScreen({
   onExportBackup,
   onImportBackup,
 }: SettingsScreenProps) {
-  const [newPlayer, setNewPlayer] = useState('');
+  const [newPlayer, setNewPlayer] = useState("");
   const [teamName, setTeamName] = useState(settings.teamName);
   const [calendarUrl, setCalendarUrl] = useState(settings.calendarUrl);
   const [calendarTeamName, setCalendarTeamName] = useState(settings.calendarTeamName);
-  const [syncToken, setSyncToken] = useState(settings.syncToken || '');
+  const [syncToken, setSyncToken] = useState(settings.syncToken || "");
   const [showSyncToken, setShowSyncToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,7 +63,7 @@ export function SettingsScreen({
   const handleAddPlayer = () => {
     if (newPlayer.trim()) {
       onAddPlayer(newPlayer.trim());
-      setNewPlayer('');
+      setNewPlayer("");
     }
   };
 
@@ -90,7 +90,7 @@ export function SettingsScreen({
   return (
     <div
       className="flex flex-col safe-top overflow-hidden"
-      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+      style={{ height: "calc(var(--vh, 1vh) * 100)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
@@ -139,7 +139,7 @@ export function SettingsScreen({
               >
                 {[1, 2, 3, 4, 5, 6].map((n) => (
                   <option key={n} value={n}>
-                    {n} period{n > 1 ? 's' : ''}
+                    {n} period{n > 1 ? "s" : ""}
                   </option>
                 ))}
               </select>
@@ -177,7 +177,7 @@ export function SettingsScreen({
               type="text"
               value={newPlayer}
               onChange={(e) => setNewPlayer(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
+              onKeyDown={(e) => e.key === "Enter" && handleAddPlayer()}
               placeholder="Add player name"
               className="flex-1 px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -223,33 +223,33 @@ export function SettingsScreen({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={() => onUpdateTheme('light')}
+              onClick={() => onUpdateTheme("light")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                settings.theme === 'light'
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+                settings.theme === "light"
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-transparent bg-secondary text-muted-foreground hover:text-foreground"
               }`}
             >
               <Sun className="w-5 h-5" />
               <span className="text-xs font-medium">Light</span>
             </button>
             <button
-              onClick={() => onUpdateTheme('dark')}
+              onClick={() => onUpdateTheme("dark")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                settings.theme === 'dark'
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+                settings.theme === "dark"
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-transparent bg-secondary text-muted-foreground hover:text-foreground"
               }`}
             >
               <Moon className="w-5 h-5" />
               <span className="text-xs font-medium">Dark</span>
             </button>
             <button
-              onClick={() => onUpdateTheme('system')}
+              onClick={() => onUpdateTheme("system")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                settings.theme === 'system'
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-transparent bg-secondary text-muted-foreground hover:text-foreground'
+                settings.theme === "system"
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-transparent bg-secondary text-muted-foreground hover:text-foreground"
               }`}
             >
               <Laptop className="w-5 h-5" />
@@ -343,7 +343,7 @@ export function SettingsScreen({
               const file = e.target.files?.[0];
               if (!file) return;
               await onImportBackup(file);
-              if (fileInputRef.current) fileInputRef.current.value = '';
+              if (fileInputRef.current) fileInputRef.current.value = "";
             }}
           />
           <p className="text-[10px] text-muted-foreground leading-tight">
@@ -361,19 +361,19 @@ export function SettingsScreen({
             onClick={() => onUpdateDebug(!settings.debug)}
             className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
               settings.debug
-                ? 'border-primary bg-primary/5'
-                : 'border-transparent bg-secondary hover:bg-secondary/80'
+                ? "border-primary bg-primary/5"
+                : "border-transparent bg-secondary hover:bg-secondary/80"
             }`}
           >
             <span className="text-foreground font-medium">Show debug overlay</span>
             <div
               className={`w-12 h-6 rounded-full transition-colors ${
-                settings.debug ? 'bg-primary' : 'bg-muted-foreground/30'
+                settings.debug ? "bg-primary" : "bg-muted-foreground/30"
               }`}
             >
               <div
                 className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
-                  settings.debug ? 'translate-x-6' : 'translate-x-0.5'
+                  settings.debug ? "translate-x-6" : "translate-x-0.5"
                 } mt-0.5`}
               />
             </div>

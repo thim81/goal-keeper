@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
-import { Trophy, Trash2 } from 'lucide-react';
-import { MatchSummary } from '@/types/match';
-import { MatchResultCard } from './MatchResultCard';
+import { useRef, useState } from "react";
+import { Trophy, Trash2 } from "lucide-react";
+import { MatchSummary } from "@/types/match";
+import { MatchResultCard } from "./MatchResultCard";
 
 interface MatchHistoryProps {
   matches: MatchSummary[];
@@ -124,7 +124,7 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                   }}
                   style={{
                     transform: `translateX(${swipeX}px)`,
-                    transition: draggingRef.current ? 'none' : 'transform 160ms ease-out',
+                    transition: draggingRef.current ? "none" : "transform 160ms ease-out",
                   }}
                   onPointerDown={onMatchPointerDown(match.id)}
                   onPointerMove={onMatchPointerMove}

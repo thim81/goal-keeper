@@ -1,24 +1,24 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { CalendarRange, History, RefreshCw, RotateCcw, Settings } from 'lucide-react';
-import { useMatches } from '@/hooks/useMatches';
-import { useSettings } from '@/hooks/useSettings';
-import { useTheme } from '@/hooks/useTheme';
-import { useSync } from '@/hooks/useSync';
-import { SyncState } from '@/lib/sync';
-import { Scoreboard } from '@/components/Scoreboard';
-import { GoalTimeline } from '@/components/GoalTimeline';
-import { MatchTimer } from '@/components/MatchTimer';
-import { MatchActions } from '@/components/MatchActions';
-import { LiveMatchLayout } from '@/components/LiveMatchLayout';
-import { AddGoalSheet } from '@/components/AddGoalSheet';
-import { AddOpponentGoalSheet } from '@/components/AddOpponentGoalSheet';
-import { AddEventSheet } from '@/components/AddEventSheet';
-import { StartMatchSheet } from '@/components/StartMatchSheet';
-import { MatchHistory } from '@/components/MatchHistory';
-import { MatchResultCard } from '@/components/MatchResultCard';
-import { UpcomingMatches } from '@/components/UpcomingMatches';
-import { MatchDetail } from '@/components/MatchDetail';
-import { SettingsScreen } from '@/components/SettingsScreen';
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { CalendarRange, History, RefreshCw, RotateCcw, Settings } from "lucide-react";
+import { useMatches } from "@/hooks/useMatches";
+import { useSettings } from "@/hooks/useSettings";
+import { useTheme } from "@/hooks/useTheme";
+import { useSync } from "@/hooks/useSync";
+import { SyncState } from "@/lib/sync";
+import { Scoreboard } from "@/components/Scoreboard";
+import { GoalTimeline } from "@/components/GoalTimeline";
+import { MatchTimer } from "@/components/MatchTimer";
+import { MatchActions } from "@/components/MatchActions";
+import { LiveMatchLayout } from "@/components/LiveMatchLayout";
+import { AddGoalSheet } from "@/components/AddGoalSheet";
+import { AddOpponentGoalSheet } from "@/components/AddOpponentGoalSheet";
+import { AddEventSheet } from "@/components/AddEventSheet";
+import { StartMatchSheet } from "@/components/StartMatchSheet";
+import { MatchHistory } from "@/components/MatchHistory";
+import { MatchResultCard } from "@/components/MatchResultCard";
+import { UpcomingMatches } from "@/components/UpcomingMatches";
+import { MatchDetail } from "@/components/MatchDetail";
+import { SettingsScreen } from "@/components/SettingsScreen";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +28,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -36,22 +36,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { PlayerAutocomplete } from '@/components/PlayerAutocomplete';
-import { createDefaultSeasonName } from '@/lib/seasons';
-import { buildBackupPayload, parseBackupPayload } from '@/lib/backup';
-import { getRecentMatchWithinDays } from '@/lib/recent-match';
-import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
-import type { UpcomingMatch } from '@/lib/upcoming-matches';
-import { GoalType, GameEventType, Match } from '@/types/match';
-import { toast } from 'sonner';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PlayerAutocomplete } from "@/components/PlayerAutocomplete";
+import { createDefaultSeasonName } from "@/lib/seasons";
+import { buildBackupPayload, parseBackupPayload } from "@/lib/backup";
+import { getRecentMatchWithinDays } from "@/lib/recent-match";
+import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
+import type { UpcomingMatch } from "@/lib/upcoming-matches";
+import { GoalType, GameEventType, Match } from "@/types/match";
+import { toast } from "sonner";
 
-type View = 'home' | 'live' | 'history' | 'detail' | 'settings';
-type MatchDetailOrigin = 'home' | 'history';
+type View = "home" | "live" | "history" | "detail" | "settings";
+type MatchDetailOrigin = "home" | "history";
 
 export default function Index() {
-  const [view, setView] = useState<View>('home');
+  const [view, setView] = useState<View>("home");
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showAddOpponentGoal, setShowAddOpponentGoal] = useState(false);
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -63,7 +63,7 @@ export default function Index() {
   const [showEndMatchPrompt, setShowEndMatchPrompt] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedMatchSeasonId, setSelectedMatchSeasonId] = useState<string | null>(null);
-  const [matchDetailOrigin, setMatchDetailOrigin] = useState<MatchDetailOrigin>('history');
+  const [matchDetailOrigin, setMatchDetailOrigin] = useState<MatchDetailOrigin>("history");
   const [showSecondaryActions, setShowSecondaryActions] = useState(false);
   const [pendingDeleteMatch, setPendingDeleteMatch] = useState<{
     matchId: string;
@@ -71,11 +71,11 @@ export default function Index() {
   } | null>(null);
   const [pendingReopenSeasonId, setPendingReopenSeasonId] = useState<string | null>(null);
   const [showRenameOpponent, setShowRenameOpponent] = useState(false);
-  const [opponentNameDraft, setOpponentNameDraft] = useState('');
+  const [opponentNameDraft, setOpponentNameDraft] = useState("");
   const [showCloseSeason, setShowCloseSeason] = useState(false);
-  const [nextSeasonName, setNextSeasonName] = useState('');
+  const [nextSeasonName, setNextSeasonName] = useState("");
   const [showRenameSeason, setShowRenameSeason] = useState(false);
-  const [seasonNameDraft, setSeasonNameDraft] = useState('');
+  const [seasonNameDraft, setSeasonNameDraft] = useState("");
   const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState<string | null>(null);
   const [syncScrollSignal, setSyncScrollSignal] = useState(0);
   const dragStartY = useRef(0);
@@ -164,11 +164,11 @@ export default function Index() {
       setAllSettingsState({
         ...state.settings,
         calendarUrl:
-          typeof state.settings.calendarUrl === 'string'
+          typeof state.settings.calendarUrl === "string"
             ? state.settings.calendarUrl
             : settings.calendarUrl,
         calendarTeamName:
-          typeof state.settings.calendarTeamName === 'string'
+          typeof state.settings.calendarTeamName === "string"
             ? state.settings.calendarTeamName
             : settings.calendarTeamName,
         theme: settings.theme,
@@ -238,16 +238,16 @@ export default function Index() {
 
   const score = getScore();
   const lastEvent = activeMatch?.events?.[activeMatch.events.length - 1];
-  const isPeriodEnded = lastEvent?.type === 'period-end';
+  const isPeriodEnded = lastEvent?.type === "period-end";
   const periodStartedAt =
     activeMatch?.periodStartedAt ??
-    [...(activeMatch?.events ?? [])].reverse().find((event) => event.type === 'start')?.timestamp;
+    [...(activeMatch?.events ?? [])].reverse().find((event) => event.type === "start")?.timestamp;
 
   // Handle starting a new match
   const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
     setScheduledMatchDefaults(null);
     startMatch(myTeamName, opponentName, isHome);
-    setView('live');
+    setView("live");
   };
 
   const handleSelectUpcomingMatch = (match: UpcomingMatch) => {
@@ -268,7 +268,7 @@ export default function Index() {
 
   // Handle adding a goal for my team
   const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
-    addGoal('my-team', scorer, assist, type);
+    addGoal("my-team", scorer, assist, type);
     // Auto-add scorer/assist to players list
     if (scorer) addPlayer(scorer);
     if (assist) addPlayer(assist);
@@ -276,39 +276,39 @@ export default function Index() {
 
   // Handle adding opponent goal
   const handleAddOpponentGoal = (type: GoalType) => {
-    addGoal('opponent', undefined, undefined, type);
+    addGoal("opponent", undefined, undefined, type);
   };
 
   // Handle adding an event
   const handleAddEvent = (
     type: GameEventType,
-    options?: { team?: 'my-team' | 'opponent'; player?: string },
+    options?: { team?: "my-team" | "opponent"; player?: string },
   ) => {
-    if (type === 'start') {
+    if (type === "start") {
       handleStartPeriod();
-    } else if (type === 'period-end') {
+    } else if (type === "period-end") {
       handleEndPeriod();
-    } else if (type === 'pause' || type === 'resume') {
+    } else if (type === "pause" || type === "resume") {
       toggleTimer();
     } else {
       const label =
-        type === 'yellow-card' || type === 'red-card'
+        type === "yellow-card" || type === "red-card"
           ? [
               options?.team
-                ? options.team === 'my-team'
-                  ? (activeMatch?.myTeamName ?? 'My Team')
-                  : (activeMatch?.opponentName ?? 'Opponent')
+                ? options.team === "my-team"
+                  ? (activeMatch?.myTeamName ?? "My Team")
+                  : (activeMatch?.opponentName ?? "Opponent")
                 : undefined,
               options?.player,
             ]
               .filter(Boolean)
-              .join(' • ') || undefined
+              .join(" • ") || undefined
           : undefined;
 
       addEvent(type, label, options);
 
-      if (type === 'yellow-card' || type === 'red-card') {
-        if (options?.team === 'my-team' && options.player) {
+      if (type === "yellow-card" || type === "red-card") {
+        if (options?.team === "my-team" && options.player) {
           addPlayer(options.player);
         }
       }
@@ -320,7 +320,7 @@ export default function Index() {
     setShowEndMatchPrompt(false);
     if (activeMatch?.isRunning) endPeriod();
     endMatch();
-    setView('home');
+    setView("home");
   };
 
   const effectiveHistorySeasonId = selectedHistorySeasonId ?? activeSeasonId;
@@ -332,7 +332,7 @@ export default function Index() {
   const handleSelectMatch = (
     matchId: string,
     seasonId = effectiveHistorySeasonId,
-    origin: MatchDetailOrigin = 'history',
+    origin: MatchDetailOrigin = "history",
   ) => {
     if (!seasonId) return;
     const match = getSeasonMatchDetails(seasonId, matchId);
@@ -340,7 +340,7 @@ export default function Index() {
       setSelectedMatch(match);
       setSelectedMatchSeasonId(seasonId);
       setMatchDetailOrigin(origin);
-      setView('detail');
+      setView("detail");
     }
   };
 
@@ -370,7 +370,7 @@ export default function Index() {
     const success = closeAndStartNewSeason({ name: nextSeasonName });
     if (!success) return;
     setShowCloseSeason(false);
-    setView('home');
+    setView("home");
   };
 
   const handleConfirmReopenSeason = () => {
@@ -393,39 +393,39 @@ export default function Index() {
       settings,
     });
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const filename = `goal-keeper-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    const anchor = document.createElement('a');
+    const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-    toast.success('Backup exported');
+    toast.success("Backup exported");
   };
 
   const handleImportBackup = async (file: File) => {
     const text = await file.text();
     const parsed = parseBackupPayload(text);
-    if ('error' in parsed) {
+    if ("error" in parsed) {
       toast.error(parsed.error);
       return;
     }
 
     setAllMatchesState(parsed.state);
     setAllSettingsState(parsed.state.settings);
-    setView(parsed.state.activeMatch ? 'live' : 'home');
+    setView(parsed.state.activeMatch ? "live" : "home");
     setSelectedMatch(null);
     setSelectedMatchSeasonId(null);
-    setMatchDetailOrigin('history');
+    setMatchDetailOrigin("history");
     setPendingDeleteMatch(null);
     setPendingReopenSeasonId(null);
     setShowCloseSeason(false);
     setShowRenameOpponent(false);
     setShowRenameSeason(false);
-    toast.success('Backup imported');
+    toast.success("Backup imported");
   };
 
   const startSeasonNameLongPress = () => {
@@ -469,21 +469,21 @@ export default function Index() {
     (season) => season.id === effectiveHistorySeasonId,
   );
   const selectedSeasonLabel = selectedSeasonSummary
-    ? `${selectedSeasonSummary.name}${selectedSeasonSummary.status === 'active' ? ' (Active)' : ''}`
-    : '';
+    ? `${selectedSeasonSummary.name}${selectedSeasonSummary.status === "active" ? " (Active)" : ""}`
+    : "";
 
   // If there's an active match and we're on home, show live
-  if (activeMatch && view === 'home') {
-    setView('live');
+  if (activeMatch && view === "home") {
+    setView("live");
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Settings View */}
-      {view === 'settings' && (
+      {view === "settings" && (
         <SettingsScreen
           settings={settings}
-          onBack={() => setView(activeMatch ? 'live' : 'home')}
+          onBack={() => setView(activeMatch ? "live" : "home")}
           onUpdateTeamName={updateTeamName}
           onUpdateCalendarSettings={updateCalendarSettings}
           onAddPlayer={addPlayer}
@@ -498,7 +498,7 @@ export default function Index() {
       )}
 
       {/* Match Detail View */}
-      {view === 'detail' && selectedMatch && (
+      {view === "detail" && selectedMatch && (
         <MatchDetail
           match={selectedMatch}
           opponentSuggestions={opponentSuggestions}
@@ -519,7 +519,7 @@ export default function Index() {
       )}
 
       {/* History View */}
-      {view === 'history' && (
+      {view === "history" && (
         <div className="min-h-screen flex flex-col safe-top overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
@@ -542,7 +542,7 @@ export default function Index() {
               ) : null}
             </div>
             <div className="flex gap-2">
-              {selectedSeasonSummary?.status === 'closed' && (
+              {selectedSeasonSummary?.status === "closed" && (
                 <button
                   onClick={() => setPendingReopenSeasonId(selectedSeasonSummary.id)}
                   disabled={!canReopenSeason}
@@ -560,16 +560,16 @@ export default function Index() {
                 <CalendarRange className="w-5 h-5 text-foreground" />
               </button>
               <button
-                onClick={() => setView('settings')}
+                onClick={() => setView("settings")}
                 className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <Settings className="w-5 h-5 text-foreground" />
               </button>
               <button
-                onClick={() => setView(activeMatch ? 'live' : 'home')}
+                onClick={() => setView(activeMatch ? "live" : "home")}
                 className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
               >
-                {activeMatch ? 'Back to Match' : 'Home'}
+                {activeMatch ? "Back to Match" : "Home"}
               </button>
             </div>
           </div>
@@ -579,14 +579,14 @@ export default function Index() {
               <div className="mb-3">
                 <label className="text-xs text-muted-foreground mb-1.5 block">Season</label>
                 <select
-                  value={effectiveHistorySeasonId ?? ''}
+                  value={effectiveHistorySeasonId ?? ""}
                   onChange={(e) => setSelectedHistorySeasonId(e.target.value)}
                   className="w-full rounded-xl border border-border/50 bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {seasonSummaries.map((season) => (
                     <option key={season.id} value={season.id}>
                       {season.name}
-                      {season.status === 'active' ? ' (Active)' : ''}
+                      {season.status === "active" ? " (Active)" : ""}
                     </option>
                   ))}
                 </select>
@@ -602,7 +602,7 @@ export default function Index() {
       )}
 
       {/* Live Match View */}
-      {view === 'live' && activeMatch && (
+      {view === "live" && activeMatch && (
         <LiveMatchLayout
           debug={settings.debug}
           header={
@@ -613,24 +613,24 @@ export default function Index() {
                   type="button"
                   onClick={syncNow}
                   disabled={isSyncing || isCoolingDown}
-                  aria-label={isSyncing ? 'Syncing match' : 'Sync match'}
-                  title={isSyncing ? 'Syncing match' : 'Sync match'}
+                  aria-label={isSyncing ? "Syncing match" : "Sync match"}
+                  title={isSyncing ? "Syncing match" : "Sync match"}
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RefreshCw
-                    className={`w-5 h-5 text-foreground ${isSyncing ? 'animate-spin' : ''}`}
+                    className={`w-5 h-5 text-foreground ${isSyncing ? "animate-spin" : ""}`}
                   />
                 </button>
               )}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setView('settings')}
+                  onClick={() => setView("settings")}
                   className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <Settings className="w-5 h-5 text-foreground" />
                 </button>
                 <button
-                  onClick={() => setView('history')}
+                  onClick={() => setView("history")}
                   className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <History className="w-5 h-5 text-foreground" />
@@ -680,7 +680,7 @@ export default function Index() {
           actionsHandle={
             <button
               type="button"
-              aria-label={showSecondaryActions ? 'Hide extra actions' : 'Show extra actions'}
+              aria-label={showSecondaryActions ? "Hide extra actions" : "Show extra actions"}
               className="w-full flex justify-center pb-2"
               onClick={() => handleToggleSecondary(!showSecondaryActions)}
               onPointerDown={(e) => {
@@ -773,7 +773,7 @@ export default function Index() {
       )}
 
       {/* Home View */}
-      {view === 'home' && !activeMatch && (
+      {view === "home" && !activeMatch && (
         <div className="min-h-screen flex flex-col safe-top">
           {/* Header */}
           <div className="flex items-center justify-between p-4">
@@ -783,13 +783,13 @@ export default function Index() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setView('settings')}
+                onClick={() => setView("settings")}
                 className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <Settings className="w-5 h-5 text-foreground" />
               </button>
               <button
-                onClick={() => setView('history')}
+                onClick={() => setView("history")}
                 className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <History className="w-5 h-5 text-foreground" />
@@ -822,7 +822,7 @@ export default function Index() {
                 <MatchResultCard
                   match={recentMatch}
                   onSelect={() =>
-                    handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, 'home')
+                    handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, "home")
                   }
                 />
               </div>
@@ -830,10 +830,10 @@ export default function Index() {
 
             {activeSeasonMatchCount > 0 && (
               <button
-                onClick={() => setView('history')}
+                onClick={() => setView("history")}
                 className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                View {activeSeasonMatchCount} past match{activeSeasonMatchCount !== 1 ? 'es' : ''}
+                View {activeSeasonMatchCount} past match{activeSeasonMatchCount !== 1 ? "es" : ""}
               </button>
             )}
 
@@ -870,7 +870,7 @@ export default function Index() {
             <AlertDialogDescription>
               {pendingDeleteMatchSummary
                 ? `This will permanently remove ${pendingDeleteMatchSummary.myTeamName} vs ${pendingDeleteMatchSummary.opponentName} (${pendingDeleteMatchSummary.date}) from your history.`
-                : 'This will permanently remove the selected match from your history.'}
+                : "This will permanently remove the selected match from your history."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -939,7 +939,7 @@ export default function Index() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">W / D / L</span>
               <span className="font-semibold text-foreground">
-                {activeSeasonStats?.wins ?? 0} / {activeSeasonStats?.draws ?? 0} /{' '}
+                {activeSeasonStats?.wins ?? 0} / {activeSeasonStats?.draws ?? 0} /{" "}
                 {activeSeasonStats?.losses ?? 0}
               </span>
             </div>
@@ -951,7 +951,7 @@ export default function Index() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Top scorer</span>
-              <span className="font-semibold text-foreground">{activeSeasonTopScorer ?? '—'}</span>
+              <span className="font-semibold text-foreground">{activeSeasonTopScorer ?? "—"}</span>
             </div>
           </div>
 

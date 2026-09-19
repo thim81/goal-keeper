@@ -1,4 +1,4 @@
-import { MatchSummary, Season } from '@/types/match';
+import { MatchSummary, Season } from "@/types/match";
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -12,7 +12,7 @@ export function createDefaultSeasonName(value: Date | number = Date.now()): stri
 
 export function migrateLegacyDataToSeasons(
   legacyMatches: MatchSummary[],
-  legacyFullMatches: Season['fullMatches'],
+  legacyFullMatches: Season["fullMatches"],
   now: number = Date.now(),
 ): { seasons: Record<string, Season>; activeSeasonId: string } {
   const seasonId = generateId();
@@ -20,7 +20,7 @@ export function migrateLegacyDataToSeasons(
     id: seasonId,
     name: createDefaultSeasonName(now),
     startAt: now,
-    status: 'active',
+    status: "active",
     matches: legacyMatches,
     fullMatches: legacyFullMatches,
   };
@@ -46,7 +46,7 @@ export function closeSeasonAndCreateNext(
 
   const closedCurrent: Season = {
     ...current,
-    status: 'closed',
+    status: "closed",
     closedAt: now,
   };
 
@@ -54,7 +54,7 @@ export function closeSeasonAndCreateNext(
     id: nextSeasonId,
     name: trimmedName || createDefaultSeasonName(now),
     startAt: now,
-    status: 'active',
+    status: "active",
     matches: [],
     fullMatches: {},
   };
@@ -80,7 +80,7 @@ export function reopenSeasonAsActive(
   if (!currentActive || !seasonToReopen) {
     return { seasons, activeSeasonId: currentActiveSeasonId };
   }
-  if (seasonToReopen.status === 'active') {
+  if (seasonToReopen.status === "active") {
     return { seasons, activeSeasonId: seasonToReopenId };
   }
 
@@ -89,12 +89,12 @@ export function reopenSeasonAsActive(
       ...seasons,
       [currentActiveSeasonId]: {
         ...currentActive,
-        status: 'closed',
+        status: "closed",
         closedAt: now,
       },
       [seasonToReopenId]: {
         ...seasonToReopen,
-        status: 'active',
+        status: "active",
         closedAt: undefined,
       },
     },
@@ -153,7 +153,7 @@ export function getSeasonStats(season: Season): {
   const scorerCounts: Record<string, number> = {};
   for (const match of Object.values(season.fullMatches)) {
     for (const goal of match.goals) {
-      if (goal.team === 'my-team' && goal.type !== 'own-goal' && goal.scorer) {
+      if (goal.team === "my-team" && goal.type !== "own-goal" && goal.scorer) {
         scorerCounts[goal.scorer] = (scorerCounts[goal.scorer] || 0) + 1;
       }
     }
