@@ -104,7 +104,7 @@ change does not run a direct migration against production KV data.
 
 To revoke viewer links, replace `VIEWER_TOKEN` with a new random value in the
 Pages environment and deploy the updated secret. Previously copied links then
-stop authenticating. Share a new link from Settings. When rotating both
+stop authenticating. Copy a new **Share link** from Settings. When rotating both
 credentials, update both secrets as one deployment so the app never runs with
 matching values. Editors can replace their saved token in Settings on each
 device. The sync status there shows the last successful refresh time.

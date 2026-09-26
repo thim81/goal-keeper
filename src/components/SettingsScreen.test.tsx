@@ -7,15 +7,9 @@ import { DEFAULT_SETTINGS } from "@/types/match";
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-const shareDescriptor = Object.getOwnPropertyDescriptor(navigator, "share");
 afterEach(() => {
-  for (const [key, descriptor] of [
-    ["clipboard", clipboardDescriptor],
-    ["share", shareDescriptor],
-  ] as const) {
-    if (descriptor) Object.defineProperty(navigator, key, descriptor);
-    else Reflect.deleteProperty(navigator, key);
-  }
+  if (clipboardDescriptor) Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+  else Reflect.deleteProperty(navigator, "clipboard");
   vi.clearAllMocks();
 });
 
@@ -154,11 +148,10 @@ describe("SettingsScreen interactions", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce(link);
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderSharingSettings({ onLoadViewerLink });
 
-    const copy = screen.getByRole("button", { name: "Copy Link" });
+    const copy = screen.getByRole("button", { name: "Share link" });
     await waitFor(() => expect(copy).toBeEnabled());
     fireEvent.click(copy);
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -166,25 +159,17 @@ describe("SettingsScreen interactions", () => {
     expect(onLoadViewerLink).toHaveBeenCalledTimes(2);
   });
 
-  it("shares a prefetched link and keeps cancellation quiet", async () => {
+  it("copies a prefetched link from Share link", async () => {
     const link = "https://example.test/#viewer=share-token";
-    const share = vi
-      .fn()
-      .mockRejectedValue(Object.assign(new Error("cancel"), { name: "AbortError" }));
     const onLoadViewerLink = vi.fn().mockResolvedValue(link);
-    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderSharingSettings({ viewerLink: link, onLoadViewerLink });
 
-    fireEvent.click(screen.getByRole("button", { name: "Share workspace" }));
-    await waitFor(() =>
-      expect(share).toHaveBeenCalledWith({
-        title: "Goal Keeper",
-        text: "View-only match access",
-        url: link,
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Share link" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
     const { toast } = await import("sonner");
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("View link copied");
   });
 
   it("hides workspace mutations and backup tools in viewer mode while keeping theme local", () => {
@@ -220,7 +205,7 @@ describe("SettingsScreen interactions", () => {
     expect(screen.queryByText("Start New Match")).not.toBeInTheDocument();
     expect(screen.queryByText("Export")).not.toBeInTheDocument();
     expect(screen.queryByText("Paste ProSoccerData subscription URL")).not.toBeInTheDocument();
-    expect(screen.queryByText("Share workspace")).not.toBeInTheDocument();
+    expect(screen.queryByText("Share link")).not.toBeInTheDocument();
   });
 
   it("saves the team name on blur only when it actually changed", () => {

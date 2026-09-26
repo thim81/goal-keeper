@@ -30,7 +30,7 @@ The app's sync runs entirely locally with this command. Initial tool downloads t
 
 1. Open the local address in a regular browser window. In Settings, enter `local-editor` in Cloud Sync. Wait for the title badge to show **Editor**. An empty local workspace is initialized from that browser's local app data.
 2. Set a recognizable team name, add players, and create a test match. Changes automatically upload after about two seconds; use the sync button to refresh manually.
-3. In Settings, choose **Copy Link**. Open that link in a private window or a separate browser profile. Two ordinary tabs share browser storage, so use isolated sessions to keep credentials independent.
+3. In Settings, choose **Share link**. Open that link in a private window or a separate browser profile. Two ordinary tabs share browser storage, so use isolated sessions to keep credentials independent.
 4. Confirm the second session shows **Viewer**, and the token disappears from the address bar after validation. Alternatively, open the local app in the private session and enter `local-viewer` manually.
 5. Confirm viewers can see the live scoreboard, timeline, history, seasons, statistics, and the read-only team name in Settings. Creation, goal/event actions, timer controls, undo, renaming, deletion, season management, editable workspace settings, backup tools, calendar features, and sharing controls should be absent or inactive.
 6. Keep the viewer visible while the editor changes a live match. Allow the editor upload, then up to ten seconds for the next viewer refresh. Check score and event changes. Finish the match and confirm it appears in viewer history. Without a live match, viewer polling runs every thirty seconds.
@@ -39,8 +39,8 @@ The app's sync runs entirely locally with this command. Initial tool downloads t
 
 ## Test sharing and local preferences
 
-1. From the editor, try **Share workspace**. Where supported, the browser opens native sharing; otherwise it copies the link. Canceling native sharing should not show an error.
-2. Check **Copy Link** independently. If browser permissions block sharing or copying, the app should report the failure. A slow retry that first reloads the link may need a second tap in Safari.
+1. From the editor, choose **Share link**. Confirm the view-only link is copied to the clipboard.
+2. If clipboard permissions block copying, the app should report the failure. If the link needs to be reloaded, the same button click should load and copy it.
 3. Open a valid viewer link in the already-connected editor session. It should retain editor access.
 4. Open an invalid link, for example `http://localhost:8788/#viewer=wrong-token`, in a connected session. Existing credentials and data should stay intact; the hash should be removed after validation.
 5. Choose different themes in editor and viewer sessions. Sync must preserve each session's own light, dark, or system preference.
@@ -87,4 +87,4 @@ npm run lint
 npm run build
 ```
 
-These cover the automated suite and build validation. The browser steps above additionally check the two-session experience and native sharing behavior.
+These cover the automated suite and build validation. The browser steps above additionally check the two-session experience and copy-link behavior.

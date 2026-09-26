@@ -14,7 +14,6 @@ import {
   Bug,
   Download,
   Upload,
-  Share2,
   Copy,
 } from "lucide-react";
 import { AppSettings, Theme } from "@/types/match";
@@ -329,14 +328,42 @@ export function SettingsScreen({
 
         {/* Sync */}
         <div className="space-y-3 pt-4 border-t border-border/30">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
               <RefreshCw className="w-4 h-4" />
-              <span className="text-sm font-semibold uppercase tracking-wider">Cloud Sync</span>
+              <span className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider sm:text-sm">
+                Cloud Sync
+              </span>
             </div>
-            <span className="text-xs font-medium text-muted-foreground" role="status">
-              {syncLabel}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className="whitespace-nowrap text-xs font-medium text-muted-foreground"
+                role="status"
+              >
+                {syncLabel}
+              </span>
+              {syncStatus === "editor" && (
+                <button
+                  type="button"
+                  disabled={!viewerLink && !shareFailed}
+                  onClick={async () => {
+                    try {
+                      const link = viewerLink || (await loadViewerLinkForAction());
+                      if (!link) throw new Error("Could not load view-only link");
+                      await navigator.clipboard.writeText(link);
+                      setShareFailed(false);
+                      toast.success("View link copied");
+                    } catch {
+                      toast.error("Could not copy view link");
+                    }
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-secondary px-2 py-1 text-xs disabled:opacity-50"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>Share link</span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <SecretInput
@@ -352,77 +379,28 @@ export function SettingsScreen({
             <p className="text-[10px] text-muted-foreground leading-tight">
               Enter your token to sync matches across devices.
             </p>
-            {lastSyncedAt && (
-              <p className="text-[10px] text-muted-foreground">
-                Last refreshed {new Date(lastSyncedAt).toLocaleTimeString()}
-              </p>
-            )}
-            {syncStatus !== "local" && (
-              <button
-                type="button"
-                onClick={onSyncNow}
-                disabled={isSyncing || isCoolingDown}
-                className="text-xs text-primary disabled:opacity-50"
-              >
-                {isSyncing
-                  ? "Refreshing…"
-                  : syncStatus === "invalid" || syncStatus === "unavailable"
-                    ? "Retry connection"
-                    : "Refresh workspace"}
-              </button>
-            )}
-          </div>
-          {syncStatus === "editor" && (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={!viewerLink && !shareFailed}
-                onClick={async () => {
-                  try {
-                    const link = viewerLink || (await loadViewerLinkForAction());
-                    if (!link) throw new Error("Could not load view-only link");
-                    setShareFailed(false);
-                    if (navigator.share)
-                      await navigator.share({
-                        title: "Goal Keeper",
-                        text: "View-only match access",
-                        url: link,
-                      });
-                    else {
-                      await navigator.clipboard.writeText(link);
-                      toast.success("View link copied");
-                    }
-                  } catch (error) {
-                    if ((error as Error).name !== "AbortError")
-                      toast.error("Could not share workspace");
-                  }
-                }}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary disabled:opacity-50"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="text-sm">Share workspace</span>
-              </button>
-              <button
-                type="button"
-                disabled={!viewerLink && !shareFailed}
-                onClick={async () => {
-                  try {
-                    const link = viewerLink || (await loadViewerLinkForAction());
-                    if (!link) throw new Error("Could not load view-only link");
-                    await navigator.clipboard.writeText(link);
-                    setShareFailed(false);
-                    toast.success("View link copied");
-                  } catch {
-                    toast.error("Could not copy view link");
-                  }
-                }}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary disabled:opacity-50"
-              >
-                <Copy className="w-4 h-4" />
-                <span className="text-sm">Copy Link</span>
-              </button>
+            <div className="flex items-center gap-2">
+              {lastSyncedAt && (
+                <p className="text-[10px] text-muted-foreground">
+                  Last refreshed {new Date(lastSyncedAt).toLocaleTimeString()}
+                </p>
+              )}
+              {syncStatus !== "local" && (
+                <button
+                  type="button"
+                  onClick={onSyncNow}
+                  disabled={isSyncing || isCoolingDown}
+                  className="ml-auto whitespace-nowrap text-xs text-primary disabled:opacity-50"
+                >
+                  {isSyncing
+                    ? "Refreshing…"
+                    : syncStatus === "invalid" || syncStatus === "unavailable"
+                      ? "Retry connection"
+                      : "Refresh workspace"}
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {canEdit && (
