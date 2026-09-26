@@ -328,8 +328,7 @@ export function SettingsScreen({
               hideLabel="Hide sync token"
             />
             <p className="text-[10px] text-muted-foreground leading-tight">
-              Enter your token to sync matches across devices. Your data will be stored in
-              Cloudflare KV.
+              Enter your token to sync matches across devices.
             </p>
             {lastSyncedAt && (
               <p className="text-[10px] text-muted-foreground">
