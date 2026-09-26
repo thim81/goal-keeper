@@ -72,7 +72,6 @@ describe("useMatches goals, events and score", () => {
     const goal = result.current.activeMatch!.goals[0];
     act(() =>
       result.current.updateGoal(goal.id, {
-        team: "opponent",
         type: "normal",
         time: goal.time,
         scorer: "Bob",
@@ -81,14 +80,12 @@ describe("useMatches goals, events and score", () => {
     );
     expect(result.current.activeMatch!.goals[0]).toEqual({
       ...goal,
-      team: "opponent",
-      scorer: undefined,
-      assist: undefined,
+      scorer: "Bob",
+      assist: "Carl",
     });
-    expect(result.current.getScore()).toEqual({ myTeam: 0, opponent: 1 });
+    expect(result.current.getScore()).toEqual({ myTeam: 1, opponent: 0 });
     act(() =>
       result.current.updateGoal(goal.id, {
-        team: "my-team",
         type: "head",
         time: "09:30",
         scorer: " Bob ",
@@ -103,9 +100,7 @@ describe("useMatches goals, events and score", () => {
       assist: "Carl",
       timestamp: new Date(goal.timestamp).setHours(9, 30, 0, 0),
     });
-    act(() =>
-      result.current.updateGoal(goal.id, { team: "my-team", type: "own-goal", time: "25:00" }),
-    );
+    act(() => result.current.updateGoal(goal.id, { type: "own-goal", time: "25:00" }));
     expect(result.current.activeMatch!.goals[0].type).toBe("head");
   });
   beforeEach(() => {

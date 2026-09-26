@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Goal, GoalEdit, GameEvent } from "@/types/match";
 import { EditGoalSheet } from "./EditGoalSheet";
+import { parseClockTime } from "@/lib/clock-time";
 import {
   Trophy,
   Target,
@@ -466,7 +467,8 @@ export function GoalTimeline({
 
         const swipeX = goalSwipeX[goal.id] ?? 0;
         const canSwipeDelete = editable && !!onDeleteGoal;
-        const canInteract = editable && (!!onDeleteGoal || !!onUpdateGoal);
+        const canEdit = editable && !!onUpdateGoal;
+        const canInteract = canSwipeDelete || canEdit;
 
         return (
           <div
@@ -503,7 +505,7 @@ export function GoalTimeline({
                 onPointerLeave={canInteract ? clearGoalLongPress : undefined}
                 onClick={canInteract ? onGoalRowClick(goal.id) : undefined}
                 onContextMenu={
-                  editable && onUpdateGoal
+                  canEdit
                     ? (event) => {
                         event.preventDefault();
                         clearGoalLongPress();
@@ -511,14 +513,12 @@ export function GoalTimeline({
                       }
                     : undefined
                 }
-                tabIndex={editable && onUpdateGoal ? 0 : undefined}
+                tabIndex={canEdit ? 0 : undefined}
                 aria-label={
-                  editable && onUpdateGoal
-                    ? `Edit goal: ${goal.scorer || teamName}, ${goal.time}`
-                    : undefined
+                  canEdit ? `Edit goal: ${goal.scorer || teamName}, ${goal.time}` : undefined
                 }
                 onKeyDown={
-                  editable && onUpdateGoal
+                  canEdit
                     ? (event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
@@ -613,12 +613,12 @@ export function GoalTimeline({
             </Button>
             <Button
               onClick={() => {
-                if (editingEvent && editingEventTime) {
+                if (editingEvent && parseClockTime(editingEventTime)) {
                   onUpdateEventTime?.(editingEvent.id, editingEventTime);
                 }
                 setEditingEvent(null);
               }}
-              disabled={!editingEventTime}
+              disabled={!parseClockTime(editingEventTime)}
             >
               Save
             </Button>

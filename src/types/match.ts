@@ -20,7 +20,7 @@ export interface Goal {
   timestamp: number; // for ordering
 }
 
-export type GoalEdit = Pick<Goal, "team" | "scorer" | "assist" | "type" | "time">;
+export type GoalEdit = Pick<Goal, "scorer" | "assist" | "type" | "time">;
 
 export interface GameEvent {
   id: string;

@@ -1,16 +1,10 @@
 import { useState } from "react";
-import { Trophy, CircleDot, Target, AlertCircle } from "lucide-react";
-import { Goal, GoalEdit, GoalType } from "@/types/match";
+import { Goal, GoalEdit } from "@/types/match";
+import { goalTypes } from "./goal-types";
+import { parseClockTime } from "@/lib/clock-time";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { PlayerAutocomplete } from "./PlayerAutocomplete";
-
-const goalTypes: { type: GoalType; label: string; icon: typeof Trophy }[] = [
-  { type: "normal", label: "Normal", icon: Trophy },
-  { type: "head", label: "Header", icon: CircleDot },
-  { type: "penalty", label: "Penalty", icon: Target },
-  { type: "own-goal", label: "Own Goal", icon: AlertCircle },
-];
 
 interface EditGoalSheetProps {
   goal: Goal;
@@ -19,12 +13,7 @@ interface EditGoalSheetProps {
   onSave: (id: string, changes: GoalEdit) => void;
 }
 
-export function EditGoalSheet({
-  goal,
-  knownPlayers,
-  onClose,
-  onSave,
-}: EditGoalSheetProps) {
+export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalSheetProps) {
   const team = goal.team;
   const isMyTeam = team === "my-team";
   const selectedTypeClass = isMyTeam
@@ -34,7 +23,7 @@ export function EditGoalSheet({
   const [assist, setAssist] = useState(goal.assist ?? "");
   const [type, setType] = useState(goal.type);
   const [time, setTime] = useState(goal.time);
-  const validTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
+  const validTime = parseClockTime(time) !== null;
 
   return (
     <Sheet
@@ -114,9 +103,8 @@ export function EditGoalSheet({
               disabled={!validTime}
               onClick={() => {
                 onSave(goal.id, {
-                  team,
-                  scorer: team === "my-team" ? scorer.trim() : undefined,
-                  assist: team === "my-team" ? assist.trim() : undefined,
+                  scorer: team === "my-team" ? scorer : undefined,
+                  assist: team === "my-team" ? assist : undefined,
                   type,
                   time,
                 });

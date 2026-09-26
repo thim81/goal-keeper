@@ -83,7 +83,6 @@ describe("GoalTimeline", () => {
     fireEvent.change(screen.getByLabelText("Time"), { target: { value: "10:15" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onUpdateGoal).toHaveBeenCalledWith("g1", {
-      team: "my-team",
       scorer: "Bob",
       assist: "Carl",
       type: "head",

@@ -18,6 +18,7 @@ import {
   reopenSeasonAsActive,
 } from "@/lib/seasons";
 import { SyncState } from "@/lib/sync";
+import { parseClockTime } from "@/lib/clock-time";
 
 const LEGACY_MATCHES_KEY = "football-tracker-matches";
 const LEGACY_FULL_MATCHES_KEY = "football-tracker-full-matches";
@@ -186,8 +187,8 @@ export function useMatches() {
   );
 
   const updateGoal = useCallback((goalId: string, changes: GoalEdit) => {
-    const matchTime = /^(\d{2}):(\d{2})$/.exec(changes.time);
-    if (!matchTime || Number(matchTime[1]) > 23 || Number(matchTime[2]) > 59) return;
+    const clockTime = parseClockTime(changes.time);
+    if (!clockTime) return;
     setActiveMatch((prev) => {
       if (!prev) return null;
       return {
@@ -195,13 +196,12 @@ export function useMatches() {
         goals: prev.goals.map((goal) => {
           if (goal.id !== goalId) return goal;
           const date = new Date(goal.timestamp);
-          if (goal.time !== changes.time)
-            date.setHours(Number(matchTime[1]), Number(matchTime[2]), 0, 0);
+          if (goal.time !== changes.time) date.setHours(clockTime.hours, clockTime.minutes, 0, 0);
           return {
             ...goal,
             ...changes,
-            scorer: changes.team === "my-team" ? changes.scorer?.trim() || undefined : undefined,
-            assist: changes.team === "my-team" ? changes.assist?.trim() || undefined : undefined,
+            scorer: goal.team === "my-team" ? changes.scorer?.trim() || undefined : undefined,
+            assist: goal.team === "my-team" ? changes.assist?.trim() || undefined : undefined,
             timestamp: date.getTime(),
           };
         }),
@@ -270,12 +270,9 @@ export function useMatches() {
   );
 
   const updateEventTime = useCallback((eventId: string, time: string) => {
-    const matchTime = /^(\d{2}):(\d{2})$/.exec(time);
-    if (!matchTime) return;
-
-    const hours = Number(matchTime[1]);
-    const minutes = Number(matchTime[2]);
-    if (hours > 23 || minutes > 59) return;
+    const clockTime = parseClockTime(time);
+    if (!clockTime) return;
+    const { hours, minutes } = clockTime;
 
     setActiveMatch((prev) => {
       if (!prev) return null;
