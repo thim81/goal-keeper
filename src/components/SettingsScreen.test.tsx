@@ -1,8 +1,23 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsScreen } from "@/components/SettingsScreen";
 import { DEFAULT_SETTINGS } from "@/types/match";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+const shareDescriptor = Object.getOwnPropertyDescriptor(navigator, "share");
+afterEach(() => {
+  for (const [key, descriptor] of [
+    ["clipboard", clipboardDescriptor],
+    ["share", shareDescriptor],
+  ] as const) {
+    if (descriptor) Object.defineProperty(navigator, key, descriptor);
+    else Reflect.deleteProperty(navigator, key);
+  }
+  vi.clearAllMocks();
+});
 
 function renderSettings() {
   const onUpdateCalendarSettings = vi.fn();
@@ -103,7 +118,75 @@ function renderFullSettings(settingsOverrides: Partial<typeof DEFAULT_SETTINGS> 
   return handlers;
 }
 
+function renderSharingSettings({
+  viewerLink = "",
+  onLoadViewerLink,
+}: {
+  viewerLink?: string;
+  onLoadViewerLink: () => Promise<string>;
+}) {
+  render(
+    <SettingsScreen
+      settings={{ ...DEFAULT_SETTINGS, syncToken: "editor-token" }}
+      onBack={vi.fn()}
+      onUpdateTeamName={vi.fn()}
+      onUpdateCalendarSettings={vi.fn()}
+      onAddPlayer={vi.fn()}
+      onRemovePlayer={vi.fn()}
+      onUpdatePeriods={vi.fn()}
+      onUpdateSyncToken={vi.fn()}
+      onUpdateTheme={vi.fn()}
+      onUpdateDebug={vi.fn()}
+      onExportBackup={vi.fn()}
+      onImportBackup={vi.fn()}
+      syncStatus="editor"
+      viewerLink={viewerLink}
+      onLoadViewerLink={onLoadViewerLink}
+    />,
+  );
+}
+
 describe("SettingsScreen interactions", () => {
+  it("copies a freshly loaded link on the same retry click after prefetch fails", async () => {
+    const link = "https://example.test/#viewer=share-token";
+    const onLoadViewerLink = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(link);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderSharingSettings({ onLoadViewerLink });
+
+    const copy = screen.getByRole("button", { name: "Copy Link" });
+    await waitFor(() => expect(copy).toBeEnabled());
+    fireEvent.click(copy);
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(link);
+    expect(onLoadViewerLink).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares a prefetched link and keeps cancellation quiet", async () => {
+    const link = "https://example.test/#viewer=share-token";
+    const share = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("cancel"), { name: "AbortError" }));
+    const onLoadViewerLink = vi.fn().mockResolvedValue(link);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    renderSharingSettings({ viewerLink: link, onLoadViewerLink });
+
+    fireEvent.click(screen.getByRole("button", { name: "Share workspace" }));
+    await waitFor(() =>
+      expect(share).toHaveBeenCalledWith({
+        title: "Goal Keeper",
+        text: "View-only match access",
+        url: link,
+      }),
+    );
+    const { toast } = await import("sonner");
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("hides workspace mutations and backup tools in viewer mode while keeping theme local", () => {
     render(
       <SettingsScreen

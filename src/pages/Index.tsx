@@ -44,7 +44,12 @@ import { buildBackupPayload, parseBackupPayload } from "@/lib/backup";
 import { getRecentMatchWithinDays } from "@/lib/recent-match";
 import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
 import type { UpcomingMatch } from "@/lib/upcoming-matches";
-import { clearViewerTokenFromUrl, createViewerLink, validateViewerLink } from "@/lib/share";
+import {
+  clearViewerTokenFromUrl,
+  createViewerLink,
+  getViewerTokenFromUrl,
+  validateViewerLink,
+} from "@/lib/share";
 import { GoalType, GoalEdit, GameEventType, Match } from "@/types/match";
 import { toast } from "sonner";
 
@@ -79,9 +84,7 @@ export default function Index() {
   const [seasonNameDraft, setSeasonNameDraft] = useState("");
   const [viewerLink, setViewerLink] = useState("");
   const [sharedToken, setSharedToken] = useState(() =>
-    typeof window === "undefined"
-      ? ""
-      : (new URLSearchParams(window.location.hash.slice(1)).get("viewer") ?? ""),
+    typeof window === "undefined" ? "" : (getViewerTokenFromUrl(window.location.href) ?? ""),
   );
   const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState<string | null>(null);
   const [syncScrollSignal, setSyncScrollSignal] = useState(0);

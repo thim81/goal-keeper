@@ -12,7 +12,14 @@ export const onRequestGet = async ({ env, request }: WorkspaceRequestContext) =>
   const headers = { ...responseHeaders, "X-Workspace-Role": role };
   const stored = await env.GOALKEEPER_KV.get(STORAGE_KEY);
   if (!stored) return new Response(null, { status: 204, headers });
-  return Response.json(sanitizeState(JSON.parse(stored), role), { headers });
+  try {
+    return Response.json(sanitizeState(JSON.parse(stored), role), { headers });
+  } catch {
+    return new Response("Stored workspace is unreadable; existing data was preserved", {
+      status: 422,
+      headers,
+    });
+  }
 };
 
 export const onRequestPost = async ({ env, request }: WorkspaceRequestContext) => {

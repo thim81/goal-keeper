@@ -201,10 +201,7 @@ export function useSync(
     const generation = generationRef.current;
     const timeout = window.setTimeout(async () => {
       writeTimerRef.current = null;
-      const sending = writeState(syncToken, local, generation);
-      writePromiseRef.current = sending;
-      await sending;
-      if (writePromiseRef.current === sending) writePromiseRef.current = null;
+      await writeState(syncToken, local, generation);
     }, 2000);
     writeTimerRef.current = timeout;
     return () => {
@@ -231,6 +228,9 @@ export function useSync(
         if (statusCode < 200 || statusCode >= 300) return;
       } else if (writePromiseRef.current) {
         const statusCode = await writePromiseRef.current;
+        if (statusCode < 200 || statusCode >= 300) return;
+      } else if (role === "editor" && serialize(getLocalState()) !== lastPushedState.current) {
+        const statusCode = await writeState(syncToken, getLocalState(), generation);
         if (statusCode < 200 || statusCode >= 300) return;
       }
       if (generation === generationRef.current) await pull(syncToken, generation, true);
@@ -281,11 +281,13 @@ export function useSync(
           window.clearTimeout(writeTimerRef.current);
           writeTimerRef.current = null;
           const pending = writeState(syncToken, getLocalState(), generation);
-          writePromiseRef.current = pending;
           const statusCode = await pending;
           if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
         } else if (writePromiseRef.current) {
           const statusCode = await writePromiseRef.current;
+          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
+        } else if (serialize(getLocalState()) !== lastPushedState.current) {
+          const statusCode = await writeState(syncToken, getLocalState(), generation);
           if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
         }
       }

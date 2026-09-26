@@ -76,7 +76,12 @@ export function SettingsScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (syncStatus === "editor") void onLoadViewerLink().then((link) => setShareFailed(!link));
+    if (syncStatus === "editor") {
+      void onLoadViewerLink().then(
+        (link) => setShareFailed(!link),
+        () => setShareFailed(true),
+      );
+    }
   }, [syncStatus, onLoadViewerLink]);
 
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
@@ -101,6 +106,18 @@ export function SettingsScreen({
 
   const handleCalendarSettingsBlur = () => {
     onUpdateCalendarSettings(calendarUrl, calendarTeamName);
+  };
+
+  const getViewerLinkForAction = async () => {
+    if (viewerLink) return viewerLink;
+    try {
+      const link = await onLoadViewerLink();
+      setShareFailed(!link);
+      return link;
+    } catch {
+      setShareFailed(true);
+      return "";
+    }
   };
 
   const handleSyncTokenBlur = () => {
@@ -357,12 +374,8 @@ export function SettingsScreen({
                 disabled={!viewerLink && !shareFailed}
                 onClick={async () => {
                   try {
-                    if (!viewerLink) {
-                      const link = await onLoadViewerLink();
-                      setShareFailed(!link);
-                      return;
-                    }
-                    const link = viewerLink;
+                    const link = viewerLink || (await getViewerLinkForAction());
+                    if (!link) throw new Error("Could not load view-only link");
                     setShareFailed(false);
                     if (navigator.share)
                       await navigator.share({
@@ -389,12 +402,8 @@ export function SettingsScreen({
                 disabled={!viewerLink && !shareFailed}
                 onClick={async () => {
                   try {
-                    if (!viewerLink) {
-                      const link = await onLoadViewerLink();
-                      setShareFailed(!link);
-                      return;
-                    }
-                    const link = viewerLink;
+                    const link = viewerLink || (await getViewerLinkForAction());
+                    if (!link) throw new Error("Could not load view-only link");
                     await navigator.clipboard.writeText(link);
                     setShareFailed(false);
                     toast.success("View link copied");

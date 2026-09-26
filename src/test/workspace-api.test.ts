@@ -54,6 +54,24 @@ describe("workspace permissions", () => {
     expect(response.status).toBe(204);
     expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
   });
+  it("returns an error for unreadable JSON", async () => {
+    const ctx = context("editor");
+    ctx.env.GOALKEEPER_KV.get.mockResolvedValue("{broken-json");
+    const response = await onRequestGet(ctx as never);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("X-Workspace-Role")).toBe("editor");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toContain("existing data was preserved");
+    expect(ctx.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
+  });
+  it("rejects invalid stored shapes for viewers without exposing the raw state", async () => {
+    const ctx = context("viewer", "GET", []);
+    const response = await onRequestGet(ctx as never);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
+    expect(await response.text()).not.toContain("syncToken");
+    expect(ctx.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
+  });
   it("rejects viewer writes without touching KV", async () => {
     const ctx = context("viewer", "POST");
     expect((await onRequestPost(ctx as never)).status).toBe(403);

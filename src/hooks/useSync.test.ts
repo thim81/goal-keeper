@@ -205,6 +205,108 @@ describe("useSync manual refresh", () => {
     );
   });
 
+  it("does not seed over a stored workspace that the API cannot read", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("Stored workspace is unreadable; existing data was preserved", {
+        status: 422,
+        headers: { "X-Workspace-Role": "editor" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useSync("token", {}, "season-1", null, settings, vi.fn()));
+    await waitFor(() => expect(result.current.status).toBe("unavailable"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+  });
+
+  it("retries a failed dirty editor save before pulling remote state", async () => {
+    vi.useFakeTimers();
+    const localEdit = { ...remoteState.activeMatch, id: "unsaved-local-edit" } as NonNullable<
+      SyncState["activeMatch"]
+    >;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(remoteResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...remoteState, activeMatch: localEdit }), {
+          headers: { "X-Workspace-Role": "editor" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const onSyncState = vi.fn();
+    const { rerender, result } = renderHook(
+      ({ activeMatch }) => useSync("token", {}, "season-1", activeMatch, settings, onSyncState),
+      { initialProps: { activeMatch: null as SyncState["activeMatch"] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe("editor");
+
+    rerender({ activeMatch: localEdit });
+    await act(async () => result.current.syncNow());
+    expect(result.current.status).toBe("unavailable");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+      await result.current.syncNow();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).activeMatch.id).toBe("unsaved-local-edit");
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body).activeMatch.id).toBe("unsaved-local-edit");
+    expect(onSyncState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ activeMatch: localEdit }),
+    );
+    expect(result.current.status).toBe("editor");
+  });
+
+  it("retries an autosave failure on the next foreground refresh", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const localEdit = { ...remoteState.activeMatch, id: "unsaved-auto-edit" } as NonNullable<
+      SyncState["activeMatch"]
+    >;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(remoteResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...remoteState, activeMatch: localEdit }), {
+          headers: { "X-Workspace-Role": "editor" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender, result } = renderHook(
+      ({ activeMatch }) => useSync("token", {}, "season-1", activeMatch, settings, vi.fn()),
+      { initialProps: { activeMatch: null as SyncState["activeMatch"] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe("editor");
+
+    rerender({ activeMatch: localEdit });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(result.current.status).toBe("unavailable");
+
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+      2,
+    );
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body).activeMatch.id).toBe("unsaved-auto-edit");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("does not apply a refresh response over edits made while the request is pending", async () => {
     let resolveRefresh: (response: Response) => void = () => undefined;
     const fetchMock = vi
