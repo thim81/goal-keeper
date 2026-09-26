@@ -147,16 +147,18 @@ describe("MatchDetail", () => {
   });
 
   it("suppresses the native context menu on both the home-side and away-side editable names", () => {
-    const awaySideResult = render(<MatchDetail match={awayMatch} onBack={vi.fn()} />);
+    const awaySideResult = render(
+      <MatchDetail match={awayMatch} onBack={vi.fn()} onRenameOpponent={vi.fn()} />,
+    );
     expect(fireEvent.contextMenu(screen.getByTitle("Opponent (long press to edit)"))).toBe(false);
     awaySideResult.unmount();
 
-    render(<MatchDetail match={homeMatch} onBack={vi.fn()} />);
+    render(<MatchDetail match={homeMatch} onBack={vi.fn()} onRenameOpponent={vi.fn()} />);
     expect(fireEvent.contextMenu(screen.getByTitle("Rivals FC (long press to edit)"))).toBe(false);
   });
 
   it("does nothing when the editable name is tapped without a preceding long press", () => {
-    render(<MatchDetail match={awayMatch} onBack={vi.fn()} />);
+    render(<MatchDetail match={awayMatch} onBack={vi.fn()} onRenameOpponent={vi.fn()} />);
 
     fireEvent.click(screen.getByTitle("Opponent (long press to edit)"));
 
@@ -165,7 +167,7 @@ describe("MatchDetail", () => {
 
   it("suppresses the click that follows a completed long press, on the home-side editable name", () => {
     vi.useFakeTimers();
-    render(<MatchDetail match={awayMatch} onBack={vi.fn()} />);
+    render(<MatchDetail match={awayMatch} onBack={vi.fn()} onRenameOpponent={vi.fn()} />);
 
     const nameButton = screen.getByTitle("Opponent (long press to edit)");
     fireEvent.pointerDown(nameButton);
@@ -180,7 +182,7 @@ describe("MatchDetail", () => {
 
   it("cancels a pending long press on release, and can be started again afterward", () => {
     vi.useFakeTimers();
-    render(<MatchDetail match={awayMatch} onBack={vi.fn()} />);
+    render(<MatchDetail match={awayMatch} onBack={vi.fn()} onRenameOpponent={vi.fn()} />);
     const nameButton = screen.getByTitle("Opponent (long press to edit)");
 
     // Starting a second press while one is already pending clears the first timer.

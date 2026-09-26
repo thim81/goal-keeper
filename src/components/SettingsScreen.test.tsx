@@ -104,6 +104,39 @@ function renderFullSettings(settingsOverrides: Partial<typeof DEFAULT_SETTINGS> 
 }
 
 describe("SettingsScreen interactions", () => {
+  it("hides workspace mutations and backup tools in viewer mode while keeping theme local", () => {
+    render(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, syncToken: "viewer" }}
+        {...{
+          onBack: vi.fn(),
+          onUpdateTeamName: vi.fn(),
+          onUpdateCalendarSettings: vi.fn(),
+          onAddPlayer: vi.fn(),
+          onRemovePlayer: vi.fn(),
+          onUpdatePeriods: vi.fn(),
+          onUpdateSyncToken: vi.fn(),
+          onUpdateTheme: vi.fn(),
+          onUpdateDebug: vi.fn(),
+          onExportBackup: vi.fn(),
+          onImportBackup: vi.fn(),
+          canEdit: false,
+          syncStatus: "viewer",
+          lastSyncedAt: null,
+          viewerLink: "",
+          onLoadViewerLink: vi.fn(),
+        }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Viewer");
+    expect(screen.getByText("Dark")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Enter sync token")).toBeInTheDocument();
+    expect(screen.queryByText("Start New Match")).not.toBeInTheDocument();
+    expect(screen.queryByText("Export")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paste ProSoccerData subscription URL")).not.toBeInTheDocument();
+    expect(screen.queryByText("Share workspace")).not.toBeInTheDocument();
+  });
+
   it("saves the team name on blur only when it actually changed", () => {
     const handlers = renderFullSettings({ teamName: "My Team" });
     const teamNameInput = screen.getByPlaceholderText("Enter your team name");

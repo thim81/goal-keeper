@@ -44,6 +44,13 @@ export function MatchDetail({
     [],
   );
 
+  useEffect(() => {
+    if (onRenameOpponent) return;
+    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    setShowRenameOpponent(false);
+  }, [onRenameOpponent]);
+
   const myTeamScore = match.goals.filter(
     (g) =>
       (g.team === "my-team" && g.type !== "own-goal") ||
@@ -112,6 +119,7 @@ export function MatchDetail({
   const awayIsOpponent = match.isHome;
 
   const startLongPress = () => {
+    if (!onRenameOpponent) return;
     longPressTriggeredRef.current = false;
     if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = window.setTimeout(() => {
@@ -172,7 +180,7 @@ export function MatchDetail({
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1 basis-0 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Home</p>
-            {homeIsOpponent ? (
+            {homeIsOpponent && onRenameOpponent ? (
               <button
                 type="button"
                 title={`${homeTeamName} (long press to edit)`}
@@ -202,7 +210,7 @@ export function MatchDetail({
           </div>
           <div className="min-w-0 flex-1 basis-0 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Away</p>
-            {awayIsOpponent ? (
+            {awayIsOpponent && onRenameOpponent ? (
               <button
                 type="button"
                 title={`${awayTeamName} (long press to edit)`}
@@ -334,7 +342,7 @@ export function MatchDetail({
       </div>
 
       <Dialog
-        open={showRenameOpponent}
+        open={!!onRenameOpponent && showRenameOpponent}
         onOpenChange={(open) => {
           setShowRenameOpponent(open);
           if (!open) setOpponentDraft(match.opponentName);

@@ -40,6 +40,10 @@ export function Scoreboard({
     [],
   );
 
+  useEffect(() => {
+    cancelLongPress();
+  }, [onOpponentLongPress]);
+
   const startLongPress = () => {
     if (!onOpponentLongPress) return;
     longPressTriggeredRef.current = false;
@@ -71,7 +75,7 @@ export function Scoreboard({
         {/* My Team */}
         <div className="min-w-0 flex-1 basis-0 text-center">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{leftLabel}</p>
-          {leftIsOpponent ? (
+          {leftIsOpponent && onOpponentLongPress ? (
             <button
               type="button"
               title={`${leftTeamName} (long press to edit)`}
@@ -113,7 +117,7 @@ export function Scoreboard({
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
             {rightLabel}
           </p>
-          {rightIsOpponent ? (
+          {rightIsOpponent && onOpponentLongPress ? (
             <button
               type="button"
               title={`${rightTeamName} (long press to edit)`}

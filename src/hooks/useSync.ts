@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { fetchRemoteState, pushLocalState, SyncState } from "@/lib/sync";
+import { fetchRemoteState, pushLocalState, type SyncState } from "@/lib/sync";
 import { Match, AppSettings, Season } from "@/types/match";
 import { toast } from "sonner";
+
+export type SyncStatus = "local" | "checking" | "editor" | "viewer" | "invalid" | "unavailable";
 
 export function useSync(
   syncToken: string | undefined,
@@ -11,115 +13,307 @@ export function useSync(
   settings: AppSettings,
   onSyncState: (state: SyncState) => void,
 ) {
-  const isInitialMount = useRef(true);
-  const lastPushedState = useRef<string>("");
-  const manualSyncInFlight = useRef(false);
-  const manualSyncCooldownUntil = useRef(0);
-  const manualSyncCooldownTimer = useRef<number | null>(null);
+  const [status, setStatus] = useState<SyncStatus>(syncToken ? "checking" : "local");
+  const [checkedToken, setCheckedToken] = useState(syncToken ?? "");
+  const [role, setRole] = useState<"editor" | "viewer" | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const generationRef = useRef(0);
+  const lastPushedState = useRef("");
+  const manualInFlight = useRef(false);
+  const manualGeneration = useRef(0);
+  const manualCooldownUntil = useRef(0);
+  const manualCooldownTimer = useRef<number | null>(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const writeControllerRef = useRef<AbortController | null>(null);
+  const writeTimerRef = useRef<number | null>(null);
+  const writePromiseRef = useRef<Promise<number> | null>(null);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  useEffect(
-    () => () => {
-      if (manualSyncCooldownTimer.current !== null) {
-        window.clearTimeout(manualSyncCooldownTimer.current);
-      }
-    },
-    [],
-  );
-
-  // Function to gather current local state
   const getLocalState = useCallback((): SyncState => {
     const activeSeason = activeSeasonId ? seasons[activeSeasonId] : undefined;
-    const { theme: _localTheme, ...syncSettings } = settings;
-
+    const { theme: _theme, syncToken: _token, ...settingsToShare } = settings;
     return {
-      // Keep these legacy fields for backward-compatible remote peers.
       matches: activeSeason?.matches ?? [],
       fullMatches: activeSeason?.fullMatches ?? {},
       seasons,
       activeSeasonId: activeSeasonId ?? undefined,
       activeMatch,
-      settings: syncSettings,
+      settings: settingsToShare,
     };
   }, [activeSeasonId, seasons, activeMatch, settings]);
 
-  const pullRemoteState = useCallback(
-    async (token: string) => {
-      const remoteState = await fetchRemoteState(token);
-      if (remoteState) {
-        onSyncState(remoteState);
-        lastPushedState.current = JSON.stringify(remoteState);
-        toast.success("Goals Synced", { duration: 2000 });
+  const currentRef = useRef({ getLocalState, onSyncState });
+  currentRef.current = { getLocalState, onSyncState };
+
+  const serialize = (value: unknown): string =>
+    JSON.stringify(value, (_key, nested) => {
+      if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
+      return Object.fromEntries(
+        Object.keys(nested)
+          .sort()
+          .map((key) => [key, (nested as Record<string, unknown>)[key]]),
+      );
+    });
+
+  const writeState = useCallback(async (token: string, local: SyncState, generation: number) => {
+    const operation = writeQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (generation !== generationRef.current) return 0;
+        const controller = new AbortController();
+        writeControllerRef.current = controller;
+        const statusCode = await pushLocalState(token, local, controller.signal);
+        if (statusCode >= 200 && statusCode < 300 && generation === generationRef.current) {
+          lastPushedState.current = serialize(local);
+          setLastSyncedAt(Date.now());
+        } else if (generation === generationRef.current) {
+          setCheckedToken(token);
+          setStatus(statusCode === 401 ? "invalid" : "unavailable");
+          if (statusCode === 401) setRole(null);
+        }
+        if (writeControllerRef.current === controller) writeControllerRef.current = null;
+        return statusCode;
+      });
+    writePromiseRef.current = operation;
+    writeQueueRef.current = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    try {
+      return await operation;
+    } finally {
+      if (writePromiseRef.current === operation) writePromiseRef.current = null;
+    }
+  }, []);
+
+  const pull = useCallback(async (token: string, generation: number, quiet = false) => {
+    if (controllerRef.current || writeControllerRef.current || writeTimerRef.current !== null)
+      return null;
+    const localAtStart = currentRef.current.getLocalState();
+    const localAtStartSerialized = serialize(localAtStart);
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    try {
+      const result = await fetchRemoteState(token, controller.signal);
+      if (generation !== generationRef.current || controller.signal.aborted) return null;
+      if (result.state) {
+        setCheckedToken(token);
+        setRole(result.role);
+        setStatus(result.role);
+        setLastSyncedAt(Date.now());
+        const currentBeforeApply = serialize(currentRef.current.getLocalState());
+        const baseline = lastPushedState.current;
+        const canApply =
+          result.role !== "editor" ||
+          (currentBeforeApply === localAtStartSerialized &&
+            (!baseline || baseline === localAtStartSerialized));
+        if (canApply) {
+          currentRef.current.onSyncState(result.state);
+          const {
+            theme: _theme,
+            syncToken: _token,
+            ...syncedSettings
+          } = result.state.settings ?? {};
+          lastPushedState.current = serialize({ ...result.state, settings: syncedSettings });
+        }
+        if (!quiet && canApply) toast.success("Goals Synced", { duration: 2000 });
+      } else if (result.role === "viewer") {
+        setCheckedToken(token);
+        setRole("viewer");
+        setStatus("viewer");
+        setLastSyncedAt(Date.now());
+        const current = currentRef.current.getLocalState();
+        currentRef.current.onSyncState({
+          matches: [],
+          fullMatches: {},
+          seasons: {},
+          activeMatch: null,
+          settings: current.settings,
+        });
+      } else if (result.role === "editor") {
+        const local = currentRef.current.getLocalState();
+        setCheckedToken(token);
+        const statusCode = await writeState(token, local, generation);
+        if (generation !== generationRef.current || controller.signal.aborted) return null;
+        if (statusCode >= 200 && statusCode < 300) {
+          setRole("editor");
+          setStatus("editor");
+        } else {
+          if (statusCode === 401) setRole(null);
+        }
       }
-      return remoteState;
-    },
-    [onSyncState],
-  );
+      return result;
+    } catch (error) {
+      if (generation !== generationRef.current || controller.signal.aborted) return null;
+      setCheckedToken(token);
+      if ((error as { status?: number }).status === 401) {
+        setRole(null);
+        setStatus("invalid");
+      } else setStatus("unavailable");
+      return null;
+    } finally {
+      if (controllerRef.current === controller) controllerRef.current = null;
+    }
+  }, []);
 
-  // Handle initial sync
   useEffect(() => {
+    const generation = ++generationRef.current;
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    if (writeTimerRef.current !== null) {
+      window.clearTimeout(writeTimerRef.current);
+      writeTimerRef.current = null;
+    }
+    lastPushedState.current = "";
+    manualInFlight.current = false;
+    manualGeneration.current = 0;
+    manualCooldownUntil.current = 0;
+    if (manualCooldownTimer.current !== null) window.clearTimeout(manualCooldownTimer.current);
+    manualCooldownTimer.current = null;
+    setIsCoolingDown(false);
+    setRole(null);
+    setCheckedToken("");
+    setIsSyncing(false);
+    setStatus(syncToken ? "checking" : "local");
+    setLastSyncedAt(null);
     if (!syncToken) return;
-
-    const initialSync = async () => {
-      const remoteState = await pullRemoteState(syncToken);
-      if (remoteState) {
-        return;
-      } else {
-        // If no remote state, push local state as initial
-        const currentState = getLocalState();
-        await pushLocalState(syncToken, currentState);
-        lastPushedState.current = JSON.stringify(currentState);
+    void writeQueueRef.current.then(() => {
+      if (generation === generationRef.current) void pull(syncToken, generation, true);
+    });
+    return () => {
+      controllerRef.current?.abort();
+      if (manualCooldownTimer.current !== null) {
+        window.clearTimeout(manualCooldownTimer.current);
+        manualCooldownTimer.current = null;
       }
     };
+  }, [syncToken, pull]);
 
-    if (isInitialMount.current) {
-      initialSync();
-      isInitialMount.current = false;
-    }
-  }, [syncToken, pullRemoteState, getLocalState]);
-
-  // Handle auto-sync on changes
   useEffect(() => {
-    if (!syncToken || isInitialMount.current) return;
+    if (!syncToken || status !== "editor" || role !== "editor" || checkedToken !== syncToken)
+      return;
+    const local = getLocalState();
+    const serialized = serialize(local);
+    if (serialized === lastPushedState.current) return;
+    const generation = generationRef.current;
+    const timeout = window.setTimeout(async () => {
+      writeTimerRef.current = null;
+      const sending = writeState(syncToken, local, generation);
+      writePromiseRef.current = sending;
+      await sending;
+      if (writePromiseRef.current === sending) writePromiseRef.current = null;
+    }, 2000);
+    writeTimerRef.current = timeout;
+    return () => {
+      window.clearTimeout(timeout);
+      if (writeTimerRef.current === timeout) writeTimerRef.current = null;
+    };
+  }, [syncToken, status, role, checkedToken, getLocalState, writeState]);
 
-    const currentState = getLocalState();
-    const currentStateStr = JSON.stringify(currentState);
+  useEffect(() => {
+    if (!syncToken || role === "viewer" || status === "invalid" || checkedToken !== syncToken)
+      return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        if (role === "editor") void syncNowQuietly();
+        else void pull(syncToken, generationRef.current, true);
+      }
+    };
+    const syncNowQuietly = async () => {
+      const generation = generationRef.current;
+      if (writeTimerRef.current !== null) {
+        window.clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = null;
+        const statusCode = await writeState(syncToken, getLocalState(), generation);
+        if (statusCode < 200 || statusCode >= 300) return;
+      } else if (writePromiseRef.current) {
+        const statusCode = await writePromiseRef.current;
+        if (statusCode < 200 || statusCode >= 300) return;
+      }
+      if (generation === generationRef.current) await pull(syncToken, generation, true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncToken, role, status, checkedToken, pull, getLocalState, writeState]);
 
-    // Only push if state actually changed from what we last pushed/fetched
-    if (currentStateStr !== lastPushedState.current) {
-      const timeoutId = setTimeout(async () => {
-        const success = await pushLocalState(syncToken, currentState);
-        if (success) {
-          lastPushedState.current = currentStateStr;
-        }
-      }, 2000); // Debounce sync
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [syncToken, seasons, activeSeasonId, activeMatch, settings, getLocalState]);
+  useEffect(() => {
+    if (!syncToken || role !== "viewer" || status === "invalid" || checkedToken !== syncToken)
+      return;
+    let timer: number | undefined;
+    let disposed = false;
+    const refresh = async () => {
+      if (disposed || document.visibilityState !== "visible" || manualInFlight.current)
+        return schedule();
+      await pull(syncToken, generationRef.current, true);
+      schedule();
+    };
+    const schedule = () => {
+      if (disposed || document.visibilityState !== "visible") return;
+      timer = window.setTimeout(refresh, activeMatch ? 10_000 : 30_000);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        if (timer) window.clearTimeout(timer);
+        void refresh();
+      } else if (timer) window.clearTimeout(timer);
+    };
+    schedule();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      disposed = true;
+      if (timer) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [syncToken, status, role, checkedToken, !!activeMatch, pull, refreshSignal]);
 
   const syncNow = useCallback(async () => {
-    if (!syncToken || manualSyncInFlight.current || Date.now() < manualSyncCooldownUntil.current) {
-      return;
-    }
-
-    manualSyncInFlight.current = true;
+    if (!syncToken || manualInFlight.current || Date.now() < manualCooldownUntil.current) return;
+    manualInFlight.current = true;
+    const generation = generationRef.current;
+    manualGeneration.current = generation;
     setIsSyncing(true);
-
     try {
-      await pullRemoteState(syncToken);
+      if (role === "editor") {
+        if (writeTimerRef.current !== null) {
+          window.clearTimeout(writeTimerRef.current);
+          writeTimerRef.current = null;
+          const pending = writeState(syncToken, getLocalState(), generation);
+          writePromiseRef.current = pending;
+          const statusCode = await pending;
+          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
+        } else if (writePromiseRef.current) {
+          const statusCode = await writePromiseRef.current;
+          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
+        }
+      }
+      if (generation === generationRef.current) await pull(syncToken, generation);
     } finally {
-      manualSyncInFlight.current = false;
-      setIsSyncing(false);
-      setIsCoolingDown(true);
-      manualSyncCooldownUntil.current = Date.now() + 3000;
-      manualSyncCooldownTimer.current = window.setTimeout(() => {
-        setIsCoolingDown(false);
-        manualSyncCooldownTimer.current = null;
-      }, 3000);
+      if (generation === generationRef.current) {
+        if (manualGeneration.current === generation) manualInFlight.current = false;
+        setIsSyncing(false);
+        setIsCoolingDown(true);
+        manualCooldownUntil.current = Date.now() + 3000;
+        manualCooldownTimer.current = window.setTimeout(() => {
+          setIsCoolingDown(false);
+          manualCooldownTimer.current = null;
+        }, 3000);
+        setRefreshSignal((value) => value + 1);
+      } else if (manualGeneration.current === generation) {
+        manualInFlight.current = false;
+      }
     }
-  }, [pullRemoteState, syncToken]);
+  }, [getLocalState, pull, role, syncToken, writeState]);
 
-  return { isSyncing, isCoolingDown, syncNow };
+  const effectiveStatus = !syncToken ? "local" : checkedToken === syncToken ? status : "checking";
+  return {
+    status: effectiveStatus as SyncStatus,
+    role: checkedToken === syncToken ? role : null,
+    lastSyncedAt,
+    isSyncing,
+    isCoolingDown,
+    syncNow,
+  };
 }

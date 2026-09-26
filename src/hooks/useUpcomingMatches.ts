@@ -50,6 +50,7 @@ export function useUpcomingMatches(
   calendarUrl: string,
   calendarTeamName: string,
   onDetectedTeamName?: (teamName: string) => void,
+  enabled = true,
 ) {
   const [matches, setMatches] = useState<UpcomingMatch[]>([]);
   const [games, setGames] = useState<CalendarFixture[]>([]);
@@ -80,7 +81,10 @@ export function useUpcomingMatches(
 
     if (nextExpiry === null) return;
 
-    const timeout = window.setTimeout(() => setNow(Date.now()), Math.max(0, nextExpiry - Date.now()));
+    const timeout = window.setTimeout(
+      () => setNow(Date.now()),
+      Math.max(0, nextExpiry - Date.now()),
+    );
     return () => window.clearTimeout(timeout);
   }, [calendarTeamName, games, now]);
 
@@ -144,8 +148,9 @@ export function useUpcomingMatches(
   );
 
   useEffect(() => {
+    if (!enabled) return;
     void refresh(false);
-  }, [refresh]);
+  }, [enabled, refresh]);
 
-  return { matches, loaded, refresh };
+  return { matches: enabled ? matches : [], loaded: enabled && loaded, refresh };
 }

@@ -1,4 +1,4 @@
-import { Match, MatchSummary, Season } from "@/types/match";
+import type { Match, MatchSummary, Season } from "@/types/match";
 
 export interface SyncState {
   matches: MatchSummary[];
@@ -9,47 +9,35 @@ export interface SyncState {
   settings: any;
 }
 
-export async function fetchRemoteState(token: string): Promise<SyncState | null> {
-  try {
-    const response = await fetch("/api/state", {
-      headers: {
-        "x-auth-token": token,
-      },
-    });
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch remote state");
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Sync fetch error:", error);
-    return null;
-  }
+export type WorkspaceRole = "editor" | "viewer";
+export interface RemoteState {
+  state: SyncState | null;
+  role: WorkspaceRole;
 }
 
-export async function pushLocalState(token: string, state: SyncState): Promise<boolean> {
+export async function fetchRemoteState(token: string, signal?: AbortSignal): Promise<RemoteState> {
+  const response = await fetch("/api/state", { headers: { "x-auth-token": token }, signal });
+  if (!response.ok)
+    throw Object.assign(new Error("Failed to fetch remote state"), { status: response.status });
+  const role = response.headers.get("X-Workspace-Role");
+  if (role !== "editor" && role !== "viewer") throw new Error("Workspace role was not confirmed");
+  return { state: response.status === 204 ? null : await response.json(), role };
+}
+
+export async function pushLocalState(
+  token: string,
+  state: SyncState,
+  signal?: AbortSignal,
+): Promise<number> {
   try {
     const response = await fetch("/api/state", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": token,
-      },
+      headers: { "Content-Type": "application/json", "x-auth-token": token },
       body: JSON.stringify(state),
+      signal,
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to push local state");
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Sync push error:", error);
-    return false;
+    return response.status;
+  } catch {
+    return 0;
   }
 }

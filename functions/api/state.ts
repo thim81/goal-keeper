@@ -1,72 +1,37 @@
-interface Env {
-  GOALKEEPER_KV: KVNamespace;
-  AUTH_TOKEN: string;
-}
+import {
+  type WorkspaceRequestContext,
+  getRole,
+  responseHeaders,
+  sanitizeState,
+  STORAGE_KEY,
+} from "../_workspace";
 
-const STORAGE_KEY = 'goal-keeper-state';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-auth-token',
-};
-
-const getAuthToken = (request: Request) => {
-  const header = request.headers.get('Authorization');
-  if (header && header.startsWith('Bearer ')) {
-    return header.slice('Bearer '.length).trim();
-  }
-  return request.headers.get('x-auth-token') || '';
-};
-
-const isAuthorized = (request: Request, env: Env) => {
-  const token = env.AUTH_TOKEN;
-  if (!token) return false;
-  return getAuthToken(request) === token;
-};
-
-export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
-  if (!isAuthorized(request, env)) {
-    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
-  }
-
+export const onRequestGet = async ({ env, request }: WorkspaceRequestContext) => {
+  const role = getRole(request, env);
+  if (!role) return new Response("Unauthorized", { status: 401, headers: responseHeaders });
+  const headers = { ...responseHeaders, "X-Workspace-Role": role };
   const stored = await env.GOALKEEPER_KV.get(STORAGE_KEY);
-  if (!stored) {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
-  return new Response(stored, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-      ...corsHeaders,
-    },
-  });
+  if (!stored) return new Response(null, { status: 204, headers });
+  return Response.json(sanitizeState(JSON.parse(stored), role), { headers });
 };
 
-export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
-  if (!isAuthorized(request, env)) {
-    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
-  }
-
-  let body: unknown;
+export const onRequestPost = async ({ env, request }: WorkspaceRequestContext) => {
+  const role = getRole(request, env);
+  if (!role) return new Response("Unauthorized", { status: 401, headers: responseHeaders });
+  if (role !== "editor")
+    return new Response("View-only access", { status: 403, headers: responseHeaders });
+  let state;
   try {
-    body = await request.json();
+    state = sanitizeState(await request.json(), role);
   } catch {
-    return new Response('Invalid JSON', { status: 400, headers: corsHeaders });
+    return new Response("Invalid workspace state", { status: 400, headers: responseHeaders });
   }
+  await env.GOALKEEPER_KV.put(STORAGE_KEY, JSON.stringify(state));
+  return new Response(null, { status: 204, headers: responseHeaders });
+};
 
-  await env.GOALKEEPER_KV.put(STORAGE_KEY, JSON.stringify(body));
-
-  return new Response(null, {
+export const onRequestOptions = async () =>
+  new Response(null, {
     status: 204,
-    headers: {
-      'Cache-Control': 'no-store',
-      ...corsHeaders,
-    },
+    headers: responseHeaders,
   });
-};
-
-export const onRequestOptions: PagesFunction = async () => {
-  return new Response(null, { status: 204, headers: corsHeaders });
-};

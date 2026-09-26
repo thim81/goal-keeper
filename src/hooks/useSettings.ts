@@ -4,15 +4,14 @@ import { AppSettings, DEFAULT_SETTINGS, Theme } from "@/types/match";
 const SETTINGS_KEY = "football-tracker-settings";
 
 export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    if (saved) {
-      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = typeof localStorage === "undefined" ? null : localStorage.getItem(SETTINGS_KEY);
+      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+    } catch {
+      return DEFAULT_SETTINGS;
     }
-  }, []);
+  });
 
   // Save to localStorage when settings change
   useEffect(() => {
