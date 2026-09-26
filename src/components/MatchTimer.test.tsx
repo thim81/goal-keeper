@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MatchTimer } from "./MatchTimer";
 
@@ -47,8 +47,10 @@ describe("MatchTimer", () => {
 
     expect(screen.getByText("00:30")).toBeInTheDocument();
 
-    vi.setSystemTime(startedAt + 90_000);
-    vi.advanceTimersByTime(5000);
+    act(() => {
+      vi.setSystemTime(startedAt + 90_000);
+      vi.advanceTimersByTime(5000);
+    });
 
     expect(screen.getByText("00:30")).toBeInTheDocument();
   });
