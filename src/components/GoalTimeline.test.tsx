@@ -30,6 +30,90 @@ function swipe(element: Element, distance: number) {
 }
 
 describe("GoalTimeline", () => {
+  it("does not open the goal editor on a quick tap, scroll, swipe, or read-only row", () => {
+    vi.useFakeTimers();
+    const props = {
+      goals: [goal],
+      events: [],
+      myTeamName: "My Team",
+      opponentName: "Rivals",
+      onUpdateGoal: vi.fn(),
+      onDeleteGoal: vi.fn(),
+    };
+    const { rerender } = render(<GoalTimeline {...props} editable />);
+    const row = screen.getByText("Alice");
+    fireEvent.pointerDown(row, { clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(row);
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.pointerDown(row, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(row, { clientX: 0, clientY: 20 });
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.pointerCancel(row);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    swipe(row, -60);
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete goal" })).toBeInTheDocument();
+    rerender(<GoalTimeline {...props} editable={false} />);
+    fireEvent.pointerDown(row);
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("opens a prefilled goal editor on long press and saves changes", () => {
+    vi.useFakeTimers();
+    const onUpdateGoal = vi.fn();
+    render(
+      <GoalTimeline
+        goals={[goal]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onUpdateGoal={onUpdateGoal}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Alice"), { clientX: 0, clientY: 0 });
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Edit goal");
+    expect(screen.queryByRole("group", { name: "Team" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Bob" } });
+    fireEvent.change(screen.getByPlaceholderText("Who assisted?"), { target: { value: "Carl" } });
+    fireEvent.click(screen.getByRole("button", { name: "Header" }));
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "10:15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onUpdateGoal).toHaveBeenCalledWith("g1", {
+      team: "my-team",
+      scorer: "Bob",
+      assist: "Carl",
+      type: "head",
+      time: "10:15",
+    });
+  });
+
+  it("discards goal edits on close and hides player fields for opponents", () => {
+    vi.useFakeTimers();
+    const onUpdateGoal = vi.fn();
+    render(
+      <GoalTimeline
+        goals={[{ ...goal, team: "opponent", scorer: undefined }]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onUpdateGoal={onUpdateGoal}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Rivals"));
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.queryByRole("group", { name: "Team" })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Who scored?")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Penalty" }));
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onUpdateGoal).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
   afterEach(() => {
     vi.useRealTimers();
   });

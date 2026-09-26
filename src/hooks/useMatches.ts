@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Match,
   Goal,
+  GoalEdit,
   MatchSummary,
   GoalType,
   GameEvent,
@@ -183,6 +184,30 @@ export function useMatches() {
     },
     [activeMatch],
   );
+
+  const updateGoal = useCallback((goalId: string, changes: GoalEdit) => {
+    const matchTime = /^(\d{2}):(\d{2})$/.exec(changes.time);
+    if (!matchTime || Number(matchTime[1]) > 23 || Number(matchTime[2]) > 59) return;
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        goals: prev.goals.map((goal) => {
+          if (goal.id !== goalId) return goal;
+          const date = new Date(goal.timestamp);
+          if (goal.time !== changes.time)
+            date.setHours(Number(matchTime[1]), Number(matchTime[2]), 0, 0);
+          return {
+            ...goal,
+            ...changes,
+            scorer: changes.team === "my-team" ? changes.scorer?.trim() || undefined : undefined,
+            assist: changes.team === "my-team" ? changes.assist?.trim() || undefined : undefined,
+            timestamp: date.getTime(),
+          };
+        }),
+      };
+    });
+  }, []);
 
   const deleteGoal = useCallback(
     (goalId: string) => {
@@ -609,6 +634,7 @@ export function useMatches() {
     startMatch,
     addGoal,
     deleteGoal,
+    updateGoal,
     addEvent,
     deleteEvent,
     updateEventTime,

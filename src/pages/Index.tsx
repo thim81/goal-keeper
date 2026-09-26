@@ -91,6 +91,7 @@ export default function Index() {
     startMatch,
     addGoal,
     deleteGoal,
+    updateGoal,
     addEvent,
     deleteEvent,
     updateEventTime,
@@ -672,6 +673,14 @@ export default function Index() {
                 scrollToBottomSignal={syncScrollSignal}
                 editable
                 onDeleteGoal={deleteGoal}
+                knownPlayers={settings.players}
+                onUpdateGoal={(id, changes) => {
+                  updateGoal(id, changes);
+                  if (changes.team === "my-team") {
+                    if (changes.scorer?.trim()) addPlayer(changes.scorer.trim());
+                    if (changes.assist?.trim()) addPlayer(changes.assist.trim());
+                  }
+                }}
                 onDeleteEvent={deleteEvent}
                 onUpdateEventTime={updateEventTime}
               />

@@ -65,6 +65,49 @@ describe("useMatches period history", () => {
 });
 
 describe("useMatches goals, events and score", () => {
+  it("edits a goal in place and updates its score and time", async () => {
+    localStorage.clear();
+    const result = await setupWithMatch();
+    act(() => result.current.addGoal("my-team", "Alice"));
+    const goal = result.current.activeMatch!.goals[0];
+    act(() =>
+      result.current.updateGoal(goal.id, {
+        team: "opponent",
+        type: "normal",
+        time: goal.time,
+        scorer: "Bob",
+        assist: "Carl",
+      }),
+    );
+    expect(result.current.activeMatch!.goals[0]).toEqual({
+      ...goal,
+      team: "opponent",
+      scorer: undefined,
+      assist: undefined,
+    });
+    expect(result.current.getScore()).toEqual({ myTeam: 0, opponent: 1 });
+    act(() =>
+      result.current.updateGoal(goal.id, {
+        team: "my-team",
+        type: "head",
+        time: "09:30",
+        scorer: " Bob ",
+        assist: " Carl ",
+      }),
+    );
+    expect(result.current.activeMatch!.goals[0]).toEqual({
+      ...goal,
+      type: "head",
+      time: "09:30",
+      scorer: "Bob",
+      assist: "Carl",
+      timestamp: new Date(goal.timestamp).setHours(9, 30, 0, 0),
+    });
+    act(() =>
+      result.current.updateGoal(goal.id, { team: "my-team", type: "own-goal", time: "25:00" }),
+    );
+    expect(result.current.activeMatch!.goals[0].type).toBe("head");
+  });
   beforeEach(() => {
     localStorage.clear();
   });
