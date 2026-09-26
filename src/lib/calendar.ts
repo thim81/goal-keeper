@@ -1,5 +1,7 @@
 import ICAL from "ical.js";
 
+export const CALENDAR_GAME_GRACE_PERIOD_MS = 30 * 60 * 1000;
+
 export interface CalendarFixture {
   id: string;
   start: string;
@@ -54,7 +56,10 @@ export function parseCalendarGames(
       } satisfies CalendarFixture;
     })
     .filter((fixture): fixture is CalendarFixture => fixture !== null)
-    .filter((fixture) => new Date(fixture.start).getTime() >= now.getTime())
+    .filter(
+      (fixture) =>
+        new Date(fixture.start).getTime() >= now.getTime() - CALENDAR_GAME_GRACE_PERIOD_MS,
+    )
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     .slice(0, limit);
 }

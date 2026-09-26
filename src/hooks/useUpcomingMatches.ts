@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CalendarFixture } from "@/lib/calendar";
+import { CALENDAR_GAME_GRACE_PERIOD_MS, type CalendarFixture } from "@/lib/calendar";
 import { getUpcomingMatches, type UpcomingMatch } from "@/lib/upcoming-matches";
 
 interface CalendarResponse {
@@ -53,6 +53,7 @@ export function useUpcomingMatches(
 ) {
   const [matches, setMatches] = useState<UpcomingMatch[]>([]);
   const [games, setGames] = useState<CalendarFixture[]>([]);
+  const [now, setNow] = useState(() => Date.now());
   const [loaded, setLoaded] = useState(false);
   const hasLoadedRef = useRef(false);
   const loadedUrlRef = useRef<string | null>(null);
@@ -63,12 +64,25 @@ export function useUpcomingMatches(
       return;
     }
 
-    const result = getUpcomingMatches(games, calendarTeamName);
+    const result = getUpcomingMatches(games, calendarTeamName, 3, new Date(now));
     if (!calendarTeamName.trim() && result.detectedTeamName) {
       onDetectedTeamName?.(result.detectedTeamName);
     }
     setMatches(result.matches);
-  }, [calendarTeamName, games, onDetectedTeamName]);
+  }, [calendarTeamName, games, now, onDetectedTeamName]);
+
+  useEffect(() => {
+    const { matches } = getUpcomingMatches(games, calendarTeamName, 3, new Date(now));
+    const nextExpiry = matches.reduce<number | null>((earliest, match) => {
+      const expiresAt = new Date(match.start).getTime() + CALENDAR_GAME_GRACE_PERIOD_MS + 1;
+      return earliest === null || expiresAt < earliest ? expiresAt : earliest;
+    }, null);
+
+    if (nextExpiry === null) return;
+
+    const timeout = window.setTimeout(() => setNow(Date.now()), Math.max(0, nextExpiry - Date.now()));
+    return () => window.clearTimeout(timeout);
+  }, [calendarTeamName, games, now]);
 
   const refresh = useCallback(
     async (force = true) => {

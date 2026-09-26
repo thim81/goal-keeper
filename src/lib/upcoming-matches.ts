@@ -1,4 +1,4 @@
-import type { CalendarFixture } from "./calendar";
+import { CALENDAR_GAME_GRACE_PERIOD_MS, type CalendarFixture } from "./calendar";
 
 export interface UpcomingMatch extends CalendarFixture {
   opponentName: string;
@@ -9,6 +9,7 @@ export function getUpcomingMatches(
   fixtures: CalendarFixture[],
   configuredTeamName: string,
   limit = 3,
+  now: Date = new Date(),
 ): { matches: UpcomingMatch[]; detectedTeamName: string | null } {
   const configured = configuredTeamName.trim();
   const detected = configured
@@ -22,6 +23,10 @@ export function getUpcomingMatches(
 
   const normalizedTeamName = teamName.toLocaleLowerCase();
   const matches = fixtures
+    .filter(
+      (fixture) =>
+        new Date(fixture.start).getTime() >= now.getTime() - CALENDAR_GAME_GRACE_PERIOD_MS,
+    )
     .flatMap((fixture): UpcomingMatch[] => {
       const isHomeTeam = fixture.homeTeam.toLocaleLowerCase() === normalizedTeamName;
       const isAwayTeam = fixture.awayTeam.toLocaleLowerCase() === normalizedTeamName;
