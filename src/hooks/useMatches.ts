@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Match,
   Goal,
+  GoalEdit,
   MatchSummary,
   GoalType,
   GameEvent,
@@ -17,6 +18,7 @@ import {
   reopenSeasonAsActive,
 } from "@/lib/seasons";
 import { SyncState } from "@/lib/sync";
+import { parseClockTime } from "@/lib/clock-time";
 
 const LEGACY_MATCHES_KEY = "football-tracker-matches";
 const LEGACY_FULL_MATCHES_KEY = "football-tracker-full-matches";
@@ -184,6 +186,30 @@ export function useMatches() {
     [activeMatch],
   );
 
+  const updateGoal = useCallback((goalId: string, changes: GoalEdit) => {
+    const clockTime = parseClockTime(changes.time);
+    if (!clockTime) return;
+    setActiveMatch((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        goals: prev.goals.map((goal) => {
+          if (goal.id !== goalId) return goal;
+          if (goal.team === "my-team" && !changes.scorer?.trim()) return goal;
+          const date = new Date(goal.timestamp);
+          if (goal.time !== changes.time) date.setHours(clockTime.hours, clockTime.minutes, 0, 0);
+          return {
+            ...goal,
+            ...changes,
+            scorer: goal.team === "my-team" ? changes.scorer?.trim() || undefined : undefined,
+            assist: goal.team === "my-team" ? changes.assist?.trim() || undefined : undefined,
+            timestamp: date.getTime(),
+          };
+        }),
+      };
+    });
+  }, []);
+
   const deleteGoal = useCallback(
     (goalId: string) => {
       if (!activeMatch) return;
@@ -245,12 +271,9 @@ export function useMatches() {
   );
 
   const updateEventTime = useCallback((eventId: string, time: string) => {
-    const matchTime = /^(\d{2}):(\d{2})$/.exec(time);
-    if (!matchTime) return;
-
-    const hours = Number(matchTime[1]);
-    const minutes = Number(matchTime[2]);
-    if (hours > 23 || minutes > 59) return;
+    const clockTime = parseClockTime(time);
+    if (!clockTime) return;
+    const { hours, minutes } = clockTime;
 
     setActiveMatch((prev) => {
       if (!prev) return null;
@@ -609,6 +632,7 @@ export function useMatches() {
     startMatch,
     addGoal,
     deleteGoal,
+    updateGoal,
     addEvent,
     deleteEvent,
     updateEventTime,

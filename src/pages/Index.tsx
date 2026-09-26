@@ -44,7 +44,7 @@ import { buildBackupPayload, parseBackupPayload } from "@/lib/backup";
 import { getRecentMatchWithinDays } from "@/lib/recent-match";
 import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
 import type { UpcomingMatch } from "@/lib/upcoming-matches";
-import { GoalType, GameEventType, Match } from "@/types/match";
+import { GoalType, GoalEdit, GameEventType, Match } from "@/types/match";
 import { toast } from "sonner";
 
 type View = "home" | "live" | "history" | "detail" | "settings";
@@ -91,6 +91,7 @@ export default function Index() {
     startMatch,
     addGoal,
     deleteGoal,
+    updateGoal,
     addEvent,
     deleteEvent,
     updateEventTime,
@@ -266,12 +267,21 @@ export default function Index() {
     if (isFinalPeriod) setShowEndMatchPrompt(true);
   };
 
-  // Handle adding a goal for my team
-  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
-    addGoal("my-team", scorer, assist, type);
-    // Auto-add scorer/assist to players list
+  const rememberGoalPlayers = (scorer?: string, assist?: string) => {
     if (scorer) addPlayer(scorer);
     if (assist) addPlayer(assist);
+  };
+
+  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
+    addGoal("my-team", scorer, assist, type);
+    rememberGoalPlayers(scorer, assist);
+  };
+
+  const handleUpdateGoal = (id: string, changes: GoalEdit) => {
+    updateGoal(id, changes);
+    if (activeMatch?.goals.find((goal) => goal.id === id)?.team === "my-team") {
+      rememberGoalPlayers(changes.scorer, changes.assist);
+    }
   };
 
   // Handle adding opponent goal
@@ -672,6 +682,8 @@ export default function Index() {
                 scrollToBottomSignal={syncScrollSignal}
                 editable
                 onDeleteGoal={deleteGoal}
+                knownPlayers={settings.players}
+                onUpdateGoal={handleUpdateGoal}
                 onDeleteEvent={deleteEvent}
                 onUpdateEventTime={updateEventTime}
               />

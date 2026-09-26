@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isAllowedCalendarUrl, parseCalendarGames } from "@/lib/calendar";
 import { getUpcomingMatches } from "@/lib/upcoming-matches";
 
@@ -27,6 +27,15 @@ END:VEVENT
 END:VCALENDAR`;
 
 describe("calendar helpers", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-12T09:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("only allows HTTPS ProSoccerData calendar URLs", () => {
     expect(
       isAllowedCalendarUrl(

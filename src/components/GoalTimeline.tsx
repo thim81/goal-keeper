@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Goal, GameEvent } from "@/types/match";
+import { Goal, GoalEdit, GameEvent } from "@/types/match";
+import { EditGoalSheet } from "./EditGoalSheet";
+import { parseClockTime } from "@/lib/clock-time";
 import {
   Trophy,
   Target,
@@ -30,6 +32,8 @@ interface GoalTimelineProps {
   onDeleteGoal?: (id: string) => void;
   onDeleteEvent?: (id: string) => void;
   onUpdateEventTime?: (id: string, time: string) => void;
+  onUpdateGoal?: (id: string, changes: GoalEdit) => void;
+  knownPlayers?: string[];
 }
 
 const goalTypeIcons = {
@@ -89,6 +93,8 @@ export function GoalTimeline({
   onDeleteGoal,
   onDeleteEvent,
   onUpdateEventTime,
+  onUpdateGoal,
+  knownPlayers = [],
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
   const timelineItems: TimelineItem[] = [
@@ -243,11 +249,34 @@ export function GoalTimeline({
   const goalStartXRef = useRef(0);
   const goalStartSwipeRef = useRef(0);
   const goalDraggingRef = useRef(false);
+  const goalLongPressTimerRef = useRef<number | null>(null);
+  const goalLongPressTriggeredRef = useRef(false);
+  const goalStartYRef = useRef(0);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const clearGoalLongPress = () => {
+    if (goalLongPressTimerRef.current !== null) {
+      window.clearTimeout(goalLongPressTimerRef.current);
+      goalLongPressTimerRef.current = null;
+    }
+  };
+  useEffect(() => clearGoalLongPress, []);
 
   const closeAllGoalSwipes = () => setGoalSwipeX({});
 
   const onGoalPointerDown = (goalId: string) => (e: React.PointerEvent) => {
-    if (!editable || !onDeleteGoal) return;
+    if (!editable || (!onDeleteGoal && !onUpdateGoal) || e.button > 0) return;
+    clearGoalLongPress();
+    goalLongPressTriggeredRef.current = false;
+    goalStartYRef.current = e.clientY;
+    const goal = goals.find((item) => item.id === goalId);
+    if (goal && onUpdateGoal) {
+      goalLongPressTimerRef.current = window.setTimeout(() => {
+        goalLongPressTriggeredRef.current = true;
+        goalDraggingRef.current = false;
+        closeAllGoalSwipes();
+        setEditingGoal(goal);
+      }, 500);
+    }
 
     goalDraggingRef.current = true;
     activeGoalIdRef.current = goalId;
@@ -270,6 +299,12 @@ export function GoalTimeline({
 
   const onGoalPointerMove = (e: React.PointerEvent) => {
     if (!goalDraggingRef.current) return;
+    if (
+      Math.abs(e.clientX - goalStartXRef.current) > 8 ||
+      Math.abs(e.clientY - goalStartYRef.current) > 8
+    )
+      clearGoalLongPress();
+    if (!onDeleteGoal) return;
     const goalId = activeGoalIdRef.current;
     if (!goalId) return;
 
@@ -279,6 +314,7 @@ export function GoalTimeline({
   };
 
   const onGoalPointerEnd = () => {
+    clearGoalLongPress();
     if (!goalDraggingRef.current) return;
     goalDraggingRef.current = false;
 
@@ -292,6 +328,10 @@ export function GoalTimeline({
   };
 
   const onGoalRowClick = (goalId: string) => () => {
+    if (goalLongPressTriggeredRef.current) {
+      goalLongPressTriggeredRef.current = false;
+      return;
+    }
     if ((goalSwipeX[goalId] ?? 0) !== 0) {
       setGoalSwipeX((prev) => ({ ...prev, [goalId]: 0 }));
     }
@@ -427,6 +467,8 @@ export function GoalTimeline({
 
         const swipeX = goalSwipeX[goal.id] ?? 0;
         const canSwipeDelete = editable && !!onDeleteGoal;
+        const canEdit = editable && !!onUpdateGoal;
+        const canInteract = canSwipeDelete || canEdit;
 
         return (
           <div
@@ -450,17 +492,42 @@ export function GoalTimeline({
               <div
                 className={`${swipeX !== 0 ? "bg-secondary" : "goal-gradient"} rounded-xl py-1 px-3 border border-border/30 group touch-pan-y ${
                   isMyTeam ? "border-l-4 border-l-primary" : "border-l-4 border-l-accent"
-                }`}
+                } ${canEdit ? "select-none" : ""}`}
                 style={{
                   transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
                   transition: goalDraggingRef.current ? "none" : "transform 160ms ease-out",
                   backgroundClip: "padding-box",
+                  ...(canEdit ? { WebkitUserSelect: "none", WebkitTouchCallout: "none" } : {}),
                 }}
-                onPointerDown={canSwipeDelete ? onGoalPointerDown(goal.id) : undefined}
-                onPointerMove={canSwipeDelete ? onGoalPointerMove : undefined}
-                onPointerUp={canSwipeDelete ? onGoalPointerEnd : undefined}
-                onPointerCancel={canSwipeDelete ? onGoalPointerEnd : undefined}
-                onClick={canSwipeDelete ? onGoalRowClick(goal.id) : undefined}
+                onPointerDown={canInteract ? onGoalPointerDown(goal.id) : undefined}
+                onPointerMove={canInteract ? onGoalPointerMove : undefined}
+                onPointerUp={canInteract ? onGoalPointerEnd : undefined}
+                onPointerCancel={canInteract ? onGoalPointerEnd : undefined}
+                onPointerLeave={canInteract ? clearGoalLongPress : undefined}
+                onClick={canInteract ? onGoalRowClick(goal.id) : undefined}
+                onContextMenu={
+                  canEdit
+                    ? (event) => {
+                        event.preventDefault();
+                        clearGoalLongPress();
+                        setEditingGoal(goal);
+                      }
+                    : undefined
+                }
+                tabIndex={canEdit ? 0 : undefined}
+                aria-label={
+                  canEdit ? `Edit goal: ${goal.scorer || teamName}, ${goal.time}` : undefined
+                }
+                onKeyDown={
+                  canEdit
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setEditingGoal(goal);
+                        }
+                      }
+                    : undefined
+                }
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -514,6 +581,15 @@ export function GoalTimeline({
           </div>
         );
       })}
+      {editable && editingGoal && onUpdateGoal && (
+        <EditGoalSheet
+          key={editingGoal.id}
+          goal={editingGoal}
+          knownPlayers={knownPlayers}
+          onClose={() => setEditingGoal(null)}
+          onSave={onUpdateGoal}
+        />
+      )}
       <Dialog
         open={editingEvent !== null}
         onOpenChange={(open) => {
@@ -538,12 +614,12 @@ export function GoalTimeline({
             </Button>
             <Button
               onClick={() => {
-                if (editingEvent && editingEventTime) {
+                if (editingEvent && parseClockTime(editingEventTime)) {
                   onUpdateEventTime?.(editingEvent.id, editingEventTime);
                 }
                 setEditingEvent(null);
               }}
-              disabled={!editingEventTime}
+              disabled={!parseClockTime(editingEventTime)}
             >
               Save
             </Button>

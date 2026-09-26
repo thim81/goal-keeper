@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { X, Trophy, Target, AlertCircle, CircleDot } from "lucide-react";
+import { X } from "lucide-react";
+import { goalTypes } from "./goal-types";
 import { GoalType } from "@/types/match";
 
 interface AddOpponentGoalSheetProps {
@@ -8,13 +9,6 @@ interface AddOpponentGoalSheetProps {
   onAddGoal: (type: GoalType) => void;
   opponentName: string;
 }
-
-const goalTypes: { type: GoalType; label: string; icon: typeof Trophy }[] = [
-  { type: "normal", label: "Normal", icon: Trophy },
-  { type: "head", label: "Header", icon: CircleDot },
-  { type: "penalty", label: "Penalty", icon: Target },
-  { type: "own-goal", label: "Own Goal", icon: AlertCircle },
-];
 
 export function AddOpponentGoalSheet({
   isOpen,

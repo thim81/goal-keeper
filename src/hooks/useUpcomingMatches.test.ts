@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
 
 const url = "https://club.prosoccerdata.com/api/v2/members/ics/file?id=1&uuid=x";
@@ -14,6 +14,11 @@ const games = [
 ];
 
 describe("useUpcomingMatches", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-12T09:00:00Z"));
+  });
+
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
