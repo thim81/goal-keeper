@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
-import type { MatchSummary, Season } from "@/types/match";
+import type { Match, MatchSummary, Season } from "@/types/match";
 
 const summary: MatchSummary = {
   id: "remote-match",
@@ -30,6 +30,19 @@ const remoteState = {
   activeSeasonId: "remote-season",
   activeMatch: null,
   settings: { teamName: "Shared Team", players: ["Alice"], periodsCount: 4, periodDuration: 20 },
+};
+const activeMatch: Match = {
+  id: "live-match",
+  myTeamName: "Shared Team",
+  opponentName: "Remote Opponent",
+  isHome: true,
+  goals: [],
+  events: [],
+  startedAt: 1,
+  isActive: true,
+  isRunning: false,
+  totalPausedTime: 0,
+  currentPeriod: 1,
 };
 const response = (role: "editor" | "viewer", body = remoteState) =>
   new Response(JSON.stringify(body), { headers: { "X-Workspace-Role": role } });
@@ -144,5 +157,46 @@ describe("Index viewer access", () => {
     expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).syncToken).toBe(
       "saved-editor",
     );
+  });
+
+  it("returns a viewer to home when the editor ends the active match", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "viewer-token", theme: "system" }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response("viewer", { ...remoteState, activeMatch }))
+      .mockResolvedValueOnce(response("viewer", remoteState));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Index />);
+
+    expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sync match" }));
+
+    expect(await screen.findByText("Waiting for a live match")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("keeps viewer settings open when the editor ends the active match", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "viewer-token", theme: "system" }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response("viewer", { ...remoteState, activeMatch }))
+      .mockResolvedValueOnce(response("viewer", remoteState));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+
+    expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    expect(await screen.findByText("Settings")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh workspace" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("Team Name")).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 });

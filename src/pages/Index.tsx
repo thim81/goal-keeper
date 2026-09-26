@@ -604,6 +604,9 @@ export default function Index() {
   if (activeMatch && view === "home") {
     setView("live");
   }
+  if (!activeMatch && view === "live") {
+    setView("home");
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
