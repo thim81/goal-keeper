@@ -212,6 +212,9 @@ describe("SettingsScreen interactions", () => {
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent("Viewer");
+    expect(screen.getByText("Team Name")).toBeInTheDocument();
+    expect(screen.getByText("My Team")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Enter your team name")).not.toBeInTheDocument();
     expect(screen.getByText("Dark")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Enter sync token")).toBeInTheDocument();
     expect(screen.queryByText("Start New Match")).not.toBeInTheDocument();

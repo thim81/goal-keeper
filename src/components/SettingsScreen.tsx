@@ -163,23 +163,29 @@ export function SettingsScreen({
         style={{ paddingBottom: `calc(1rem + env(safe-area-inset-bottom, 0px))` }}
       >
         {/* Team Name */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Shield className="w-4 h-4" />
+            <span className="text-sm font-semibold uppercase tracking-wider">Team Name</span>
+          </div>
+          {canEdit ? (
+            <input
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              onBlur={handleTeamNameBlur}
+              placeholder="Enter your team name"
+              className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
+            />
+          ) : (
+            <p className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground text-lg">
+              {settings.teamName}
+            </p>
+          )}
+        </div>
+
         {canEdit && (
           <>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Shield className="w-4 h-4" />
-                <span className="text-sm font-semibold uppercase tracking-wider">Team Name</span>
-              </div>
-              <input
-                type="text"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                onBlur={handleTeamNameBlur}
-                placeholder="Enter your team name"
-                className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
-              />
-            </div>
-
             {/* Match Format */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-muted-foreground">
