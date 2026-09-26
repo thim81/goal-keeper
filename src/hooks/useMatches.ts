@@ -195,6 +195,7 @@ export function useMatches() {
         ...prev,
         goals: prev.goals.map((goal) => {
           if (goal.id !== goalId) return goal;
+          if (goal.team === "my-team" && !changes.scorer?.trim()) return goal;
           const date = new Date(goal.timestamp);
           if (goal.time !== changes.time) date.setHours(clockTime.hours, clockTime.minutes, 0, 0);
           return {

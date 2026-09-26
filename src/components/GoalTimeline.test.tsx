@@ -30,6 +30,29 @@ function swipe(element: Element, distance: number) {
 }
 
 describe("GoalTimeline", () => {
+  it("requires a scorer before saving one of our goals", () => {
+    vi.useFakeTimers();
+    const onUpdateGoal = vi.fn();
+    render(
+      <GoalTimeline
+        goals={[goal]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onUpdateGoal={onUpdateGoal}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Alice"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "   " } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onUpdateGoal).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("Who scored?"), { target: { value: "Bob" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
   it("does not open the goal editor on a quick tap, scroll, swipe, or read-only row", () => {
     vi.useFakeTimers();
     const props = {

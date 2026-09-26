@@ -492,11 +492,12 @@ export function GoalTimeline({
               <div
                 className={`${swipeX !== 0 ? "bg-secondary" : "goal-gradient"} rounded-xl py-1 px-3 border border-border/30 group touch-pan-y ${
                   isMyTeam ? "border-l-4 border-l-primary" : "border-l-4 border-l-accent"
-                }`}
+                } ${canEdit ? "select-none" : ""}`}
                 style={{
                   transform: `translateX(${canSwipeDelete ? swipeX : 0}px)`,
                   transition: goalDraggingRef.current ? "none" : "transform 160ms ease-out",
                   backgroundClip: "padding-box",
+                  ...(canEdit ? { WebkitUserSelect: "none", WebkitTouchCallout: "none" } : {}),
                 }}
                 onPointerDown={canInteract ? onGoalPointerDown(goal.id) : undefined}
                 onPointerMove={canInteract ? onGoalPointerMove : undefined}

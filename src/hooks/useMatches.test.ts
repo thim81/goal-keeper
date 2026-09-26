@@ -65,6 +65,21 @@ describe("useMatches period history", () => {
 });
 
 describe("useMatches goals, events and score", () => {
+  it("rejects scorerless edits for our goals but accepts them for opponents", async () => {
+    localStorage.clear();
+    const result = await setupWithMatch();
+    act(() => {
+      result.current.addGoal("my-team", "Alice");
+      result.current.addGoal("opponent");
+    });
+    const [ours, theirs] = result.current.activeMatch!.goals;
+    for (const scorer of [undefined, "", "   "]) {
+      act(() => result.current.updateGoal(ours.id, { scorer, type: "penalty", time: ours.time }));
+      expect(result.current.activeMatch!.goals[0]).toEqual(ours);
+    }
+    act(() => result.current.updateGoal(theirs.id, { type: "penalty", time: theirs.time }));
+    expect(result.current.activeMatch!.goals[1]).toEqual({ ...theirs, type: "penalty" });
+  });
   it("edits a goal in place and updates its score and time", async () => {
     localStorage.clear();
     const result = await setupWithMatch();

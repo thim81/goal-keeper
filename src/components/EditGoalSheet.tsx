@@ -100,7 +100,7 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
           <div className="flex gap-2">
             <Button
               className={`flex-1 ${isMyTeam ? "" : "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent"}`}
-              disabled={!validTime}
+              disabled={!validTime || (isMyTeam && !scorer.trim())}
               onClick={() => {
                 onSave(goal.id, {
                   scorer: team === "my-team" ? scorer : undefined,
