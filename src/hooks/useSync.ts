@@ -89,6 +89,24 @@ export function useSync(
     }
   }, []);
 
+  const flushPendingWrite = useCallback(
+    async (generation: number) => {
+      if (!syncToken || generation !== generationRef.current) return false;
+      let statusCode = 204;
+      if (writeTimerRef.current !== null) {
+        window.clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = null;
+        statusCode = await writeState(syncToken, getLocalState(), generation);
+      } else if (writePromiseRef.current) {
+        statusCode = await writePromiseRef.current;
+      } else if (serialize(getLocalState()) !== lastPushedState.current) {
+        statusCode = await writeState(syncToken, getLocalState(), generation);
+      }
+      return generation === generationRef.current && statusCode >= 200 && statusCode < 300;
+    },
+    [getLocalState, syncToken, writeState],
+  );
+
   const pull = useCallback(async (token: string, generation: number, quiet = false) => {
     if (controllerRef.current || writeControllerRef.current || writeTimerRef.current !== null)
       return null;
@@ -221,23 +239,12 @@ export function useSync(
     };
     const syncNowQuietly = async () => {
       const generation = generationRef.current;
-      if (writeTimerRef.current !== null) {
-        window.clearTimeout(writeTimerRef.current);
-        writeTimerRef.current = null;
-        const statusCode = await writeState(syncToken, getLocalState(), generation);
-        if (statusCode < 200 || statusCode >= 300) return;
-      } else if (writePromiseRef.current) {
-        const statusCode = await writePromiseRef.current;
-        if (statusCode < 200 || statusCode >= 300) return;
-      } else if (role === "editor" && serialize(getLocalState()) !== lastPushedState.current) {
-        const statusCode = await writeState(syncToken, getLocalState(), generation);
-        if (statusCode < 200 || statusCode >= 300) return;
-      }
+      if (!(await flushPendingWrite(generation))) return;
       if (generation === generationRef.current) await pull(syncToken, generation, true);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [syncToken, role, status, checkedToken, pull, getLocalState, writeState]);
+  }, [syncToken, role, status, checkedToken, pull, flushPendingWrite]);
 
   useEffect(() => {
     if (!syncToken || role !== "viewer" || status === "invalid" || checkedToken !== syncToken)
@@ -277,19 +284,7 @@ export function useSync(
     setIsSyncing(true);
     try {
       if (role === "editor") {
-        if (writeTimerRef.current !== null) {
-          window.clearTimeout(writeTimerRef.current);
-          writeTimerRef.current = null;
-          const pending = writeState(syncToken, getLocalState(), generation);
-          const statusCode = await pending;
-          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
-        } else if (writePromiseRef.current) {
-          const statusCode = await writePromiseRef.current;
-          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
-        } else if (serialize(getLocalState()) !== lastPushedState.current) {
-          const statusCode = await writeState(syncToken, getLocalState(), generation);
-          if (generation !== generationRef.current || statusCode < 200 || statusCode >= 300) return;
-        }
+        if (!(await flushPendingWrite(generation))) return;
       }
       if (generation === generationRef.current) await pull(syncToken, generation);
     } finally {
@@ -307,7 +302,7 @@ export function useSync(
         manualInFlight.current = false;
       }
     }
-  }, [getLocalState, pull, role, syncToken, writeState]);
+  }, [flushPendingWrite, pull, role, syncToken]);
 
   const effectiveStatus = !syncToken ? "local" : checkedToken === syncToken ? status : "checking";
   return {

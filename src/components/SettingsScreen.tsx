@@ -108,8 +108,7 @@ export function SettingsScreen({
     onUpdateCalendarSettings(calendarUrl, calendarTeamName);
   };
 
-  const getViewerLinkForAction = async () => {
-    if (viewerLink) return viewerLink;
+  const loadViewerLinkForAction = async () => {
     try {
       const link = await onLoadViewerLink();
       setShareFailed(!link);
@@ -374,7 +373,7 @@ export function SettingsScreen({
                 disabled={!viewerLink && !shareFailed}
                 onClick={async () => {
                   try {
-                    const link = viewerLink || (await getViewerLinkForAction());
+                    const link = viewerLink || (await loadViewerLinkForAction());
                     if (!link) throw new Error("Could not load view-only link");
                     setShareFailed(false);
                     if (navigator.share)
@@ -402,7 +401,7 @@ export function SettingsScreen({
                 disabled={!viewerLink && !shareFailed}
                 onClick={async () => {
                   try {
-                    const link = viewerLink || (await getViewerLinkForAction());
+                    const link = viewerLink || (await loadViewerLinkForAction());
                     if (!link) throw new Error("Could not load view-only link");
                     await navigator.clipboard.writeText(link);
                     setShareFailed(false);
