@@ -1,8 +1,28 @@
 import { CALENDAR_GAME_GRACE_PERIOD_MS, type CalendarFixture } from "./calendar";
 
+export const UPCOMING_MATCH_COUNTDOWN_WINDOW_MS = 60 * 60 * 1000;
+export const UPCOMING_MATCH_COUNTDOWN_GRACE_MS = 15 * 60 * 1000;
+
 export interface UpcomingMatch extends CalendarFixture {
   opponentName: string;
   isHome: boolean;
+}
+
+export function getUpcomingMatchCountdown(
+  matches: UpcomingMatch[],
+  now: number = Date.now(),
+): { match: UpcomingMatch; secondsRemaining: number } | null {
+  const next = matches
+    .map((match) => ({ match, start: new Date(match.start).getTime() }))
+    .filter(({ start }) => Number.isFinite(start) && start >= now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS)
+    .sort((a, b) => a.start - b.start)[0];
+
+  if (!next || next.start - now > UPCOMING_MATCH_COUNTDOWN_WINDOW_MS) return null;
+
+  return {
+    match: next.match,
+    secondsRemaining: Math.max(0, Math.ceil((next.start - now) / 1000)),
+  };
 }
 
 export function getUpcomingMatches(

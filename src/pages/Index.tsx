@@ -44,6 +44,8 @@ import { buildBackupPayload, parseBackupPayload } from "@/lib/backup";
 import { getRecentMatchWithinDays } from "@/lib/recent-match";
 import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
 import type { UpcomingMatch } from "@/lib/upcoming-matches";
+import { useMatchCountdown } from "@/hooks/useMatchCountdown";
+import { MatchCountdown } from "@/components/MatchCountdown";
 import {
   clearViewerTokenFromUrl,
   createViewerLink,
@@ -296,6 +298,11 @@ export default function Index() {
     settings.calendarTeamName,
     canEdit ? handleDetectedCalendarTeamName : undefined,
     canViewCalendar,
+  );
+
+  const countdown = useMatchCountdown(
+    upcomingMatches.matches,
+    view === "home" && !activeMatch && upcomingMatches.loaded,
   );
 
   const handleToggleSecondary = (open: boolean) => {
@@ -1011,42 +1018,56 @@ export default function Index() {
                 <span className="text-5xl">⚽</span>
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                {canEdit ? "Ready to Play?" : "Waiting for a live match"}
+                {canEdit
+                  ? "Ready to Play?"
+                  : countdown
+                    ? "Get ready for kickoff"
+                    : "Waiting for a live match"}
               </h2>
               <p className="text-muted-foreground">
                 {canEdit
                   ? "Start tracking your match goals in real time"
                   : "View live scores and browse past match results"}
               </p>
-              {!canEdit && settings.syncToken && (
-                <div className="mt-4 flex flex-col items-center gap-2 text-xs text-muted-foreground">
-                  <span>
-                    {syncStatus === "unavailable"
-                      ? "Connection unavailable"
-                      : syncStatus === "invalid"
-                        ? "Access token is invalid"
-                        : lastSyncedAt
-                          ? `Last updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
-                          : "Checking workspace"}
-                  </span>
-                  {syncStatus !== "invalid" && (
-                    <button
-                      type="button"
-                      onClick={syncNow}
-                      disabled={isSyncing || isCoolingDown}
-                      className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-foreground disabled:opacity-50"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                      {isSyncing
-                        ? "Refreshing"
-                        : syncStatus === "unavailable"
-                          ? "Retry"
-                          : "Refresh"}
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
+
+            {countdown && (
+              <MatchCountdown
+                match={countdown.match}
+                teamName={settings.teamName}
+                secondsRemaining={countdown.secondsRemaining}
+                onStart={canEdit ? () => handleSelectUpcomingMatch(countdown.match) : undefined}
+              />
+            )}
+
+            {!canEdit && settings.syncToken && (
+              <div className="mb-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {syncStatus === "unavailable"
+                    ? "Connection unavailable"
+                    : syncStatus === "invalid"
+                      ? "Access token is invalid"
+                      : lastSyncedAt
+                        ? `Last updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
+                        : "Checking workspace"}
+                </span>
+                {syncStatus !== "invalid" && (
+                  <button
+                    type="button"
+                    onClick={syncNow}
+                    disabled={isSyncing || isCoolingDown}
+                    className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-foreground disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                    {isSyncing
+                      ? "Refreshing"
+                      : syncStatus === "unavailable"
+                        ? "Retry"
+                        : "Refresh"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {canEdit && (
               <button
@@ -1054,9 +1075,13 @@ export default function Index() {
                   setScheduledMatchDefaults(null);
                   setShowStartMatch(true);
                 }}
-                className="w-full max-w-xs py-5 bg-primary text-primary-foreground font-bold text-xl rounded-2xl hover:bg-primary/90 transition-all active:scale-[0.98] btn-glow"
+                className={
+                  countdown
+                    ? "mt-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    : "w-full max-w-xs py-5 bg-primary text-primary-foreground font-bold text-xl rounded-2xl hover:bg-primary/90 transition-all active:scale-[0.98] btn-glow"
+                }
               >
-                Start New Match
+                {countdown ? "Start a different match" : "Start New Match"}
               </button>
             )}
 
@@ -1080,7 +1105,7 @@ export default function Index() {
               </button>
             )}
 
-            {canViewCalendar && (
+            {canViewCalendar && !countdown && (
               <UpcomingMatches
                 matches={upcomingMatches.matches}
                 loaded={upcomingMatches.loaded}

@@ -264,6 +264,104 @@ describe("Index viewer access", () => {
     ).toBe(false);
   });
 
+  it("replaces the viewer fixture list with a read-only countdown during the final hour", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "viewer-token", theme: "system" }),
+    );
+    const calendarState = {
+      ...remoteState,
+      settings: {
+        ...remoteState.settings,
+        calendarUrl: "https://club.prosoccerdata.com/calendar.ics",
+        calendarTeamName: "IPU15",
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input) === "/api/calendar") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              games: [
+                {
+                  id: "game|countdown-viewer",
+                  start: new Date(Date.now() + 15 * 60_000).toISOString(),
+                  homeTeam: "IPU15",
+                  awayTeam: "Opponent FC",
+                },
+              ],
+            }),
+          ),
+        );
+      }
+      return Promise.resolve(response("viewer", calendarState));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Index />);
+
+    expect(await screen.findByText("Get ready for kickoff")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Shared Team - Opponent FC" })).toBeInTheDocument();
+    expect(screen.queryByText("Upcoming matches")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start match/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start a different match" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Shared Team - Opponent FC" }).querySelector(".font-mono")?.textContent,
+    ).toMatch(/^\d+ min$/);
+    const countdownCard = screen.getByRole("region", { name: "Shared Team - Opponent FC" });
+    const refreshButton = screen.getByRole("button", { name: "Refresh" });
+    expect(
+      countdownCard.compareDocumentPosition(refreshButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("opens the existing start sheet with countdown fixture defaults for editors", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
+    );
+    const calendarState = {
+      ...remoteState,
+      settings: {
+        ...remoteState.settings,
+        calendarUrl: "https://club.prosoccerdata.com/calendar.ics",
+        calendarTeamName: "IPU15",
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input) === "/api/calendar") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              games: [
+                {
+                  id: "game|countdown-editor",
+                  start: new Date(Date.now() + 15 * 60_000).toISOString(),
+                  homeTeam: "IPU15",
+                  awayTeam: "Opponent FC",
+                },
+              ],
+            }),
+          ),
+        );
+      }
+      return Promise.resolve(response("editor", calendarState));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Index />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start match" }));
+    expect(screen.getByText("New Match ⚽")).toBeInTheDocument();
+    expect(screen.queryByText("Upcoming matches")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Opponent")).toHaveValue("Opponent FC");
+    expect(screen.getByRole("button", { name: "Home" })).toHaveClass("border-primary");
+
+    const closeButton = screen.getByText("New Match ⚽").parentElement?.querySelector("button");
+    fireEvent.click(closeButton!);
+    fireEvent.click(screen.getByRole("button", { name: "Start a different match" }));
+    expect(screen.getByPlaceholderText("Opponent")).toHaveValue("");
+  });
+
   it("keeps editor match actions available after a transient autosave failure", async () => {
     localStorage.setItem(
       "football-tracker-settings",
