@@ -199,4 +199,67 @@ describe("Index viewer access", () => {
     expect(await screen.findByText("Team Name")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });
+
+  it("shows the configured public calendar read-only for confirmed viewers", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({
+        ...remoteState.settings,
+        calendarUrl: "",
+        calendarTeamName: "",
+        syncToken: "viewer-token",
+        theme: "system",
+      }),
+    );
+    const calendarState = {
+      ...remoteState,
+      settings: {
+        ...remoteState.settings,
+        calendarUrl: "https://club.prosoccerdata.com/api/v2/members/ics/file?id=1&uuid=x",
+        calendarTeamName: "",
+      },
+    };
+    const calendarResponse = {
+      games: [
+        {
+          id: "game|viewer",
+          start: new Date(Date.now() + 86_400_000).toISOString(),
+          homeTeam: "IPU15",
+          awayTeam: "Opponent FC",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input) === "/api/calendar") {
+        return Promise.resolve(new Response(JSON.stringify(calendarResponse)));
+      }
+      return Promise.resolve(response("viewer", calendarState));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Index />);
+
+    expect(await screen.findByText("Opponent FC")).toBeInTheDocument();
+    expect(screen.getByText("Opponent FC").closest("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).calendarTeamName).toBe(
+      "",
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, options]) => String(url) === "/api/state" && options?.method === "POST",
+      ),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh upcoming matches" }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([url]) => String(url) === "/api/calendar")).toHaveLength(
+        2,
+      ),
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, options]) => String(url) === "/api/state" && options?.method === "POST",
+      ),
+    ).toBe(false);
+  });
 });

@@ -287,11 +287,14 @@ export default function Index() {
     (teamName: string) => updateCalendarSettings(settings.calendarUrl, teamName),
     [settings.calendarUrl, updateCalendarSettings],
   );
+  const canViewCalendar =
+    canEdit ||
+    (workspaceRole === "viewer" && syncStatus !== "checking" && syncStatus !== "invalid");
   const upcomingMatches = useUpcomingMatches(
     settings.calendarUrl,
     settings.calendarTeamName,
-    handleDetectedCalendarTeamName,
-    canEdit,
+    canEdit ? handleDetectedCalendarTeamName : undefined,
+    canViewCalendar,
   );
 
   const handleToggleSecondary = (open: boolean) => {
@@ -1076,11 +1079,11 @@ export default function Index() {
               </button>
             )}
 
-            {canEdit && (
+            {canViewCalendar && (
               <UpcomingMatches
                 matches={upcomingMatches.matches}
                 loaded={upcomingMatches.loaded}
-                onSelect={handleSelectUpcomingMatch}
+                onSelect={canEdit ? handleSelectUpcomingMatch : undefined}
                 onRefresh={upcomingMatches.refresh}
               />
             )}

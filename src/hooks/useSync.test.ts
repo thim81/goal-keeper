@@ -47,6 +47,7 @@ describe("useSync manual refresh", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+    localStorage.clear();
   });
 
   it("pulls remote state and reuses the existing success toast", async () => {
@@ -305,6 +306,81 @@ describe("useSync manual refresh", () => {
     );
     expect(JSON.parse(fetchMock.mock.calls[2][1].body).activeMatch.id).toBe("unsaved-auto-edit");
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps a confirmed editor grant after a network write failure", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(remoteResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const localEdit = { id: "offline-edit" } as NonNullable<SyncState["activeMatch"]>;
+    const { rerender, result } = renderHook(
+      ({ match }) => useSync("token", {}, "season-1", match, settings, vi.fn()),
+      { initialProps: { match: null as SyncState["activeMatch"] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    rerender({ match: localEdit });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+
+    expect(result.current.status).toBe("unavailable");
+    expect(result.current.role).toBe("editor");
+  });
+
+  it("restores a token-matched editor grant offline without replacing dirty local data", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(remoteResponse()));
+    const first = renderHook(() => useSync("token", {}, "season-1", null, settings, vi.fn()));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(first.result.current.role).toBe("editor");
+    first.unmount();
+
+    const localEdit = { id: "offline-reload-edit" } as NonNullable<SyncState["activeMatch"]>;
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("offline"));
+    vi.stubGlobal("fetch", fetchMock);
+    const onSyncState = vi.fn();
+    const restored = renderHook(() =>
+      useSync("token", {}, "season-1", localEdit, settings, onSyncState),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(restored.result.current.role).toBe("editor");
+    expect(restored.result.current.status).toBe("unavailable");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onSyncState).not.toHaveBeenCalled();
+  });
+
+  it("does not restore a cached grant for another token and clears it after authorization failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(remoteResponse("viewer"))
+        .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 })),
+    );
+    const first = renderHook(() => useSync("viewer-token", {}, "season-1", null, settings, vi.fn()));
+    await waitFor(() => expect(first.result.current.role).toBe("viewer"));
+    first.unmount();
+
+    const next = renderHook(() => useSync("different-token", {}, "season-1", null, settings, vi.fn()));
+    expect(next.result.current.role).toBeNull();
+    await waitFor(() => expect(next.result.current.status).toBe("invalid"));
+    next.unmount();
+
+    const offline = renderHook(() =>
+      useSync("viewer-token", {}, "season-1", null, settings, vi.fn()),
+    );
+    expect(offline.result.current.role).toBeNull();
   });
 
   it("does not apply a refresh response over edits made while the request is pending", async () => {

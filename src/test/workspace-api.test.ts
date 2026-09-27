@@ -11,7 +11,8 @@ const state = {
     periodsCount: 4,
     periodDuration: 20,
     syncToken: "editor",
-    calendarUrl: "private",
+    calendarUrl: "https://public.example/calendar.ics",
+    calendarTeamName: "Club U15",
     debug: true,
   },
 };
@@ -33,7 +34,7 @@ function context(token: string, method = "GET", stored: unknown = state) {
   };
 }
 describe("workspace permissions", () => {
-  it("allows viewers to read without exposing credentials or private settings", async () => {
+  it("shares public calendar details without exposing credentials or private settings", async () => {
     const response = await onRequestGet(context("viewer") as never);
     expect(response.status).toBe(200);
     expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
@@ -42,6 +43,19 @@ describe("workspace permissions", () => {
       players: ["Alice"],
       periodsCount: 4,
       periodDuration: 20,
+      calendarUrl: "https://public.example/calendar.ics",
+      calendarTeamName: "Club U15",
+    });
+  });
+  it("clears viewer calendar settings when omitted from stored state", async () => {
+    const body = {
+      ...state,
+      settings: { teamName: "Club", players: [], periodsCount: 4, periodDuration: 20 },
+    };
+    const response = await onRequestGet(context("viewer", "GET", body) as never);
+    expect((await response.json()).settings).toMatchObject({
+      calendarUrl: "",
+      calendarTeamName: "",
     });
   });
   it("strips legacy credentials for editors too", async () => {

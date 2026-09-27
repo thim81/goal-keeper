@@ -93,6 +93,12 @@ The editor token can read and write the shared workspace. The viewer token can
 read it, while the server rejects viewer writes. Shared links contain the
 viewer token in the URL fragment, which is not sent with HTTP requests.
 
+Viewer responses also include the configured public calendar URL and team name
+so viewers can read upcoming fixtures. The URL is disclosed to viewers, so only
+use a public calendar subscription. Calendar settings remain editor-only, and
+viewer fixture rows cannot start or change matches. Refreshing fixtures reads
+through `/api/calendar` and never writes workspace state to `/api/state`.
+
 Set both secrets before deploying the sharing UI. The app does not provide a
 second data store or deployment for viewers. If the viewer secret is missing
 or matches the editor secret, the share endpoint stays unavailable and existing

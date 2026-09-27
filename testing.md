@@ -24,7 +24,7 @@ Wrangler persists local server data under `.wrangler/state` in this repository, 
 
 Each browser session also stores settings, credentials, theme, and cached app data in browser localStorage for the localhost origin. Clearing browser data does not clear local KV, and clearing local KV does not clear browser data. Private browsing keeps this separate from your regular session and normally discards it when the private session closes.
 
-The app's sync runs entirely locally with this command. Initial tool downloads through `npm` or `npx`, and optional external calendar subscriptions, can still need internet access. Local testing does not reproduce Cloudflare's production KV propagation delays.
+The app's sync runs entirely locally with this command. Initial tool downloads through `npm` or `npx`, and the configured public calendar subscription fetched through `/api/calendar`, can need internet access. Local testing does not reproduce Cloudflare's production KV propagation delays.
 
 ## Test editor and viewer access
 
@@ -32,7 +32,7 @@ The app's sync runs entirely locally with this command. Initial tool downloads t
 2. Set a recognizable team name, add players, and create a test match. Changes automatically upload after about two seconds; use the sync button to refresh manually.
 3. In Settings, choose **Share link**. Open that link in a private window or a separate browser profile. Two ordinary tabs share browser storage, so use isolated sessions to keep credentials independent.
 4. Confirm the second session shows **Viewer**, and the token disappears from the address bar after validation. Alternatively, open the local app in the private session and enter `local-viewer` manually.
-5. Confirm viewers can see the live scoreboard, timeline, history, seasons, statistics, and the read-only team name in Settings. Creation, goal/event actions, timer controls, undo, renaming, deletion, season management, editable workspace settings, backup tools, calendar features, and sharing controls should be absent or inactive.
+5. Confirm viewers can see the live scoreboard, timeline, history, seasons, statistics, read-only team name in Settings, and upcoming fixtures from the configured public calendar. Calendar rows and refresh are read-only; selecting a fixture cannot start a match. Creation, goal/event actions, timer controls, undo, renaming, deletion, season management, editable workspace settings, backup tools, calendar configuration, and sharing controls should be absent or inactive.
 6. Keep the viewer visible while the editor changes a live match. Allow the editor upload, then up to ten seconds for the next viewer refresh. Check score and event changes. Finish the match and confirm it appears in viewer history. Without a live match, viewer polling runs every thirty seconds.
 7. Open a historical match in the viewer. Edit or delete it in the editor and refresh the viewer. Details should update, and a deleted match should no longer remain displayed.
 8. Switch the viewer to a background tab, then return. Polling should pause while hidden and refresh on return. Manual refresh should also work.

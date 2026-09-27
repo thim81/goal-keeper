@@ -43,13 +43,21 @@ export function sanitizeState(body: unknown, role: WorkspaceRole) {
   }
   const { syncToken: _token, ...settings } = state.settings as Record<string, unknown>;
   if (role === "editor") return { ...state, settings };
-  const { teamName, players, periodsCount, periodDuration } = settings;
+  const { teamName, players, periodsCount, periodDuration, calendarUrl, calendarTeamName } =
+    settings;
   return {
     matches: state.matches,
     fullMatches: state.fullMatches,
     activeMatch: state.activeMatch,
     seasons: state.seasons,
     activeSeasonId: state.activeSeasonId,
-    settings: { teamName, players, periodsCount, periodDuration },
+    settings: {
+      teamName,
+      players,
+      periodsCount,
+      periodDuration,
+      calendarUrl: typeof calendarUrl === "string" ? calendarUrl : "",
+      calendarTeamName: typeof calendarTeamName === "string" ? calendarTeamName : "",
+    },
   };
 }
