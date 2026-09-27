@@ -1022,7 +1022,7 @@ export default function Index() {
                   ? "Ready to Play?"
                   : countdown
                     ? "Get ready for kickoff"
-                    : "Waiting for a live match"}
+                    : "Waiting for the next match"}
               </h2>
               <p className="text-muted-foreground">
                 {canEdit

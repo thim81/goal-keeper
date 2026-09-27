@@ -78,7 +78,7 @@ describe("Index viewer access", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<Index />);
 
-    expect(await screen.findByText("Waiting for a live match")).toBeInTheDocument();
+    expect(await screen.findByText("Waiting for the next match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
     fireEvent.click(container.querySelector(".lucide-history")!.closest("button")!);
@@ -122,7 +122,7 @@ describe("Index viewer access", () => {
 
     expect(await screen.findByRole("button", { name: /start new match/i })).toBeInTheDocument();
     await waitFor(() => expect(window.location.hash).toBe(""));
-    expect(screen.queryByText("Waiting for a live match")).not.toBeInTheDocument();
+    expect(screen.queryByText("Waiting for the next match")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([, options]) => options.headers["x-auth-token"])).toEqual([
       "shared-viewer",
       "saved-editor",
@@ -175,7 +175,7 @@ describe("Index viewer access", () => {
     expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sync match" }));
 
-    expect(await screen.findByText("Waiting for a live match")).toBeInTheDocument();
+    expect(await screen.findByText("Waiting for the next match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
   });
 
