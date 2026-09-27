@@ -24,4 +24,5 @@ it("hides the countdown at kickoff", () => {
   expect(screen.queryByText("Start in:")).not.toBeInTheDocument();
   expect(screen.queryByText("00:00")).not.toBeInTheDocument();
   expect(screen.queryByText(/\d+ min/)).not.toBeInTheDocument();
+  expect(screen.getByText("Waiting for the match to start")).toBeInTheDocument();
 });

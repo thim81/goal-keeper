@@ -32,13 +32,15 @@ export function MatchCountdown({ match, teamName, secondsRemaining, onStart }: M
       <p className="mt-2 text-center text-xl font-bold text-foreground">
         {homeTeamName} <span className="text-muted-foreground">-</span> {awayTeamName}
       </p>
-      {secondsRemaining > 0 && (
+      {secondsRemaining > 0 ? (
         <p className="mt-3 flex items-baseline justify-center gap-2">
           <span className="text-sm text-muted-foreground">Start in: </span>
           <span className="font-mono text-lg font-bold tabular-nums text-primary">
             {Math.ceil(secondsRemaining / 60)} min
           </span>
         </p>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">Waiting for the match to start</p>
       )}
       {onStart && (
         <Button type="button" onClick={onStart} className="mt-4 w-full">
