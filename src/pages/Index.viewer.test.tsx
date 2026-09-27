@@ -55,6 +55,7 @@ describe("Index viewer access", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     history.replaceState({}, "", "/");
   });
 
@@ -261,5 +262,29 @@ describe("Index viewer access", () => {
         ([url, options]) => String(url) === "/api/state" && options?.method === "POST",
       ),
     ).toBe(false);
+  });
+
+  it("keeps editor match actions available after a transient autosave failure", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response("editor"))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Index />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start New Match" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kick Off!" }));
+    await screen.findByRole("button", { name: "We Scored!" });
+
+    await waitFor(
+      () => expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
+      { timeout: 4000 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "We Scored!" }));
+    expect(screen.getByText("Add Goal ⚽")).toBeInTheDocument();
   });
 });

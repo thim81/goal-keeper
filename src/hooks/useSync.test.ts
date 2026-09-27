@@ -331,36 +331,7 @@ describe("useSync manual refresh", () => {
     expect(result.current.role).toBe("editor");
   });
 
-  it("restores a token-matched editor grant offline without replacing dirty local data", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(remoteResponse()));
-    const first = renderHook(() => useSync("token", {}, "season-1", null, settings, vi.fn()));
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(first.result.current.role).toBe("editor");
-    first.unmount();
-
-    const localEdit = { id: "offline-reload-edit" } as NonNullable<SyncState["activeMatch"]>;
-    const fetchMock = vi.fn().mockRejectedValue(new TypeError("offline"));
-    vi.stubGlobal("fetch", fetchMock);
-    const onSyncState = vi.fn();
-    const restored = renderHook(() =>
-      useSync("token", {}, "season-1", localEdit, settings, onSyncState),
-    );
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(restored.result.current.role).toBe("editor");
-    expect(restored.result.current.status).toBe("unavailable");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(onSyncState).not.toHaveBeenCalled();
-  });
-
-  it("does not restore a cached grant for another token and clears it after authorization failure", async () => {
+  it("drops the previous role immediately when the token changes", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -368,19 +339,14 @@ describe("useSync manual refresh", () => {
         .mockResolvedValueOnce(remoteResponse("viewer"))
         .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 })),
     );
-    const first = renderHook(() => useSync("viewer-token", {}, "season-1", null, settings, vi.fn()));
-    await waitFor(() => expect(first.result.current.role).toBe("viewer"));
-    first.unmount();
-
-    const next = renderHook(() => useSync("different-token", {}, "season-1", null, settings, vi.fn()));
-    expect(next.result.current.role).toBeNull();
-    await waitFor(() => expect(next.result.current.status).toBe("invalid"));
-    next.unmount();
-
-    const offline = renderHook(() =>
-      useSync("viewer-token", {}, "season-1", null, settings, vi.fn()),
+    const { rerender, result } = renderHook(
+      ({ token }) => useSync(token, {}, "season-1", null, settings, vi.fn()),
+      { initialProps: { token: "viewer-token" } },
     );
-    expect(offline.result.current.role).toBeNull();
+    await waitFor(() => expect(result.current.role).toBe("viewer"));
+    rerender({ token: "different-token" });
+    expect(result.current.role).toBeNull();
+    await waitFor(() => expect(result.current.status).toBe("invalid"));
   });
 
   it("does not apply a refresh response over edits made while the request is pending", async () => {

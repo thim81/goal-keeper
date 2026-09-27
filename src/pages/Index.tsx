@@ -190,7 +190,8 @@ export default function Index() {
     handleSyncState,
   );
   const canEdit =
-    !sharedToken && (syncStatus === "editor" || (syncStatus === "local" && !settings.syncToken));
+    !sharedToken &&
+    (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
 
   const loadViewerLink = useCallback(async () => {
     if (!settings.syncToken || workspaceRole !== "editor") return "";
