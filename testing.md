@@ -54,6 +54,8 @@ The app's sync runs entirely locally with this command. Initial tool downloads t
 4. To simulate viewer revocation, restart with `--binding=VIEWER_TOKEN=local-viewer-rotated` instead of `local-viewer`. Existing viewer credentials and links should fail on their next request, while editor access still works. Copy a new link from the editor to reconnect. Previously downloaded data cannot be retracted.
 5. In browser developer tools, inspect Network requests filtered to `/api/state`. A viewer should only issue GET requests, never POST, including after failures or local preference changes. Editors issue POST requests for workspace changes.
 
+An editor token must be confirmed by the server once before offline editing is enabled. The browser then keeps that confirmed role and last-synced baseline in a device-local record separate from synced settings. While offline, changes remain in local browser storage; use Refresh or bring the app back to the foreground after reconnecting to upload them. New or changed tokens remain blocked until confirmed, and a 401 or 403 clears the saved role. Cached viewers stay read-only.
+
 Optional API permission checks, using the server address printed in your terminal:
 
 ```sh

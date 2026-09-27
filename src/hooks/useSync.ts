@@ -5,6 +5,55 @@ import { toast } from "sonner";
 
 export type SyncStatus = "local" | "checking" | "editor" | "viewer" | "invalid" | "unavailable";
 
+const ACCESS_KEY = "football-tracker-workspace-access";
+type CachedAccess = { token: string; role: "editor" | "viewer"; baseline: string };
+
+function removeCachedAccess() {
+  try {
+    localStorage.removeItem(ACCESS_KEY);
+  } catch {
+    // Storage may be unavailable in private or restricted browser contexts.
+  }
+}
+
+function readCachedAccess(token: string): CachedAccess | null {
+  if (!token) return null;
+  try {
+    const raw = localStorage.getItem(ACCESS_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as Partial<CachedAccess>;
+    if (
+      cached.token !== token ||
+      (cached.role !== "editor" && cached.role !== "viewer") ||
+      typeof cached.baseline !== "string"
+    ) {
+      removeCachedAccess();
+      return null;
+    }
+    return cached as CachedAccess;
+  } catch {
+    removeCachedAccess();
+    return null;
+  }
+}
+
+function storeCachedAccess(access: CachedAccess) {
+  try {
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(access));
+  } catch {
+    // Storage is only a convenience for offline startup, not a sync requirement.
+  }
+}
+
+function clearCachedAccess(token: string) {
+  try {
+    const raw = localStorage.getItem(ACCESS_KEY);
+    if (!raw || (JSON.parse(raw) as Partial<CachedAccess>).token === token) removeCachedAccess();
+  } catch {
+    removeCachedAccess();
+  }
+}
+
 export function useSync(
   syncToken: string | undefined,
   seasons: Record<string, Season>,
@@ -15,13 +64,15 @@ export function useSync(
 ) {
   const [status, setStatus] = useState<SyncStatus>(syncToken ? "checking" : "local");
   const [checkedToken, setCheckedToken] = useState(syncToken ?? "");
-  const [role, setRole] = useState<"editor" | "viewer" | null>(null);
+  const [initialAccess] = useState(() => readCachedAccess(syncToken ?? ""));
+  const [role, setRole] = useState<"editor" | "viewer" | null>(initialAccess?.role ?? null);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
-  const lastPushedState = useRef("");
+  const lastPushedState = useRef(initialAccess?.baseline ?? "");
+  const writeBlockedRef = useRef(false);
   const manualInFlight = useRef(false);
   const manualGeneration = useRef(0);
   const manualCooldownUntil = useRef(0);
@@ -62,17 +113,21 @@ export function useSync(
     const operation = writeQueueRef.current
       .catch(() => undefined)
       .then(async () => {
-        if (generation !== generationRef.current) return 0;
+        if (generation !== generationRef.current || writeBlockedRef.current) return 0;
         const controller = new AbortController();
         writeControllerRef.current = controller;
         const statusCode = await pushLocalState(token, local, controller.signal);
         if (statusCode >= 200 && statusCode < 300 && generation === generationRef.current) {
           lastPushedState.current = serialize(local);
+          storeCachedAccess({ token, role: "editor", baseline: lastPushedState.current });
           setLastSyncedAt(Date.now());
         } else if (generation === generationRef.current) {
           setCheckedToken(token);
-          setStatus(statusCode === 401 ? "invalid" : "unavailable");
-          if (statusCode === 401) setRole(null);
+          setStatus(statusCode === 401 || statusCode === 403 ? "invalid" : "unavailable");
+          if (statusCode === 401 || statusCode === 403) {
+            clearCachedAccess(token);
+            setRole(null);
+          }
         }
         if (writeControllerRef.current === controller) writeControllerRef.current = null;
         return statusCode;
@@ -92,6 +147,13 @@ export function useSync(
   const flushPendingWrite = useCallback(
     async (generation: number) => {
       if (!syncToken || generation !== generationRef.current) return false;
+      if (writeBlockedRef.current) {
+        if (writeTimerRef.current !== null) {
+          window.clearTimeout(writeTimerRef.current);
+          writeTimerRef.current = null;
+        }
+        return true;
+      }
       let statusCode = 204;
       if (writeTimerRef.current !== null) {
         window.clearTimeout(writeTimerRef.current);
@@ -117,6 +179,7 @@ export function useSync(
     try {
       const result = await fetchRemoteState(token, controller.signal);
       if (generation !== generationRef.current || controller.signal.aborted) return null;
+      writeBlockedRef.current = false;
       if (result.state) {
         setCheckedToken(token);
         setRole(result.role);
@@ -136,13 +199,18 @@ export function useSync(
             ...syncedSettings
           } = result.state.settings ?? {};
           lastPushedState.current = serialize({ ...result.state, settings: syncedSettings });
+        } else if (result.role === "editor" && !baseline) {
+          lastPushedState.current = localAtStartSerialized;
         }
+        storeCachedAccess({ token, role: result.role, baseline: lastPushedState.current });
         if (!quiet && canApply) toast.success("Goals Synced", { duration: 2000 });
       } else if (result.role === "viewer") {
         setCheckedToken(token);
         setRole("viewer");
         setStatus("viewer");
         setLastSyncedAt(Date.now());
+        lastPushedState.current = "";
+        storeCachedAccess({ token, role: "viewer", baseline: "" });
         const current = currentRef.current.getLocalState();
         currentRef.current.onSyncState({
           matches: [],
@@ -167,7 +235,10 @@ export function useSync(
     } catch (error) {
       if (generation !== generationRef.current || controller.signal.aborted) return null;
       setCheckedToken(token);
-      if ((error as { status?: number }).status === 401) {
+      const statusCode = (error as { status?: number }).status;
+      if (statusCode === 422) writeBlockedRef.current = true;
+      if (statusCode === 401 || statusCode === 403) {
+        clearCachedAccess(token);
         setRole(null);
         setStatus("invalid");
       } else setStatus("unavailable");
@@ -185,15 +256,17 @@ export function useSync(
       window.clearTimeout(writeTimerRef.current);
       writeTimerRef.current = null;
     }
-    lastPushedState.current = "";
+    const cached = readCachedAccess(syncToken ?? "");
+    lastPushedState.current = cached?.baseline ?? "";
+    writeBlockedRef.current = false;
     manualInFlight.current = false;
     manualGeneration.current = 0;
     manualCooldownUntil.current = 0;
     if (manualCooldownTimer.current !== null) window.clearTimeout(manualCooldownTimer.current);
     manualCooldownTimer.current = null;
     setIsCoolingDown(false);
-    setRole(null);
-    setCheckedToken("");
+    setRole(cached?.role ?? null);
+    setCheckedToken(syncToken ?? "");
     setIsSyncing(false);
     setStatus(syncToken ? "checking" : "local");
     setLastSyncedAt(null);
