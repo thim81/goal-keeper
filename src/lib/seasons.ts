@@ -121,7 +121,7 @@ export function renameSeason(
   };
 }
 
-export function getSeasonStats(season: Season): {
+export interface SeasonStats {
   matches: number;
   wins: number;
   draws: number;
@@ -129,7 +129,12 @@ export function getSeasonStats(season: Season): {
   goalsFor: number;
   goalsAgainst: number;
   topScorer: string | null;
-} {
+  topScorerGoals: number;
+  topAssister: string | null;
+  topAssists: number;
+}
+
+export function getSeasonStats(season: Season): SeasonStats {
   const summary = season.matches.reduce(
     (acc, match) => {
       acc.matches += 1;
@@ -151,10 +156,14 @@ export function getSeasonStats(season: Season): {
   );
 
   const scorerCounts: Record<string, number> = {};
+  const assistCounts: Record<string, number> = {};
   for (const match of Object.values(season.fullMatches)) {
     for (const goal of match.goals) {
       if (goal.team === "my-team" && goal.type !== "own-goal" && goal.scorer) {
         scorerCounts[goal.scorer] = (scorerCounts[goal.scorer] || 0) + 1;
+      }
+      if (goal.team === "my-team" && goal.type !== "own-goal" && goal.assist) {
+        assistCounts[goal.assist] = (assistCounts[goal.assist] || 0) + 1;
       }
     }
   }
@@ -168,8 +177,20 @@ export function getSeasonStats(season: Season): {
     }
   }
 
+  let topAssister: string | null = null;
+  let topAssists = 0;
+  for (const [assister, assists] of Object.entries(assistCounts)) {
+    if (assists > topAssists) {
+      topAssister = assister;
+      topAssists = assists;
+    }
+  }
+
   return {
     ...summary,
     topScorer,
+    topScorerGoals: topGoals,
+    topAssister,
+    topAssists,
   };
 }

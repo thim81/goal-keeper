@@ -145,6 +145,59 @@ describe("season helpers", () => {
     expect(stats.topScorer).toBe("Alice");
   });
 
+  it("finds the season's top scorer and assist leader from team goals", () => {
+    const goal = (
+      id: string,
+      scorer: string | undefined,
+      assist: string | undefined,
+      type: Match["goals"][number]["type"] = "normal",
+      team: Match["goals"][number]["team"] = "my-team",
+    ) => ({ id, scorer, assist, type, team, time: "10:00", timestamp: Number(id) });
+    const migrated = migrateLegacyDataToSeasons([createMatchSummary()], {
+      m1: createFullMatch({
+        goals: [
+          goal("1", "Alice", "Dana"),
+          goal("2", "Alice", "Dana"),
+          goal("3", "Alice", "Eli"),
+          goal("4", "Bob", "Dana"),
+          goal("5", "Bob", "Fran"),
+          goal("6", "Chris", "Eli"),
+          goal("7", "Drew", "Fran"),
+          goal("8", "Own goal", "Outsider", "own-goal"),
+          goal("9", "Opponent", "Outsider", "normal", "opponent"),
+        ],
+      }),
+    });
+    const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
+
+    expect(stats.topScorer).toBe("Alice");
+    expect(stats.topScorerGoals).toBe(3);
+    expect(stats.topAssister).toBe("Dana");
+    expect(stats.topAssists).toBe(3);
+  });
+
+  it("does not count assists on own goals", () => {
+    const migrated = migrateLegacyDataToSeasons([createMatchSummary()], {
+      m1: createFullMatch({
+        goals: [
+          {
+            id: "1",
+            scorer: "Own goal",
+            assist: "Outsider",
+            type: "own-goal",
+            team: "my-team",
+            time: "10:00",
+            timestamp: 1,
+          },
+        ],
+      }),
+    });
+    const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
+
+    expect(stats.topAssister).not.toBe("Outsider");
+    expect(stats.topAssists).toBe(0);
+  });
+
   it("reopens a closed season and closes the previously active season", () => {
     const migrated = migrateLegacyDataToSeasons(
       [createMatchSummary()],
