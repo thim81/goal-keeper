@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { CalendarRange, History, RefreshCw, RotateCcw, Settings } from "lucide-react";
+import { History, RefreshCw, Settings } from "lucide-react";
 import { useMatches } from "@/hooks/useMatches";
 import { useSettings } from "@/hooks/useSettings";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,7 +14,7 @@ import { AddGoalSheet } from "@/components/AddGoalSheet";
 import { AddOpponentGoalSheet } from "@/components/AddOpponentGoalSheet";
 import { AddEventSheet } from "@/components/AddEventSheet";
 import { StartMatchSheet } from "@/components/StartMatchSheet";
-import { MatchHistory } from "@/components/MatchHistory";
+import { MatchHistoryScreen } from "@/components/MatchHistoryScreen";
 import { MatchResultCard } from "@/components/MatchResultCard";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { MatchDetail } from "@/components/MatchDetail";
@@ -77,13 +77,8 @@ export default function Index() {
     matchId: string;
     seasonId: string;
   } | null>(null);
-  const [pendingReopenSeasonId, setPendingReopenSeasonId] = useState<string | null>(null);
   const [showRenameOpponent, setShowRenameOpponent] = useState(false);
   const [opponentNameDraft, setOpponentNameDraft] = useState("");
-  const [showCloseSeason, setShowCloseSeason] = useState(false);
-  const [nextSeasonName, setNextSeasonName] = useState("");
-  const [showRenameSeason, setShowRenameSeason] = useState(false);
-  const [seasonNameDraft, setSeasonNameDraft] = useState("");
   const [viewerLink, setViewerLink] = useState("");
   const [sharedToken, setSharedToken] = useState(() =>
     typeof window === "undefined" ? "" : (getViewerTokenFromUrl(window.location.href) ?? ""),
@@ -96,8 +91,6 @@ export default function Index() {
   const [syncScrollSignal, setSyncScrollSignal] = useState(0);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
-  const seasonLongPressTimerRef = useRef<number | null>(null);
-  const seasonLongPressTriggeredRef = useRef(false);
 
   const {
     activeMatch,
@@ -291,10 +284,7 @@ export default function Index() {
     setShowStartMatch(false);
     setShowEndMatchPrompt(false);
     setShowRenameOpponent(false);
-    setShowCloseSeason(false);
-    setShowRenameSeason(false);
     setPendingDeleteMatch(null);
-    setPendingReopenSeasonId(null);
     setShowSecondaryActions(false);
   }, [canEdit]);
 
@@ -365,15 +355,6 @@ export default function Index() {
       setSelectedHistorySeasonId(activeSeasonId);
     }
   }, [activeSeasonId, selectedHistorySeasonId, seasonSummaries]);
-
-  useEffect(
-    () => () => {
-      if (seasonLongPressTimerRef.current) {
-        window.clearTimeout(seasonLongPressTimerRef.current);
-      }
-    },
-    [],
-  );
 
   const opponentSuggestions = useMemo(() => {
     const seen = new Set<string>();
@@ -530,27 +511,6 @@ export default function Index() {
     setPendingDeleteMatch(null);
   };
 
-  const handleOpenCloseSeason = () => {
-    setNextSeasonName(createDefaultSeasonName());
-    setShowCloseSeason(true);
-  };
-
-  const handleConfirmCloseSeason = () => {
-    const success = closeAndStartNewSeason({ name: nextSeasonName });
-    if (!success) return;
-    setShowCloseSeason(false);
-    setView("home");
-  };
-
-  const handleConfirmReopenSeason = () => {
-    if (!pendingReopenSeasonId) return;
-    const ok = reopenSeason(pendingReopenSeasonId);
-    if (ok) {
-      setSelectedHistorySeasonId(pendingReopenSeasonId);
-    }
-    setPendingReopenSeasonId(null);
-  };
-
   const handleExportBackup = () => {
     const activeSeason = activeSeasonId ? seasons[activeSeasonId] : null;
     const payload = buildBackupPayload({
@@ -590,57 +550,16 @@ export default function Index() {
     setSelectedMatchSeasonId(null);
     setMatchDetailOrigin("history");
     setPendingDeleteMatch(null);
-    setPendingReopenSeasonId(null);
-    setShowCloseSeason(false);
     setShowRenameOpponent(false);
-    setShowRenameSeason(false);
     toast.success("Backup imported");
-  };
-
-  const startSeasonNameLongPress = () => {
-    if (!selectedSeasonSummary) return;
-    seasonLongPressTriggeredRef.current = false;
-    if (seasonLongPressTimerRef.current) {
-      window.clearTimeout(seasonLongPressTimerRef.current);
-    }
-    seasonLongPressTimerRef.current = window.setTimeout(() => {
-      seasonLongPressTriggeredRef.current = true;
-      setSeasonNameDraft(selectedSeasonSummary.name);
-      setShowRenameSeason(true);
-    }, 500);
-  };
-
-  const cancelSeasonNameLongPress = () => {
-    if (!seasonLongPressTimerRef.current) return;
-    window.clearTimeout(seasonLongPressTimerRef.current);
-    seasonLongPressTimerRef.current = null;
-  };
-
-  const handleSeasonNameClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!seasonLongPressTriggeredRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    seasonLongPressTriggeredRef.current = false;
-  };
-
-  const handleSaveSeasonName = () => {
-    if (!selectedSeasonSummary) return;
-    const ok = renameSeasonName(selectedSeasonSummary.id, seasonNameDraft);
-    if (!ok) return;
-    setShowRenameSeason(false);
   };
 
   const activeSeasonStats = activeSeasonId ? getSeasonStatsById(activeSeasonId) : null;
   const activeSeasonMatchCount = activeSeasonStats?.matches ?? 0;
-  const activeSeasonTopScorer = activeSeasonStats?.topScorer;
 
   const selectedSeasonSummary = seasonSummaries.find(
     (season) => season.id === effectiveHistorySeasonId,
   );
-  const selectedSeasonLabel = selectedSeasonSummary
-    ? `${selectedSeasonSummary.name}${selectedSeasonSummary.status === "active" ? " (Active)" : ""}`
-    : "";
-
   // If there's an active match and we're on home, show live
   if (activeMatch && view === "home") {
     setView("live");
@@ -704,110 +623,34 @@ export default function Index() {
 
       {/* History View */}
       {view === "history" && (
-        <div className="min-h-screen flex flex-col safe-top overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border/30">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Match History</h1>
-              {selectedSeasonLabel ? (
-                <button
-                  type="button"
-                  className="mt-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  title={canEdit ? "Long press to rename season" : undefined}
-                  onPointerDown={canEdit ? startSeasonNameLongPress : undefined}
-                  onPointerUp={canEdit ? cancelSeasonNameLongPress : undefined}
-                  onPointerLeave={canEdit ? cancelSeasonNameLongPress : undefined}
-                  onPointerCancel={canEdit ? cancelSeasonNameLongPress : undefined}
-                  onContextMenu={canEdit ? (e) => e.preventDefault() : undefined}
-                  onClick={canEdit ? handleSeasonNameClick : undefined}
-                >
-                  {selectedSeasonLabel}
-                </button>
-              ) : null}
-            </div>
-            <div className="flex gap-2">
-              {canEdit && selectedSeasonSummary?.status === "closed" && (
-                <button
-                  onClick={() => setPendingReopenSeasonId(selectedSeasonSummary.id)}
-                  disabled={!canReopenSeason}
-                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Reopen this season"
-                >
-                  <RotateCcw className="w-5 h-5 text-foreground" />
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  onClick={handleOpenCloseSeason}
-                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-                  title="Close season and start new"
-                >
-                  <CalendarRange className="w-5 h-5 text-foreground" />
-                </button>
-              )}
-              <button
-                onClick={() => setView("settings")}
-                className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-              >
-                <Settings className="w-5 h-5 text-foreground" />
-              </button>
-              <button
-                onClick={() => setView(activeMatch ? "live" : "home")}
-                className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
-              >
-                {activeMatch ? "Back to Match" : "Home"}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 p-4 flex flex-col overflow-hidden">
-            {seasonSummaries.length > 0 && (
-              <div className="mb-3">
-                <label className="text-xs text-muted-foreground mb-1.5 block">Season</label>
-                <select
-                  value={effectiveHistorySeasonId ?? ""}
-                  onChange={(e) => setSelectedHistorySeasonId(e.target.value)}
-                  className="w-full rounded-xl border border-border/50 bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  {seasonSummaries.map((season) => (
-                    <option key={season.id} value={season.id}>
-                      {season.name}
-                      {season.status === "active" ? " (Active)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {historySeasonStats && (
-              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-border/30 bg-secondary/40 p-3 text-xs">
-                <span>
-                  Matches: <strong>{historySeasonStats.matches}</strong>
-                </span>
-                <span>
-                  W / D / L:{" "}
-                  <strong>
-                    {historySeasonStats.wins} / {historySeasonStats.draws} /{" "}
-                    {historySeasonStats.losses}
-                  </strong>
-                </span>
-                <span>
-                  Goals:{" "}
-                  <strong>
-                    {historySeasonStats.goalsFor}-{historySeasonStats.goalsAgainst}
-                  </strong>
-                </span>
-                <span>
-                  Top scorer: <strong>{historySeasonStats.topScorer ?? "None"}</strong>
-                </span>
-              </div>
-            )}
-            <MatchHistory
-              matches={historyMatches}
-              onSelectMatch={handleSelectMatch}
-              onDeleteMatch={canEdit ? handleRequestDeleteMatch : undefined}
-            />
-          </div>
-        </div>
+        <MatchHistoryScreen
+          seasons={seasonSummaries}
+          selectedSeasonId={effectiveHistorySeasonId}
+          selectedSeason={selectedSeasonSummary}
+          matches={historyMatches}
+          stats={historySeasonStats}
+          activeSeasonStats={activeSeasonStats}
+          canEdit={canEdit}
+          canCloseSeason={canCloseSeason}
+          canReopenSeason={canReopenSeason}
+          hasActiveMatch={!!activeMatch}
+          onSelectSeason={setSelectedHistorySeasonId}
+          onSelectMatch={handleSelectMatch}
+          onDeleteMatch={canEdit ? handleRequestDeleteMatch : undefined}
+          onOpenSettings={() => setView("settings")}
+          onGoHome={() => setView(activeMatch ? "live" : "home")}
+          onCloseSeason={(name) => {
+            const success = closeAndStartNewSeason({ name });
+            if (success) setView("home");
+            return success;
+          }}
+          onReopenSeason={(seasonId) => {
+            const success = reopenSeason(seasonId);
+            if (success) setSelectedHistorySeasonId(seasonId);
+            return success;
+          }}
+          onRenameSeason={renameSeasonName}
+        />
       )}
 
       {/* Live Match View */}
@@ -1219,141 +1062,6 @@ export default function Index() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog
-        open={canEdit && !!pendingReopenSeasonId}
-        onOpenChange={(open) => {
-          if (!open) setPendingReopenSeasonId(null);
-        }}
-      >
-        <AlertDialogContent className="max-w-sm rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reopen this season?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will close the currently active season and mark the selected season as active.
-            </AlertDialogDescription>
-            {!canReopenSeason && (
-              <p className="text-xs text-destructive">
-                Finish the active match before reopening a season.
-              </p>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmReopenSeason} disabled={!canReopenSeason}>
-              Reopen Season
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog
-        open={canEdit && showCloseSeason}
-        onOpenChange={(open) => {
-          setShowCloseSeason(open);
-          if (!open) {
-            setNextSeasonName(createDefaultSeasonName());
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Close Season</DialogTitle>
-            <DialogDescription>
-              Archive this season and start a new one with fresh match history.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 rounded-xl border border-border/50 bg-secondary/40 p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Matches</span>
-              <span className="font-semibold text-foreground">
-                {activeSeasonStats?.matches ?? 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">W / D / L</span>
-              <span className="font-semibold text-foreground">
-                {activeSeasonStats?.wins ?? 0} / {activeSeasonStats?.draws ?? 0} /{" "}
-                {activeSeasonStats?.losses ?? 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Goals (For-Against)</span>
-              <span className="font-semibold text-foreground">
-                {activeSeasonStats?.goalsFor ?? 0}-{activeSeasonStats?.goalsAgainst ?? 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Top scorer</span>
-              <span className="font-semibold text-foreground">{activeSeasonTopScorer ?? "—"}</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">New season name</label>
-            <PlayerAutocomplete
-              value={nextSeasonName}
-              onChange={setNextSeasonName}
-              players={[]}
-              placeholder="Season name"
-              autoFocus
-            />
-          </div>
-
-          {!canCloseSeason && (
-            <p className="text-xs text-destructive">
-              Finish the active match before closing the season.
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowCloseSeason(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmCloseSeason}
-              disabled={!canCloseSeason || !nextSeasonName.trim()}
-            >
-              Close & Start New
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={canEdit && showRenameSeason}
-        onOpenChange={(open) => {
-          setShowRenameSeason(open);
-          if (!open && selectedSeasonSummary) {
-            setSeasonNameDraft(selectedSeasonSummary.name);
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Rename Season</DialogTitle>
-            <DialogDescription>Long-pressing the season name opens this dialog.</DialogDescription>
-          </DialogHeader>
-          <PlayerAutocomplete
-            value={seasonNameDraft}
-            onChange={setSeasonNameDraft}
-            players={[]}
-            placeholder="Season name"
-            autoFocus
-            maxLength={80}
-            onEnter={handleSaveSeasonName}
-          />
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowRenameSeason(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveSeasonName} disabled={!seasonNameDraft.trim()}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={canEdit && showRenameOpponent}

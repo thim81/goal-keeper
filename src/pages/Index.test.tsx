@@ -180,7 +180,7 @@ describe("Index match flow", () => {
   });
 });
 
-describe("Index history and season dialogs", () => {
+describe("Index history interactions", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -217,6 +217,17 @@ describe("Index history and season dialogs", () => {
 
     await waitFor(() => expect(screen.queryByText("Delete match?")).not.toBeInTheDocument());
     expect(screen.getByText("Rivals")).toBeInTheDocument();
+  });
+});
+
+describe("Index season dialog interactions", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("closes the active season and lets the user reopen it afterward", async () => {
