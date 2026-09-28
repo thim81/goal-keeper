@@ -100,8 +100,10 @@ export function SeasonStatsCard({ stats }: SeasonStatsCardProps) {
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Top scorer
         </p>
-        <p className="truncate text-sm font-semibold">{stats.topScorer ?? "No goals yet"}</p>
-        {stats.topScorer && (
+        <p className="break-words text-sm font-semibold">
+          {stats.topScorers.join(", ") || "No goals yet"}
+        </p>
+        {stats.topScorers.length > 0 && (
           <p className="text-[10px] text-muted-foreground">
             {pluralize(stats.topScorerGoals, "goal")}
           </p>
@@ -112,8 +114,10 @@ export function SeasonStatsCard({ stats }: SeasonStatsCardProps) {
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Assist leader
         </p>
-        <p className="truncate text-sm font-semibold">{stats.topAssister ?? "No assists yet"}</p>
-        {stats.topAssister && (
+        <p className="break-words text-sm font-semibold">
+          {stats.topAssisters.join(", ") || "No assists yet"}
+        </p>
+        {stats.topAssisters.length > 0 && (
           <p className="text-[10px] text-muted-foreground">
             {pluralize(stats.topAssists, "assist")}
           </p>

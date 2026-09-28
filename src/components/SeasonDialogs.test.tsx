@@ -11,9 +11,9 @@ const stats: SeasonStats = {
   losses: 1,
   goalsFor: 8,
   goalsAgainst: 6,
-  topScorer: "Alice",
+  topScorers: ["Alice"],
   topScorerGoals: 4,
-  topAssister: null,
+  topAssisters: [],
   topAssists: 0,
 };
 

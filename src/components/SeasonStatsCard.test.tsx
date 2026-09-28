@@ -11,9 +11,9 @@ const stats: SeasonStats = {
   losses: 1,
   goalsFor: 18,
   goalsAgainst: 9,
-  topScorer: "Alice",
+  topScorers: ["Alice"],
   topScorerGoals: 8,
-  topAssister: "Dana",
+  topAssisters: ["Dana"],
   topAssists: 7,
 };
 
@@ -33,7 +33,7 @@ describe("SeasonStatsCard", () => {
   it("shows empty messages when the season has no named scorers or assisters", () => {
     render(
       <SeasonStatsCard
-        stats={{ ...stats, topScorer: null, topScorerGoals: 0, topAssister: null, topAssists: 0 }}
+        stats={{ ...stats, topScorers: [], topScorerGoals: 0, topAssisters: [], topAssists: 0 }}
       />,
     );
 
@@ -75,5 +75,18 @@ describe("SeasonStatsCard", () => {
     expect(screen.getByText("1 goal", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText("1 assist")).toBeInTheDocument();
     expect(screen.getByText("goal", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("shows all players tied for the lead", () => {
+    render(
+      <SeasonStatsCard
+        stats={{ ...stats, topScorers: ["Alice", "Bob"], topAssisters: ["Dana", "Eli"], topScorerGoals: 3, topAssists: 2 }}
+      />,
+    );
+
+    expect(screen.getByText("Alice, Bob")).toBeInTheDocument();
+    expect(screen.getByText("Dana, Eli")).toBeInTheDocument();
+    expect(screen.getByText("3 goals")).toBeInTheDocument();
+    expect(screen.getByText("2 assists")).toBeInTheDocument();
   });
 });

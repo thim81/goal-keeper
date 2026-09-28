@@ -142,7 +142,7 @@ describe("season helpers", () => {
     expect(stats.losses).toBe(1);
     expect(stats.goalsFor).toBe(3);
     expect(stats.goalsAgainst).toBe(4);
-    expect(stats.topScorer).toBe("Alice");
+    expect(stats.topScorers).toEqual(["Alice"]);
   });
 
   it("finds the season's top scorer and assist leader from team goals", () => {
@@ -170,9 +170,10 @@ describe("season helpers", () => {
     });
     const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
 
-    expect(stats.topScorer).toBe("Alice");
+    expect(stats.topScorers).toEqual(["Alice"]);
     expect(stats.topScorerGoals).toBe(3);
-    expect(stats.topAssister).toBe("Dana");
+    expect(stats.topAssisters).toEqual(["Dana"]);
+    expect(stats.topAssisters).not.toContain("Outsider");
     expect(stats.topAssists).toBe(3);
   });
 
@@ -194,8 +195,38 @@ describe("season helpers", () => {
     });
     const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
 
-    expect(stats.topAssister).not.toBe("Outsider");
+    expect(stats.topAssisters).toEqual([]);
+    expect(stats.topAssisters).not.toContain("Outsider");
     expect(stats.topAssists).toBe(0);
+  });
+
+  it("returns all players tied for top scorer or assist leader", () => {
+    const goal = (id: string, scorer: string, assist: string) => ({
+      id,
+      scorer,
+      assist,
+      type: "normal" as const,
+      team: "my-team" as const,
+      time: "10:00",
+      timestamp: Number(id),
+    });
+    const migrated = migrateLegacyDataToSeasons(
+      [createMatchSummary()],
+      {
+        m1: createFullMatch({
+          goals: [
+            goal("1", "Alice", "Dana"),
+            goal("2", "Bob", "Eli"),
+          ],
+        }),
+      },
+    );
+    const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
+
+    expect(stats.topScorers).toEqual(["Alice", "Bob"]);
+    expect(stats.topScorerGoals).toBe(1);
+    expect(stats.topAssisters).toEqual(["Dana", "Eli"]);
+    expect(stats.topAssists).toBe(1);
   });
 
   it("reopens a closed season and closes the previously active season", () => {

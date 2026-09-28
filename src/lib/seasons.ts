@@ -128,9 +128,9 @@ export interface SeasonStats {
   losses: number;
   goalsFor: number;
   goalsAgainst: number;
-  topScorer: string | null;
+  topScorers: string[];
   topScorerGoals: number;
-  topAssister: string | null;
+  topAssisters: string[];
   topAssists: number;
 }
 
@@ -168,29 +168,29 @@ export function getSeasonStats(season: Season): SeasonStats {
     }
   }
 
-  let topScorer: string | null = null;
-  let topGoals = 0;
-  for (const [scorer, goals] of Object.entries(scorerCounts)) {
-    if (goals > topGoals) {
-      topScorer = scorer;
-      topGoals = goals;
-    }
-  }
+  const getTopLeaders = (counts: Record<string, number>) => {
+    let leaders: string[] = [];
+    let count = 0;
 
-  let topAssister: string | null = null;
-  let topAssists = 0;
-  for (const [assister, assists] of Object.entries(assistCounts)) {
-    if (assists > topAssists) {
-      topAssister = assister;
-      topAssists = assists;
+    for (const [name, value] of Object.entries(counts)) {
+      if (value > count) {
+        leaders = [name];
+        count = value;
+      } else if (value === count && value > 0) {
+        leaders.push(name);
+      }
     }
-  }
+
+    return { names: leaders, count };
+  };
+  const topScorer = getTopLeaders(scorerCounts);
+  const topAssister = getTopLeaders(assistCounts);
 
   return {
     ...summary,
-    topScorer,
-    topScorerGoals: topGoals,
-    topAssister,
-    topAssists,
+    topScorers: topScorer.names,
+    topScorerGoals: topScorer.count,
+    topAssisters: topAssister.names,
+    topAssists: topAssister.count,
   };
 }
