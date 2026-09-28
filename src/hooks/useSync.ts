@@ -284,7 +284,13 @@ export function useSync(
   }, [syncToken, pull]);
 
   useEffect(() => {
-    if (!syncToken || status !== "editor" || role !== "editor" || checkedToken !== syncToken)
+    if (
+      !syncToken ||
+      (status !== "editor" && status !== "unavailable") ||
+      role !== "editor" ||
+      checkedToken !== syncToken ||
+      writeBlockedRef.current
+    )
       return;
     const local = getLocalState();
     const serialized = serialize(local);

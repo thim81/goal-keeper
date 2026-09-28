@@ -28,7 +28,7 @@ interface SettingsScreenProps {
   onAddPlayer: (name: string) => void;
   onRemovePlayer: (name: string) => void;
   onUpdatePeriods: (count: number, duration: number) => void;
-  onUpdateSyncToken: (token: string) => void;
+  onUpdateSyncToken: (token: string) => void | boolean;
   onUpdateTheme: (theme: Theme) => void;
   onUpdateDebug: (debug: boolean) => void;
   onExportBackup: () => void;
@@ -120,7 +120,7 @@ export function SettingsScreen({
 
   const handleSyncTokenBlur = () => {
     if (syncToken !== settings.syncToken) {
-      onUpdateSyncToken(syncToken.trim());
+      if (onUpdateSyncToken(syncToken.trim()) === false) setSyncToken(settings.syncToken || "");
     }
   };
 

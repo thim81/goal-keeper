@@ -332,6 +332,34 @@ describe("useSync manual refresh", () => {
     expect(result.current.role).toBe("editor");
   });
 
+  it("autosaves later editor changes after a transient write failure", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(remoteResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender, result } = renderHook(
+      ({ match }) => useSync("token", {}, "season-1", match, settings, vi.fn()),
+      { initialProps: { match: null as SyncState["activeMatch"] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    rerender({ match: { id: "first-goal" } as NonNullable<SyncState["activeMatch"]> });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(result.current.status).toBe("unavailable");
+
+    rerender({ match: { id: "second-goal" } as NonNullable<SyncState["activeMatch"]> });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    const writes = fetchMock.mock.calls.filter(([, options]) => options?.method === "POST");
+    expect(writes).toHaveLength(2);
+    expect(JSON.parse(writes[1][1].body).activeMatch.id).toBe("second-goal");
+  });
+
   it("restores a confirmed editor role when startup cannot reach the server", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(remoteResponse()));
     const first = renderHook(() => useSync("token", {}, "season-1", null, settings, vi.fn()));
@@ -459,16 +487,18 @@ describe("useSync manual refresh", () => {
     const unreadable = () => new Response("unreadable", { status: 422 });
     const fetchMock = vi.fn().mockResolvedValue(unreadable());
     vi.stubGlobal("fetch", fetchMock);
-    const restored = renderHook(() =>
-      useSync("token", {}, "season-1", localEdit, settings, vi.fn()),
+    const { rerender, result } = renderHook(({ match }) =>
+      useSync("token", {}, "season-1", match, settings, vi.fn()),
+      { initialProps: { match: localEdit } },
     );
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(restored.result.current.role).toBe("editor");
+    expect(result.current.role).toBe("editor");
+    rerender({ match: { id: "newer-local-edit" } as NonNullable<SyncState["activeMatch"]> });
     await act(async () => vi.advanceTimersByTimeAsync(2000));
-    await act(async () => restored.result.current.syncNow());
+    await act(async () => result.current.syncNow());
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls.every(([, options]) => options?.method !== "POST")).toBe(true);
   });

@@ -130,6 +130,75 @@ describe("Index viewer access", () => {
     ]);
   });
 
+  it("asks before a viewer link replaces local-only matches and keeps them when cancelled", async () => {
+    history.replaceState({}, "", "/#viewer=shared-viewer");
+    localStorage.setItem("football-tracker-seasons", JSON.stringify({ "remote-season": season }));
+    localStorage.setItem("football-tracker-active-season-id", "remote-season");
+    const fetchMock = vi.fn().mockResolvedValue(response("viewer"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+
+    expect(await screen.findByText("Replace local match data?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download backup" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).syncToken).toBeFalsy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(container.querySelector(".lucide-history")!.closest("button")!);
+    expect(await screen.findByText("Remote Opponent")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a backup before replacing local matches with an empty viewer workspace", async () => {
+    history.replaceState({}, "", "/#viewer=shared-viewer");
+    localStorage.setItem("football-tracker-seasons", JSON.stringify({ "remote-season": season }));
+    localStorage.setItem("football-tracker-active-season-id", "remote-season");
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:backup");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response("viewer"))
+      .mockResolvedValueOnce(
+        new Response(null, { status: 204, headers: { "X-Workspace-Role": "viewer" } }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+
+    expect(await screen.findByText("Replace local match data?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download backup" }));
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).syncToken).toBeFalsy();
+    fireEvent.click(screen.getByRole("button", { name: "Open view-only workspace" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).syncToken).toBe(
+      "shared-viewer",
+    );
+    fireEvent.click(container.querySelector(".lucide-history")!.closest("button")!);
+    expect(screen.queryByText("Remote Opponent")).not.toBeInTheDocument();
+  });
+
+  it("asks before a token entered in Settings replaces local-only matches", async () => {
+    localStorage.setItem("football-tracker-seasons", JSON.stringify({ "remote-season": season }));
+    localStorage.setItem("football-tracker-active-season-id", "remote-season");
+    const fetchMock = vi.fn().mockResolvedValue(response("viewer"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    const tokenInput = screen.getByPlaceholderText("Enter sync token");
+    fireEvent.change(tokenInput, { target: { value: "shared-viewer" } });
+    fireEvent.blur(tokenInput);
+    expect(await screen.findByText("Replace local match data?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download backup" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(tokenInput).toHaveValue("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).syncToken).toBeFalsy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("removes an invalid link without replacing the saved credential or changing its local data", async () => {
     history.replaceState({}, "", "/#viewer=bad-link");
     localStorage.setItem(

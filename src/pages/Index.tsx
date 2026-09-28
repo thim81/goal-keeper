@@ -88,6 +88,10 @@ export default function Index() {
   const [sharedToken, setSharedToken] = useState(() =>
     typeof window === "undefined" ? "" : (getViewerTokenFromUrl(window.location.href) ?? ""),
   );
+  const [pendingWorkspaceToken, setPendingWorkspaceToken] = useState<{
+    token: string;
+    fromLink: boolean;
+  } | null>(null);
   const [selectedHistorySeasonId, setSelectedHistorySeasonId] = useState<string | null>(null);
   const [syncScrollSignal, setSyncScrollSignal] = useState(0);
   const dragStartY = useRef(0);
@@ -194,6 +198,23 @@ export default function Index() {
   const canEdit =
     !sharedToken &&
     (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
+  const hasLocalData =
+    !!activeMatch ||
+    Object.keys(seasons).length > 1 ||
+    Object.values(seasons).some(
+      (season) =>
+        season.matches.length > 0 ||
+        Object.keys(season.fullMatches).length > 0 ||
+        season.status !== "active" ||
+        season.name !== createDefaultSeasonName(season.startAt),
+    );
+  const handleUpdateSyncToken = (token: string) => {
+    if (token && token !== settings.syncToken && hasLocalData) {
+      setPendingWorkspaceToken({ token, fromLink: false });
+      return false;
+    }
+    updateSyncToken(token);
+  };
 
   const loadViewerLink = useCallback(async () => {
     if (!settings.syncToken || workspaceRole !== "editor") return "";
@@ -221,7 +242,7 @@ export default function Index() {
   }, [settings.syncToken]);
 
   useEffect(() => {
-    if (!sharedToken) return;
+    if (!sharedToken || !activeSeasonId || pendingWorkspaceToken) return;
     let cancelled = false;
     const savedTokenAtStart = settingsTokenRef.current?.trim() ?? "";
     const removeFragment = () =>
@@ -234,6 +255,11 @@ export default function Index() {
         if ((settingsTokenRef.current?.trim() ?? "") !== savedTokenAtStart) {
           removeFragment();
           setSharedToken("");
+          return;
+        }
+        if (credential !== savedTokenAtStart && hasLocalData) {
+          removeFragment();
+          setPendingWorkspaceToken({ token: credential, fromLink: true });
           return;
         }
         updateSyncToken(credential);
@@ -251,7 +277,7 @@ export default function Index() {
     return () => {
       cancelled = true;
     };
-  }, [sharedToken]);
+  }, [sharedToken, activeSeasonId, pendingWorkspaceToken, hasLocalData]);
 
   useEffect(() => {
     if (canEdit) return;
@@ -631,7 +657,7 @@ export default function Index() {
           onAddPlayer={addPlayer}
           onRemovePlayer={removePlayer}
           onUpdatePeriods={updatePeriods}
-          onUpdateSyncToken={updateSyncToken}
+          onUpdateSyncToken={handleUpdateSyncToken}
           onUpdateTheme={updateTheme}
           onUpdateDebug={updateDebug}
           onExportBackup={handleExportBackup}
@@ -1129,6 +1155,41 @@ export default function Index() {
           )}
         </div>
       )}
+
+      <AlertDialog
+        open={!!pendingWorkspaceToken}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingWorkspaceToken(null);
+            setSharedToken("");
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace local match data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Joining this workspace may replace the matches and seasons saved on this device.
+              Download a backup first if you want to keep them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Button type="button" variant="secondary" onClick={handleExportBackup}>
+            Download backup
+          </Button>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingWorkspaceToken) updateSyncToken(pendingWorkspaceToken.token);
+                setPendingWorkspaceToken(null);
+                setSharedToken("");
+              }}
+            >
+              {pendingWorkspaceToken?.fromLink ? "Open view-only workspace" : "Connect to workspace"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={canEdit && !!pendingDeleteMatch}

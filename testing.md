@@ -45,6 +45,7 @@ The app's sync runs entirely locally with this command. Initial tool downloads t
 4. Open an invalid link, for example `http://localhost:8788/#viewer=wrong-token`, in a connected session. Existing credentials and data should stay intact; the hash should be removed after validation.
 5. Choose different themes in editor and viewer sessions. Sync must preserve each session's own light, dark, or system preference.
 6. In an isolated session, leave the token empty. The badge should show **Local only**, and local editing should remain available.
+7. Create a local match in that session, then open a viewer link or enter its token in Settings. Confirm the app offers a backup before replacing local matches. Cancel and check that the local match remains; accept only after downloading a backup if you want to keep it.
 
 ## Test failures and credential changes
 
