@@ -10,7 +10,7 @@ export const onRequestGet = async ({ env, request }: WorkspaceRequestContext) =>
   const role = getRole(request, env);
   if (!role) return new Response("Unauthorized", { status: 401, headers: responseHeaders });
   const headers = { ...responseHeaders, "X-Workspace-Role": role };
-  const stored = await env.GOALKEEPER_KV.get(STORAGE_KEY);
+  const stored = await env.GOALKEEPER_KV.get(STORAGE_KEY, { cacheTtl: 30 });
   if (!stored) return new Response(null, { status: 204, headers });
   try {
     return Response.json(sanitizeState(JSON.parse(stored), role), { headers });

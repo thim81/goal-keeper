@@ -35,8 +35,10 @@ function context(token: string, method = "GET", stored: unknown = state) {
 }
 describe("workspace permissions", () => {
   it("shares public calendar details without exposing credentials or private settings", async () => {
-    const response = await onRequestGet(context("viewer") as never);
+    const ctx = context("viewer");
+    const response = await onRequestGet(ctx as never);
     expect(response.status).toBe(200);
+    expect(ctx.env.GOALKEEPER_KV.get).toHaveBeenCalledWith("goal-keeper-state", { cacheTtl: 30 });
     expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
     expect((await response.json()).settings).toEqual({
       teamName: "Club",

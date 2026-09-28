@@ -1,6 +1,6 @@
 export interface Env {
   GOALKEEPER_KV: {
-    get(key: string): Promise<string | null>;
+    get(key: string, options?: { cacheTtl?: number }): Promise<string | null>;
     put(key: string, value: string): Promise<void>;
   };
   AUTH_TOKEN: string;
