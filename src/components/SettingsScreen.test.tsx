@@ -117,7 +117,7 @@ function renderSharingSettings({
   onLoadViewerLink,
 }: {
   viewerLink?: string;
-  onLoadViewerLink: () => Promise<string>;
+  onLoadViewerLink: () => Promise<string | null>;
 }) {
   render(
     <SettingsScreen
@@ -141,6 +141,13 @@ function renderSharingSettings({
 }
 
 describe("SettingsScreen interactions", () => {
+  it("hides sharing when viewer access is not configured", async () => {
+    renderSharingSettings({ onLoadViewerLink: vi.fn().mockResolvedValue(null) });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Share link" })).not.toBeInTheDocument(),
+    );
+  });
+
   it("copies a freshly loaded link on the same retry click after prefetch fails", async () => {
     const link = "https://example.test/#viewer=share-token";
     const onLoadViewerLink = vi

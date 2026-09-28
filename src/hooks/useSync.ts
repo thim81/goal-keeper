@@ -204,7 +204,8 @@ export function useSync(
           lastPushedState.current = localAtStartSerialized;
         }
         storeCachedAccess({ token, role: result.role, baseline: lastPushedState.current });
-        if (!quiet && canApply) toast.success("Goals Synced", { duration: 2000 });
+        if (!quiet && canApply && result.role === "editor")
+          toast.success("Goals Synced", { duration: 2000 });
       } else if (result.role === "viewer") {
         setCheckedToken(token);
         setRole("viewer");
@@ -273,7 +274,7 @@ export function useSync(
     setLastSyncedAt(null);
     if (!syncToken) return;
     void writeQueueRef.current.then(() => {
-      if (generation === generationRef.current) void pull(syncToken, generation, true);
+      if (generation === generationRef.current) void pull(syncToken, generation);
     });
     return () => {
       controllerRef.current?.abort();

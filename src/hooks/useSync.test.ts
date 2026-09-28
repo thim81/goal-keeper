@@ -61,13 +61,15 @@ describe("useSync manual refresh", () => {
     );
     await waitFor(() => expect(result.current.status).toBe("editor"));
 
+    const { toast } = await import("sonner");
+    expect(toast.success).toHaveBeenCalledWith("Goals Synced", { duration: 2000 });
+
     await act(async () => {
       await result.current.syncNow();
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onSyncState).toHaveBeenLastCalledWith(remoteState);
-    const { toast } = await import("sonner");
     expect(toast.success).toHaveBeenLastCalledWith("Goals Synced", { duration: 2000 });
   });
 
@@ -380,7 +382,9 @@ describe("useSync manual refresh", () => {
     await waitFor(() => expect(first.result.current.status).toBe("editor"));
     first.unmount();
 
-    const sharedLink = renderHook(() => useSync(undefined, {}, "season-1", null, settings, vi.fn()));
+    const sharedLink = renderHook(() =>
+      useSync(undefined, {}, "season-1", null, settings, vi.fn()),
+    );
     expect(sharedLink.result.current.role).toBeNull();
     expect(localStorage.getItem(ACCESS_KEY)).not.toBeNull();
     sharedLink.unmount();
@@ -488,8 +492,8 @@ describe("useSync manual refresh", () => {
     const unreadable = () => new Response("unreadable", { status: 422 });
     const fetchMock = vi.fn().mockResolvedValue(unreadable());
     vi.stubGlobal("fetch", fetchMock);
-    const { rerender, result } = renderHook(({ match }) =>
-      useSync("token", {}, "season-1", match, settings, vi.fn()),
+    const { rerender, result } = renderHook(
+      ({ match }) => useSync("token", {}, "season-1", match, settings, vi.fn()),
       { initialProps: { match: localEdit } },
     );
     await act(async () => {

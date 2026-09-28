@@ -4,6 +4,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
 import type { Match, MatchSummary, Season } from "@/types/match";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const summary: MatchSummary = {
   id: "remote-match",
@@ -49,6 +52,7 @@ const response = (role: "editor" | "viewer", body = remoteState) =>
 
 describe("Index viewer access", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
     history.replaceState({}, "", "/");
   });
@@ -94,6 +98,43 @@ describe("Index viewer access", () => {
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false),
     );
+  });
+
+  it("hides sharing without an error when viewer access is not configured", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({
+        teamName: "Shared Team",
+        calendarUrl: "",
+        calendarTeamName: "",
+        players: [],
+        periodsCount: 4,
+        periodDuration: 20,
+        syncToken: "editor-token",
+        theme: "system",
+        debug: false,
+      }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        url === "/api/share"
+          ? new Response("Sharing not configured", { status: 503 })
+          : response("editor"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /start new match/i })).toBeInTheDocument(),
+    );
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === "/api/share")).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Share link" })).not.toBeInTheDocument(),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("validates an imported view link, removes its fragment, and preserves a confirmed editor token", async () => {
@@ -369,13 +410,18 @@ describe("Index viewer access", () => {
     render(<Index />);
 
     expect(await screen.findByText("Get ready for kickoff")).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Shared Team - Opponent FC" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Shared Team - Opponent FC" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Upcoming matches")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /start match/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start a different match" })).not.toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Shared Team - Opponent FC" }).querySelector(".font-mono")?.textContent,
+      screen.queryByRole("button", { name: "Start a different match" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Shared Team - Opponent FC" }).querySelector(".font-mono")
+        ?.textContent,
     ).toMatch(/^\d+ min$/);
     const countdownCard = screen.getByRole("region", { name: "Shared Team - Opponent FC" });
     const refreshButton = screen.getByRole("button", { name: "Refresh" });
@@ -448,7 +494,8 @@ describe("Index viewer access", () => {
     await screen.findByRole("button", { name: "We Scored!" });
 
     await waitFor(
-      () => expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
+      () =>
+        expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
       { timeout: 4000 },
     );
     fireEvent.click(screen.getByRole("button", { name: "We Scored!" }));

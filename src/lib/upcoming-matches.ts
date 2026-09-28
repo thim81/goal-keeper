@@ -14,7 +14,9 @@ export function getUpcomingMatchCountdown(
 ): { match: UpcomingMatch; secondsRemaining: number } | null {
   const next = matches
     .map((match) => ({ match, start: new Date(match.start).getTime() }))
-    .filter(({ start }) => Number.isFinite(start) && start >= now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS)
+    .filter(
+      ({ start }) => Number.isFinite(start) && start >= now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS,
+    )
     .sort((a, b) => a.start - b.start)[0];
 
   if (!next || next.start - now > UPCOMING_MATCH_COUNTDOWN_WINDOW_MS) return null;

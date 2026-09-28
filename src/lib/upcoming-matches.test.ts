@@ -26,8 +26,9 @@ describe("upcoming match countdown", () => {
       secondsRemaining: 3600,
     });
     expect(getUpcomingMatchCountdown([later, next], now)?.match).toEqual(next);
-    expect(getUpcomingMatchCountdown([fixture(now + UPCOMING_MATCH_COUNTDOWN_WINDOW_MS + 1)], now))
-      .toBeNull();
+    expect(
+      getUpcomingMatchCountdown([fixture(now + UPCOMING_MATCH_COUNTDOWN_WINDOW_MS + 1)], now),
+    ).toBeNull();
   });
 
   it("keeps the card for fifteen minutes after kickoff, then hides", () => {
@@ -41,9 +42,11 @@ describe("upcoming match countdown", () => {
       match: started,
       secondsRemaining: 0,
     });
-    expect(getUpcomingMatchCountdown([fixture(now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS)], now))
-      .not.toBeNull();
-    expect(getUpcomingMatchCountdown([fixture(now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS - 1)], now))
-      .toBeNull();
+    expect(
+      getUpcomingMatchCountdown([fixture(now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS)], now),
+    ).not.toBeNull();
+    expect(
+      getUpcomingMatchCountdown([fixture(now - UPCOMING_MATCH_COUNTDOWN_GRACE_MS - 1)], now),
+    ).toBeNull();
   });
 });

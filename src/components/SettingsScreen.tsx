@@ -40,7 +40,7 @@ interface SettingsScreenProps {
   isCoolingDown?: boolean;
   onSyncNow?: () => void;
   viewerLink?: string;
-  onLoadViewerLink?: () => Promise<string>;
+  onLoadViewerLink?: () => Promise<string | null>;
 }
 
 export function SettingsScreen({
@@ -72,15 +72,27 @@ export function SettingsScreen({
   const [syncToken, setSyncToken] = useState(settings.syncToken || "");
   const [showSyncToken, setShowSyncToken] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
+  const [shareUnavailable, setShareUnavailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
     if (syncStatus === "editor") {
+      setShareUnavailable(false);
       void onLoadViewerLink().then(
-        (link) => setShareFailed(!link),
-        () => setShareFailed(true),
+        (link) => {
+          if (cancelled) return;
+          setShareUnavailable(link === null);
+          setShareFailed(link === "");
+        },
+        () => {
+          if (!cancelled) setShareFailed(true);
+        },
       );
     }
+    return () => {
+      cancelled = true;
+    };
   }, [syncStatus, onLoadViewerLink]);
 
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
@@ -110,8 +122,9 @@ export function SettingsScreen({
   const loadViewerLinkForAction = async () => {
     try {
       const link = await onLoadViewerLink();
-      setShareFailed(!link);
-      return link;
+      setShareUnavailable(link === null);
+      setShareFailed(link === "");
+      return link ?? "";
     } catch {
       setShareFailed(true);
       return "";
@@ -342,7 +355,7 @@ export function SettingsScreen({
               >
                 {syncLabel}
               </span>
-              {syncStatus === "editor" && (
+              {syncStatus === "editor" && !shareUnavailable && (
                 <button
                   type="button"
                   disabled={!viewerLink && !shareFailed}
@@ -436,7 +449,6 @@ export function SettingsScreen({
                 </p>
               </div>
             </div>
-
             {/* Backup */}
             <div className="space-y-3 pt-4 border-t border-border/30">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -477,7 +489,6 @@ export function SettingsScreen({
                 Export a full backup of seasons, matches and settings, or import a previous backup.
               </p>
             </div>
-
             {/* Debug Mode */}
             <div className="space-y-3 pt-4 border-t border-border/30">
               <div className="flex items-center gap-2 text-muted-foreground">

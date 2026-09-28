@@ -8,7 +8,12 @@ interface MatchCountdownProps {
   onStart?: () => void;
 }
 
-export function MatchCountdown({ match, teamName, secondsRemaining, onStart }: MatchCountdownProps) {
+export function MatchCountdown({
+  match,
+  teamName,
+  secondsRemaining,
+  onStart,
+}: MatchCountdownProps) {
   const homeTeamName = match.isHome ? teamName : match.opponentName;
   const awayTeamName = match.isHome ? match.opponentName : teamName;
 

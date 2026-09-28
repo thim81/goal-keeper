@@ -196,8 +196,7 @@ export default function Index() {
     handleSyncState,
   );
   const canEdit =
-    !sharedToken &&
-    (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
+    !sharedToken && (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
   const hasLocalData =
     !!activeMatch ||
     Object.keys(seasons).length > 1 ||
@@ -222,6 +221,11 @@ export default function Index() {
     const requestId = ++shareRequestRef.current;
     try {
       const response = await fetch("/api/share", { headers: { "x-auth-token": token } });
+      if (response.status === 503) {
+        if (settingsTokenRef.current === token && requestId === shareRequestRef.current)
+          setViewerLink("");
+        return null;
+      }
       if (!response.ok) throw new Error("Sharing is unavailable");
       const { viewerToken } = (await response.json()) as { viewerToken: string };
       if (settingsTokenRef.current !== token || requestId !== shareRequestRef.current) return "";
@@ -335,11 +339,11 @@ export default function Index() {
     setShowSecondaryActions(open);
   };
 
-  const handleOpenRenameOpponent = () => {
+  const handleOpenRenameOpponent = useCallback(() => {
     if (!activeMatch) return;
     setOpponentNameDraft(activeMatch.opponentName);
     setShowRenameOpponent(true);
-  };
+  }, [activeMatch]);
 
   const handleSaveRenameOpponent = () => {
     const trimmed = opponentNameDraft.trim();
@@ -1085,11 +1089,7 @@ export default function Index() {
                     className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-foreground disabled:opacity-50"
                   >
                     <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                    {isSyncing
-                      ? "Refreshing"
-                      : syncStatus === "unavailable"
-                        ? "Retry"
-                        : "Refresh"}
+                    {isSyncing ? "Refreshing" : syncStatus === "unavailable" ? "Retry" : "Refresh"}
                   </button>
                 )}
               </div>
@@ -1185,7 +1185,9 @@ export default function Index() {
                 setSharedToken("");
               }}
             >
-              {pendingWorkspaceToken?.fromLink ? "Open view-only workspace" : "Connect to workspace"}
+              {pendingWorkspaceToken?.fromLink
+                ? "Open view-only workspace"
+                : "Connect to workspace"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
