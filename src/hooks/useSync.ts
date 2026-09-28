@@ -121,6 +121,7 @@ export function useSync(
           lastPushedState.current = serialize(local);
           storeCachedAccess({ token, role: "editor", baseline: lastPushedState.current });
           setLastSyncedAt(Date.now());
+          setStatus("editor");
         } else if (generation === generationRef.current) {
           setCheckedToken(token);
           setStatus(statusCode === 401 || statusCode === 403 ? "invalid" : "unavailable");

@@ -358,6 +358,7 @@ describe("useSync manual refresh", () => {
     const writes = fetchMock.mock.calls.filter(([, options]) => options?.method === "POST");
     expect(writes).toHaveLength(2);
     expect(JSON.parse(writes[1][1].body).activeMatch.id).toBe("second-goal");
+    expect(result.current.status).toBe("editor");
   });
 
   it("restores a confirmed editor role when startup cannot reach the server", async () => {
