@@ -5,7 +5,7 @@ import type { UpcomingMatch } from "@/lib/upcoming-matches";
 interface UpcomingMatchesProps {
   matches: UpcomingMatch[];
   loaded: boolean;
-  onSelect: (match: UpcomingMatch) => void;
+  onSelect?: (match: UpcomingMatch) => void;
   onRefresh: () => Promise<void>;
 }
 
@@ -46,13 +46,8 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
       <div className="divide-y divide-border/30">
         {matches.slice(0, 2).map((match) => {
           const start = new Date(match.start);
-          return (
-            <button
-              key={match.id}
-              type="button"
-              onClick={() => onSelect(match)}
-              className="w-full flex items-center gap-3 px-3 py-1 text-left hover:bg-secondary/30 transition-colors"
-            >
+          const content = (
+            <>
               <div className="w-12 shrink-0 text-left">
                 <div className="text-xs font-semibold text-foreground">
                   {start.toLocaleDateString("nl-BE", { weekday: "short" })}
@@ -70,8 +65,23 @@ export function UpcomingMatches({ matches, loaded, onSelect, onRefresh }: Upcomi
                   {match.isHome ? "Home" : "Away"}
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+              {onSelect && <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />}
+            </>
+          );
+          const className = "w-full flex items-center gap-3 px-3 py-1 text-left";
+          return onSelect ? (
+            <button
+              key={match.id}
+              type="button"
+              onClick={() => onSelect(match)}
+              className={`${className} hover:bg-secondary/30 transition-colors`}
+            >
+              {content}
             </button>
+          ) : (
+            <div key={match.id} className={className}>
+              {content}
+            </div>
           );
         })}
       </div>

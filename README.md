@@ -84,6 +84,37 @@ This serves the built app and the `functions/` directory locally. Changes to
 the frontend or functions require restarting the command because the app is
 built into `dist` before Wrangler starts.
 
+### Cloud Sync and View-only Sharing
+
+The app uses one Cloudflare Pages deployment and one `GOALKEEPER_KV` namespace
+for both editors and viewers. Configure `AUTH_TOKEN` and `VIEWER_TOKEN` as
+secrets for the Pages Functions environment. They must be different values.
+The editor token can read and write the shared workspace. The viewer token can
+read it, while the server rejects viewer writes. Shared links contain the
+viewer token in the URL fragment, which is not sent with HTTP requests.
+
+Viewer responses also include the configured public calendar URL and team name
+so viewers can read upcoming fixtures. The URL is disclosed to viewers, so only
+use a public calendar subscription. Calendar settings remain editor-only, and
+viewer fixture rows cannot start or change matches. Refreshing fixtures reads
+through `/api/calendar` and never writes workspace state to `/api/state`.
+
+Set both secrets before deploying the sharing UI. The app does not provide a
+second data store or deployment for viewers. If the viewer secret is missing
+or matches the editor secret, the share endpoint stays unavailable and existing
+editor sync continues to use the same KV data.
+
+Legacy `settings.syncToken` values are omitted from every API response. They are
+removed from the stored workspace the next time an editor writes state. This
+change does not run a direct migration against production KV data.
+
+To revoke viewer links, replace `VIEWER_TOKEN` with a new random value in the
+Pages environment and deploy the updated secret. Previously copied links then
+stop authenticating. Copy a new **Share link** from Settings. When rotating both
+credentials, update both secrets as one deployment so the app never runs with
+matching values. Editors can replace their saved token in Settings on each
+device. The sync status there shows the last successful refresh time.
+
 4. Build for production:
 ```bash
 npm run build

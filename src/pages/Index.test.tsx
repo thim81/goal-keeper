@@ -264,8 +264,8 @@ describe("Index history and season dialogs", () => {
 
   it("exports a backup containing the current settings and season data", async () => {
     seedOneMatchSeason();
-    const createObjectURL = vi.fn().mockReturnValue("blob:mock");
-    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL: vi.fn() });
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
 
     const { container } = render(<Index />);
     goToSettings(container);

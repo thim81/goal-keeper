@@ -37,6 +37,15 @@ describe("UpcomingMatches", () => {
     expect(onSelect).toHaveBeenCalledWith(matches[0]);
   });
 
+  it("shows viewer fixtures without interactive rows or chevrons", () => {
+    render(<UpcomingMatches matches={matches} loaded onRefresh={vi.fn()} />);
+
+    const opponent = screen.getByText("Opponent U15");
+    expect(opponent.closest("button")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Select upcoming match")).not.toBeInTheDocument();
+    expect(document.querySelector(".lucide-chevron-right")).not.toBeInTheDocument();
+  });
+
   it("disables the refresh button and spins the icon while refreshing", async () => {
     let resolveRefresh: () => void;
     const onRefresh = vi.fn(

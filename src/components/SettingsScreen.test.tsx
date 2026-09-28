@@ -1,8 +1,17 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsScreen } from "@/components/SettingsScreen";
 import { DEFAULT_SETTINGS } from "@/types/match";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+afterEach(() => {
+  if (clipboardDescriptor) Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+  else Reflect.deleteProperty(navigator, "clipboard");
+  vi.clearAllMocks();
+});
 
 function renderSettings() {
   const onUpdateCalendarSettings = vi.fn();
@@ -103,7 +112,109 @@ function renderFullSettings(settingsOverrides: Partial<typeof DEFAULT_SETTINGS> 
   return handlers;
 }
 
+function renderSharingSettings({
+  viewerLink = "",
+  onLoadViewerLink,
+}: {
+  viewerLink?: string;
+  onLoadViewerLink: () => Promise<string | null>;
+}) {
+  render(
+    <SettingsScreen
+      settings={{ ...DEFAULT_SETTINGS, syncToken: "editor-token" }}
+      onBack={vi.fn()}
+      onUpdateTeamName={vi.fn()}
+      onUpdateCalendarSettings={vi.fn()}
+      onAddPlayer={vi.fn()}
+      onRemovePlayer={vi.fn()}
+      onUpdatePeriods={vi.fn()}
+      onUpdateSyncToken={vi.fn()}
+      onUpdateTheme={vi.fn()}
+      onUpdateDebug={vi.fn()}
+      onExportBackup={vi.fn()}
+      onImportBackup={vi.fn()}
+      syncStatus="editor"
+      viewerLink={viewerLink}
+      onLoadViewerLink={onLoadViewerLink}
+    />,
+  );
+}
+
 describe("SettingsScreen interactions", () => {
+  it("hides sharing when viewer access is not configured", async () => {
+    renderSharingSettings({ onLoadViewerLink: vi.fn().mockResolvedValue(null) });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Share link" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("copies a freshly loaded link on the same retry click after prefetch fails", async () => {
+    const link = "https://example.test/#viewer=share-token";
+    const onLoadViewerLink = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(link);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderSharingSettings({ onLoadViewerLink });
+
+    const copy = screen.getByRole("button", { name: "Share link" });
+    await waitFor(() => expect(copy).toBeEnabled());
+    fireEvent.click(copy);
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(link);
+    expect(onLoadViewerLink).toHaveBeenCalledTimes(2);
+  });
+
+  it("copies a prefetched link from Share link", async () => {
+    const link = "https://example.test/#viewer=share-token";
+    const onLoadViewerLink = vi.fn().mockResolvedValue(link);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderSharingSettings({ viewerLink: link, onLoadViewerLink });
+
+    fireEvent.click(screen.getByRole("button", { name: "Share link" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
+    const { toast } = await import("sonner");
+    expect(toast.success).toHaveBeenCalledWith("View link copied");
+  });
+
+  it("hides workspace mutations and backup tools in viewer mode while keeping theme local", () => {
+    render(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, syncToken: "viewer" }}
+        {...{
+          onBack: vi.fn(),
+          onUpdateTeamName: vi.fn(),
+          onUpdateCalendarSettings: vi.fn(),
+          onAddPlayer: vi.fn(),
+          onRemovePlayer: vi.fn(),
+          onUpdatePeriods: vi.fn(),
+          onUpdateSyncToken: vi.fn(),
+          onUpdateTheme: vi.fn(),
+          onUpdateDebug: vi.fn(),
+          onExportBackup: vi.fn(),
+          onImportBackup: vi.fn(),
+          canEdit: false,
+          syncStatus: "viewer",
+          lastSyncedAt: null,
+          viewerLink: "",
+          onLoadViewerLink: vi.fn(),
+        }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Viewer");
+    expect(screen.getByText("Team Name")).toBeInTheDocument();
+    expect(screen.getByText("My Team")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Enter your team name")).not.toBeInTheDocument();
+    expect(screen.getByText("Dark")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Enter sync token")).toBeInTheDocument();
+    expect(screen.queryByText("Start New Match")).not.toBeInTheDocument();
+    expect(screen.queryByText("Export")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paste ProSoccerData subscription URL")).not.toBeInTheDocument();
+    expect(screen.queryByText("Share link")).not.toBeInTheDocument();
+  });
+
   it("saves the team name on blur only when it actually changed", () => {
     const handlers = renderFullSettings({ teamName: "My Team" });
     const teamNameInput = screen.getByPlaceholderText("Enter your team name");

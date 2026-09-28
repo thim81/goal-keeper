@@ -28,7 +28,12 @@ describe("Scoreboard", () => {
 
   it("places my team on the left with its own score when home", () => {
     const { container } = render(
-      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={2} opponentScore={1} />,
+      <Scoreboard
+        match={createMatch({ isHome: true })}
+        myTeamScore={2}
+        opponentScore={1}
+        onOpponentLongPress={vi.fn()}
+      />,
     );
     const [leftSide, rightSide] = container.querySelectorAll(".flex-1.basis-0");
 
@@ -40,7 +45,12 @@ describe("Scoreboard", () => {
 
   it("places the opponent on the left with its score when away", () => {
     const { container } = render(
-      <Scoreboard match={createMatch({ isHome: false })} myTeamScore={2} opponentScore={1} />,
+      <Scoreboard
+        match={createMatch({ isHome: false })}
+        myTeamScore={2}
+        opponentScore={1}
+        onOpponentLongPress={vi.fn()}
+      />,
     );
     const [leftSide, rightSide] = container.querySelectorAll(".flex-1.basis-0");
 
@@ -146,12 +156,24 @@ describe("Scoreboard", () => {
 
   it("suppresses the native context menu on the editable opponent name, on both sides", () => {
     const homeResult = render(
-      <Scoreboard match={createMatch({ isHome: true })} myTeamScore={0} opponentScore={0} />,
+      <Scoreboard
+        match={createMatch({ isHome: true })}
+        myTeamScore={0}
+        opponentScore={0}
+        onOpponentLongPress={vi.fn()}
+      />,
     );
     expect(fireEvent.contextMenu(screen.getByText("Rivals"))).toBe(false);
     homeResult.unmount();
 
-    render(<Scoreboard match={createMatch({ isHome: false })} myTeamScore={0} opponentScore={0} />);
+    render(
+      <Scoreboard
+        match={createMatch({ isHome: false })}
+        myTeamScore={0}
+        opponentScore={0}
+        onOpponentLongPress={vi.fn()}
+      />,
+    );
     expect(fireEvent.contextMenu(screen.getByText("Rivals"))).toBe(false);
   });
 });

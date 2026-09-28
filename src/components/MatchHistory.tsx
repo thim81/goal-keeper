@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trophy, Trash2 } from "lucide-react";
 import { MatchSummary } from "@/types/match";
 import { MatchResultCard } from "./MatchResultCard";
@@ -6,7 +6,7 @@ import { MatchResultCard } from "./MatchResultCard";
 interface MatchHistoryProps {
   matches: MatchSummary[];
   onSelectMatch: (matchId: string) => void;
-  onDeleteMatch: (matchId: string) => void;
+  onDeleteMatch?: (matchId: string) => void;
 }
 
 export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHistoryProps) {
@@ -19,7 +19,16 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
   const draggingRef = useRef(false);
   const didSwipeRef = useRef(false);
 
+  useEffect(() => {
+    if (!onDeleteMatch) {
+      setMatchSwipeX({});
+      draggingRef.current = false;
+      activeMatchIdRef.current = null;
+    }
+  }, [onDeleteMatch]);
+
   const onMatchPointerDown = (matchId: string) => (e: React.PointerEvent) => {
+    if (!onDeleteMatch) return;
     draggingRef.current = true;
     didSwipeRef.current = false;
     activeMatchIdRef.current = matchId;
@@ -96,7 +105,7 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="relative overflow-hidden border-b border-border/30">
-                {swipeX !== 0 && (
+                {onDeleteMatch && swipeX !== 0 && (
                   <button
                     onClick={() => {
                       setMatchSwipeX((prev) => ({ ...prev, [match.id]: 0 }));
@@ -126,10 +135,10 @@ export function MatchHistory({ matches, onSelectMatch, onDeleteMatch }: MatchHis
                     transform: `translateX(${swipeX}px)`,
                     transition: draggingRef.current ? "none" : "transform 160ms ease-out",
                   }}
-                  onPointerDown={onMatchPointerDown(match.id)}
-                  onPointerMove={onMatchPointerMove}
-                  onPointerUp={onMatchPointerEnd}
-                  onPointerCancel={onMatchPointerEnd}
+                  onPointerDown={onDeleteMatch ? onMatchPointerDown(match.id) : undefined}
+                  onPointerMove={onDeleteMatch ? onMatchPointerMove : undefined}
+                  onPointerUp={onDeleteMatch ? onMatchPointerEnd : undefined}
+                  onPointerCancel={onDeleteMatch ? onMatchPointerEnd : undefined}
                 ></MatchResultCard>
               </div>
 
