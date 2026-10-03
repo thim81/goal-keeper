@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState } from "react";
 import { Goal, GoalEdit } from "@/types/match";
 import { goalTypes } from "./goal-types";
@@ -10,7 +11,7 @@ interface EditGoalSheetProps {
   goal: Goal;
   knownPlayers: string[];
   onClose: () => void;
-  onSave: (id: string, changes: GoalEdit) => void;
+  onSave: (id: string, changes: GoalEdit) => boolean | void | Promise<boolean | void>;
 }
 
 export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalSheetProps) {
@@ -23,13 +24,23 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
   const [assist, setAssist] = useState(goal.assist ?? "");
   const [type, setType] = useState(goal.type);
   const [time, setTime] = useState(goal.time);
+  const { submit, isSubmitting: isSaving } = useSubmitAction(onSave, onClose);
   const validTime = parseClockTime(time) !== null;
+  const handleSave = () => {
+    if (!validTime || (isMyTeam && !scorer.trim())) return;
+    void submit(goal.id, {
+      scorer: isMyTeam ? scorer : undefined,
+      assist: isMyTeam ? assist : undefined,
+      type,
+      time,
+    });
+  };
 
   return (
     <Sheet
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !isSaving) onClose();
       }}
     >
       <SheetContent
@@ -41,6 +52,7 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
         <SheetHeader>
           <SheetTitle>Edit goal</SheetTitle>
         </SheetHeader>
+        {isSaving && <p role="status">Saving…</p>}
         <div className="space-y-4 mt-4">
           {team === "my-team" && (
             <>
@@ -74,6 +86,7 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
                   key={value}
                   aria-pressed={type === value}
                   onClick={() => setType(value)}
+                  disabled={isSaving}
                   className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 ${type === value ? selectedTypeClass : "border-border bg-secondary text-muted-foreground"}`}
                 >
                   <Icon className="w-5 h-5" />
@@ -94,24 +107,17 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
               type="time"
               value={time}
               onChange={(event) => setTime(event.target.value)}
+              disabled={isSaving}
               className={`h-10 w-36 rounded-lg bg-secondary px-3 text-base text-foreground focus:outline-none focus:ring-2 ${isMyTeam ? "focus:ring-primary" : "focus:ring-accent"}`}
             />
           </div>
           <div className="flex gap-2">
             <Button
               className={`flex-1 ${isMyTeam ? "" : "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent"}`}
-              disabled={!validTime || (isMyTeam && !scorer.trim())}
-              onClick={() => {
-                onSave(goal.id, {
-                  scorer: team === "my-team" ? scorer : undefined,
-                  assist: team === "my-team" ? assist : undefined,
-                  type,
-                  time,
-                });
-                onClose();
-              }}
+              disabled={isSaving || !validTime || (isMyTeam && !scorer.trim())}
+              onClick={handleSave}
             >
-              Save
+              {isSaving ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>

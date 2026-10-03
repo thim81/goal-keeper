@@ -1,6 +1,8 @@
+import { useSubmitAction, type SubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useRef, useState } from "react";
 import { Goal, GoalEdit, GameEvent } from "@/types/match";
 import { EditGoalSheet } from "./EditGoalSheet";
+import { workspaceTimeline } from "@/lib/workspace";
 import { parseClockTime } from "@/lib/clock-time";
 import {
   Trophy,
@@ -29,10 +31,10 @@ interface GoalTimelineProps {
   opponentName: string;
   scrollToBottomSignal?: number;
   editable?: boolean;
-  onDeleteGoal?: (id: string) => void;
-  onDeleteEvent?: (id: string) => void;
-  onUpdateEventTime?: (id: string, time: string) => void;
-  onUpdateGoal?: (id: string, changes: GoalEdit) => void;
+  onDeleteGoal?: (id: string) => boolean | void | Promise<boolean | void>;
+  onDeleteEvent?: (id: string) => boolean | void | Promise<boolean | void>;
+  onUpdateEventTime?: (id: string, time: string) => boolean | void | Promise<boolean | void>;
+  onUpdateGoal?: (id: string, changes: GoalEdit) => boolean | void | Promise<boolean | void>;
   knownPlayers?: string[];
 }
 
@@ -81,8 +83,6 @@ const eventTypeIconColors = {
   "red-card": "text-red-500",
 };
 
-type TimelineItem = { kind: "goal"; data: Goal } | { kind: "event"; data: GameEvent };
-
 export function GoalTimeline({
   goals,
   events,
@@ -97,10 +97,7 @@ export function GoalTimeline({
   knownPlayers = [],
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
-  const timelineItems: TimelineItem[] = [
-    ...goals.map((g) => ({ kind: "goal" as const, data: g })),
-    ...events.map((e) => ({ kind: "event" as const, data: e })),
-  ].sort((a, b) => a.data.timestamp - b.data.timestamp);
+  const timelineItems = workspaceTimeline(goals, events);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const prevCountRef = useRef(timelineItems.length);
@@ -158,6 +155,14 @@ export function GoalTimeline({
   const longPressStartXRef = useRef(0);
   const [editingEvent, setEditingEvent] = useState<GameEvent | null>(null);
   const [editingEventTime, setEditingEventTime] = useState("");
+  const { submit: deleteItem, isSubmitting: isDeleting } = useSubmitAction(
+    (mutation: SubmitAction) => mutation(),
+  );
+  const { submit: saveEventTime, isSubmitting: isSavingEvent } = useSubmitAction(
+    (id: string, time: string) => onUpdateEventTime?.(id, time),
+    () => setEditingEvent(null),
+  );
+  const isSubmitting = isDeleting || isSavingEvent;
 
   const clearLongPress = () => {
     if (longPressTimerRef.current !== null) {
@@ -356,6 +361,7 @@ export function GoalTimeline({
 
   return (
     <div ref={scrollRef} className="space-y-2 pb-2">
+      {isSubmitting && <p role="status">{isDeleting ? "Deleting…" : "Saving…"}</p>}
       {timelineItems.map((item, index) => {
         if (item.kind === "event") {
           const event = item.data;
@@ -390,7 +396,8 @@ export function GoalTimeline({
                 {/* Revealed action (right side) */}
                 {canSwipeDelete && swipeX !== 0 && (
                   <button
-                    onClick={() => onDeleteEvent(event.id)}
+                    onClick={() => deleteItem(() => onDeleteEvent?.(event.id))}
+                    disabled={isSubmitting}
                     className="absolute inset-y-0 right-0 w-[84px] bg-accent text-accent-foreground flex items-center justify-center"
                     aria-label="Delete event"
                   >
@@ -446,8 +453,9 @@ export function GoalTimeline({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteEvent(event.id);
+                        deleteItem(() => onDeleteEvent(event.id));
                       }}
+                      disabled={isSubmitting}
                       className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-accent/20 transition-all"
                       aria-label="Delete event"
                     >
@@ -480,7 +488,8 @@ export function GoalTimeline({
               {/* Revealed action (right side) */}
               {canSwipeDelete && swipeX !== 0 && (
                 <button
-                  onClick={() => onDeleteGoal(goal.id)}
+                  onClick={() => deleteItem(() => onDeleteGoal?.(goal.id))}
+                  disabled={isSubmitting}
                   className="absolute inset-y-0 right-0 w-[84px] bg-accent text-accent-foreground flex items-center justify-center"
                   aria-label="Delete goal"
                 >
@@ -566,8 +575,9 @@ export function GoalTimeline({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteGoal(goal.id);
+                          deleteItem(() => onDeleteGoal(goal.id));
                         }}
+                        disabled={isSubmitting}
                         className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-accent/20 transition-all"
                         aria-label="Delete goal"
                       >
@@ -593,7 +603,7 @@ export function GoalTimeline({
       <Dialog
         open={editingEvent !== null}
         onOpenChange={(open) => {
-          if (!open) setEditingEvent(null);
+          if (!open && !isSubmitting) setEditingEvent(null);
         }}
       >
         <DialogContent className="max-w-sm rounded-2xl">
@@ -607,21 +617,26 @@ export function GoalTimeline({
             onChange={(event) => setEditingEventTime(event.target.value)}
             className="mx-auto h-10 w-32 rounded-lg bg-secondary px-3 py-2 text-center text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             autoFocus
+            disabled={isSubmitting}
           />
+          {isSavingEvent && <p role="status">Saving…</p>}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setEditingEvent(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => setEditingEvent(null)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
               onClick={() => {
-                if (editingEvent && parseClockTime(editingEventTime)) {
-                  onUpdateEventTime?.(editingEvent.id, editingEventTime);
+                if (editingEvent && parseClockTime(editingEventTime) && onUpdateEventTime) {
+                  void saveEventTime(editingEvent.id, editingEventTime);
                 }
-                setEditingEvent(null);
               }}
-              disabled={!parseClockTime(editingEventTime)}
+              disabled={!parseClockTime(editingEventTime) || isSubmitting}
             >
-              Save
+              {isSavingEvent ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

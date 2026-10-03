@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import { GoalTimeline } from "./GoalTimeline";
@@ -113,6 +113,41 @@ describe("GoalTimeline", () => {
     });
   });
 
+  it("keeps goal editor open and retains edits while save confirmation is pending", async () => {
+    vi.useFakeTimers();
+    let resolve: (result: boolean) => void = () => {};
+    const onUpdateGoal = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    render(
+      <GoalTimeline
+        goals={[goal]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onUpdateGoal={onUpdateGoal}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Alice"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Changed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(onUpdateGoal).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    expect(screen.getByDisplayValue("Changed")).toBeInTheDocument();
+    resolve(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByDisplayValue("Changed")).toBeInTheDocument();
+  });
+
   it("discards goal edits on close and hides player fields for opponents", () => {
     vi.useFakeTimers();
     const onUpdateGoal = vi.fn();
@@ -187,6 +222,36 @@ describe("GoalTimeline", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete goal/i }));
 
     expect(onDeleteGoal).toHaveBeenCalledWith("g1");
+  });
+
+  it("keeps goal deletion available while awaiting confirmation and after rejection", async () => {
+    let resolve: (result: boolean) => void = () => {};
+    const onDeleteGoal = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    render(
+      <GoalTimeline
+        goals={[goal]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onDeleteGoal={onDeleteGoal}
+      />,
+    );
+    swipe(screen.getByText("Alice"), -60);
+    fireEvent.click(screen.getByRole("button", { name: "Delete goal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete goal" }));
+
+    expect(onDeleteGoal).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Deleting…");
+    resolve(false);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Delete goal" })).toBeEnabled();
+    expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
   it("deletes an event after swiping its row past the reveal threshold", () => {
@@ -275,6 +340,38 @@ describe("GoalTimeline", () => {
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(onUpdateEventTime).toHaveBeenCalledWith("start-1", "20:30");
+  });
+
+  it("retains event time editor after a rejected save", async () => {
+    vi.useFakeTimers();
+    const onUpdateEventTime = vi.fn().mockRejectedValue(new Error("failed"));
+    const periodStart: GameEvent = {
+      ...event,
+      id: "start-async",
+      type: "start",
+      label: "Start Period 1",
+    };
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[periodStart]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onDeleteEvent={vi.fn()}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Start Period 1"), { clientX: 0 });
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByDisplayValue("20:00"), { target: { value: "21:15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("21:15")).toBeInTheDocument();
   });
 
   it("keeps swipe-to-delete behavior when the row moves horizontally", () => {

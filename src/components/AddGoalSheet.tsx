@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { goalTypes } from "./goal-types";
@@ -7,7 +8,11 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface AddGoalSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddGoal: (scorer: string, assist: string, type: GoalType) => void;
+  onAddGoal: (
+    scorer: string,
+    assist: string,
+    type: GoalType,
+  ) => boolean | void | Promise<boolean | void>;
   knownPlayers: string[];
 }
 
@@ -15,14 +20,17 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
   const [scorer, setScorer] = useState("");
   const [assist, setAssist] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("normal");
-
-  const handleSubmit = () => {
-    if (!scorer.trim()) return;
-    onAddGoal(scorer.trim(), assist.trim(), goalType);
+  const { submit, isSubmitting } = useSubmitAction(onAddGoal, () => {
     setScorer("");
     setAssist("");
     setGoalType("normal");
     onClose();
+  });
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
+  const handleSubmit = () => {
+    if (scorer.trim()) void submit(scorer.trim(), assist.trim(), goalType);
   };
 
   if (!isOpen) return null;
@@ -30,7 +38,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
   return (
     <div className="fixed inset-0 z-50 animate-fade-in">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl py-4 px-6 safe-bottom animate-slide-up border-t border-border/50">
@@ -41,12 +49,15 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Add Goal ⚽</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={isSubmitting}
             className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
+
+        {isSubmitting && <p role="status">Saving…</p>}
 
         {/* Form */}
         <div className="space-y-4">
@@ -107,10 +118,10 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
           {/* Submit */}
           <button
             onClick={handleSubmit}
-            disabled={!scorer.trim()}
+            disabled={!scorer.trim() || isSubmitting}
             className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
           >
-            Add Goal
+            {isSubmitting ? "Saving…" : "Add Goal"}
           </button>
         </div>
       </div>

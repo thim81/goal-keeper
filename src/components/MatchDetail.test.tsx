@@ -288,6 +288,55 @@ describe("MatchDetail", () => {
     expect(screen.queryByPlaceholderText("Opponent name")).not.toBeInTheDocument();
   });
 
+  it("blocks duplicate rename and dismissal while awaiting confirmation", async () => {
+    vi.useFakeTimers();
+    let resolve: (result: boolean) => void = () => {};
+    const onRenameOpponent = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    render(<MatchDetail match={homeMatch} onBack={vi.fn()} onRenameOpponent={onRenameOpponent} />);
+    fireEvent.pointerDown(screen.getByTitle("Rivals FC (long press to edit)"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByPlaceholderText("Opponent name"), {
+      target: { value: "New Rivals" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Saving…" }));
+
+    expect(onRenameOpponent).toHaveBeenCalledTimes(1);
+    expect(screen.getByPlaceholderText("Opponent name")).toHaveValue("New Rivals");
+    await act(async () => {
+      resolve(true);
+      await Promise.resolve();
+    });
+    expect(screen.queryByPlaceholderText("Opponent name")).not.toBeInTheDocument();
+  });
+
+  it.each([false, "throw"] as const)("retains opponent draft after %s", async (result) => {
+    vi.useFakeTimers();
+    const onRenameOpponent =
+      result === "throw"
+        ? vi.fn().mockRejectedValue(new Error("failed"))
+        : vi.fn().mockResolvedValue(false);
+    render(<MatchDetail match={homeMatch} onBack={vi.fn()} onRenameOpponent={onRenameOpponent} />);
+    fireEvent.pointerDown(screen.getByTitle("Rivals FC (long press to edit)"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByPlaceholderText("Opponent name"), {
+      target: { value: "New Rivals" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByPlaceholderText("Opponent name")).toHaveValue("New Rivals");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
   it("discards the draft without renaming when the dialog is cancelled", () => {
     vi.useFakeTimers();
     const onRenameOpponent = vi.fn();

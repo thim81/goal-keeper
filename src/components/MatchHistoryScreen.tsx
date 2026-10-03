@@ -28,9 +28,9 @@ interface MatchHistoryScreenProps {
   onDeleteMatch?: (matchId: string) => void;
   onOpenSettings: () => void;
   onGoHome: () => void;
-  onCloseSeason: (name: string) => boolean;
-  onReopenSeason: (seasonId: string) => boolean;
-  onRenameSeason: (seasonId: string, name: string) => boolean;
+  onCloseSeason: (name: string) => boolean | Promise<boolean>;
+  onReopenSeason: (seasonId: string) => boolean | Promise<boolean>;
+  onRenameSeason: (seasonId: string, name: string) => boolean | Promise<boolean>;
 }
 
 export function MatchHistoryScreen({

@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useState } from "react";
 import { X, Play, Pause, ArrowLeft } from "lucide-react";
 import { GameEventType } from "@/types/match";
@@ -9,7 +10,7 @@ interface AddEventSheetProps {
   onAddEvent: (
     type: GameEventType,
     options?: { team?: "my-team" | "opponent"; player?: string },
-  ) => void;
+  ) => boolean | void | Promise<boolean | void>;
   myTeamName: string;
   opponentName: string;
   knownPlayers: string[];
@@ -36,6 +37,14 @@ export function AddEventSheet({
   const [pendingCardType, setPendingCardType] = useState<"yellow-card" | "red-card" | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<"my-team" | "opponent">("my-team");
   const [player, setPlayer] = useState("");
+  const { submit: submitEvent, isSubmitting } = useSubmitAction(
+    (type: GameEventType, options?: { team?: "my-team" | "opponent"; player?: string }) =>
+      options ? onAddEvent(type, options) : onAddEvent(type),
+    onClose,
+  );
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,18 +60,16 @@ export function AddEventSheet({
       return;
     }
 
-    onAddEvent(type);
-    onClose();
+    void submitEvent(type);
   };
 
   const handleAddCardEvent = () => {
     if (!pendingCardType) return;
 
-    onAddEvent(pendingCardType, {
+    void submitEvent(pendingCardType, {
       team: selectedTeam,
       player: player.trim() || undefined,
     });
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -70,7 +77,7 @@ export function AddEventSheet({
   return (
     <div className="fixed inset-0 z-50 animate-fade-in mb-6">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-6 safe-bottom animate-slide-up border-t border-border/50">
@@ -81,12 +88,15 @@ export function AddEventSheet({
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-foreground">Add Event 📋</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={isSubmitting}
             className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
+
+        {isSubmitting && <p role="status">Saving…</p>}
 
         {!pendingCardType && (
           <div className="flex flex-col gap-3">
@@ -94,6 +104,7 @@ export function AddEventSheet({
               <button
                 key={type}
                 onClick={() => handleSelect(type)}
+                disabled={isSubmitting}
                 className="flex items-center justify-center gap-3 px-2 py-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-all active:scale-[0.98]"
               >
                 <Icon className={`w-5 h-5 ${color}`} />
@@ -106,6 +117,7 @@ export function AddEventSheet({
                 key={type}
                 type="button"
                 onClick={() => handleSelect(type)}
+                disabled={isSubmitting}
                 className="flex items-center justify-center gap-3 px-2 py-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-all active:scale-[0.98]"
                 aria-label={label}
               >
@@ -121,6 +133,7 @@ export function AddEventSheet({
             <button
               type="button"
               onClick={() => setPendingCardType(null)}
+              disabled={isSubmitting}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -146,6 +159,7 @@ export function AddEventSheet({
                 <button
                   type="button"
                   onClick={() => setSelectedTeam("my-team")}
+                  disabled={isSubmitting}
                   className={`rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
                     selectedTeam === "my-team"
                       ? "bg-primary text-primary-foreground"
@@ -157,6 +171,7 @@ export function AddEventSheet({
                 <button
                   type="button"
                   onClick={() => setSelectedTeam("opponent")}
+                  disabled={isSubmitting}
                   className={`rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
                     selectedTeam === "opponent"
                       ? "bg-accent text-accent-foreground"
@@ -183,9 +198,10 @@ export function AddEventSheet({
             <button
               type="button"
               onClick={handleAddCardEvent}
+              disabled={isSubmitting}
               className="w-full py-3 bg-primary text-primary-foreground font-bold text-base rounded-xl hover:bg-primary/90 transition-colors btn-glow"
             >
-              Add Card Event
+              {isSubmitting ? "Saving…" : "Add Card Event"}
             </button>
           </div>
         )}

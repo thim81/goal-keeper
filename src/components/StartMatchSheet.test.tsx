@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { StartMatchSheet } from "@/components/StartMatchSheet";
 
@@ -36,5 +36,23 @@ describe("StartMatchSheet scheduled match defaults", () => {
     fireEvent.click(screen.getByText("Kick Off!"));
 
     expect(onStartMatch).toHaveBeenCalledWith("My Team", "Changed U15", true);
+  });
+
+  it("keeps form values after false or rejected mutation", async () => {
+    for (const result of [false, "throw"] as const) {
+      const onStartMatch =
+        result === "throw"
+          ? vi.fn().mockRejectedValue(new Error("failed"))
+          : vi.fn().mockResolvedValue(false);
+      const { unmount } = render(
+        <StartMatchSheet isOpen onClose={vi.fn()} onStartMatch={onStartMatch} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText("Opponent"), { target: { value: "Rivals" } });
+      fireEvent.click(screen.getByRole("button", { name: /kick off/i }));
+
+      await waitFor(() => expect(screen.getByRole("button", { name: /kick off/i })).toBeEnabled());
+      expect(screen.getByPlaceholderText("Opponent")).toHaveValue("Rivals");
+      unmount();
+    }
   });
 });

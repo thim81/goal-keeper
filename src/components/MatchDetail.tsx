@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Match } from "@/types/match";
@@ -16,7 +17,7 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface MatchDetailProps {
   match: Match;
   onBack: () => void;
-  onRenameOpponent?: (name: string) => void;
+  onRenameOpponent?: (name: string) => boolean | void | Promise<boolean | void>;
   opponentSuggestions?: string[];
 }
 
@@ -28,6 +29,10 @@ export function MatchDetail({
 }: MatchDetailProps) {
   const [showRenameOpponent, setShowRenameOpponent] = useState(false);
   const [opponentDraft, setOpponentDraft] = useState(match.opponentName);
+  const { submit: saveOpponent, isSubmitting: isSavingOpponent } = useSubmitAction(
+    (name: string) => onRenameOpponent?.(name),
+    () => setShowRenameOpponent(false),
+  );
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
@@ -144,9 +149,7 @@ export function MatchDetail({
 
   const handleSaveOpponentName = () => {
     const trimmed = opponentDraft.trim();
-    if (!trimmed) return;
-    onRenameOpponent?.(trimmed);
-    setShowRenameOpponent(false);
+    if (trimmed) void saveOpponent(trimmed);
   };
 
   return (
@@ -344,6 +347,7 @@ export function MatchDetail({
       <Dialog
         open={!!onRenameOpponent && showRenameOpponent}
         onOpenChange={(open) => {
+          if (!open && isSavingOpponent) return;
           setShowRenameOpponent(open);
           if (!open) setOpponentDraft(match.opponentName);
         }}
@@ -362,12 +366,20 @@ export function MatchDetail({
             maxLength={60}
             onEnter={handleSaveOpponentName}
           />
+          {isSavingOpponent && <p role="status">Saving…</p>}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowRenameOpponent(false)}
+              disabled={isSavingOpponent}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveOpponentName} disabled={!opponentDraft.trim()}>
-              Save
+            <Button
+              onClick={handleSaveOpponentName}
+              disabled={!opponentDraft.trim() || isSavingOpponent}
+            >
+              {isSavingOpponent ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

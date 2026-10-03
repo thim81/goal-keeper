@@ -22,7 +22,22 @@ async function setupWithMatch(overrides?: {
 }
 
 describe("saved workspace initialization", () => {
-  afterEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
+  it("validates parsed legacy data and keeps a recovery copy before replacing it", () => {
+    localStorage.clear();
+    localStorage.setItem("football-tracker-active-match", JSON.stringify({ goals: null }));
+    const { result } = renderHook(() => useMatches());
+    expect(result.current.activeMatch).toBeNull();
+    expect(() => result.current.getScore()).not.toThrow();
+    expect(
+      JSON.parse(localStorage.getItem("football-tracker-legacy-recovery")!)[
+        "football-tracker-active-match"
+      ],
+    ).toBe(JSON.stringify({ goals: null }));
+  });
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
   it("does not remove a saved active match while initializing", async () => {
     localStorage.clear();
     const first = await setupWithMatch();
@@ -31,6 +46,15 @@ describe("saved workspace initialization", () => {
     renderHook(() => useMatches());
     expect(remove).not.toHaveBeenCalledWith("football-tracker-active-match");
     expect(JSON.parse(localStorage.getItem("football-tracker-active-match")!)).toEqual(match);
+  });
+  it("preserves the legacy recovery before hook persistence overwrites corrupt saved state", () => {
+    localStorage.setItem("football-tracker-seasons", "{broken");
+    renderHook(() => useMatches());
+    expect(
+      JSON.parse(localStorage.getItem("football-tracker-legacy-recovery")!)[
+        "football-tracker-seasons"
+      ],
+    ).toBe("{broken");
   });
   it("recovers from corrupt local match storage", () => {
     localStorage.setItem("football-tracker-seasons", "{broken");
@@ -235,6 +259,20 @@ describe("useMatches goals, events and score", () => {
 });
 
 describe("useMatches undoLast", () => {
+  it("deletes the specific last displayed item after an earlier goal is edited", async () => {
+    localStorage.clear();
+    const result = await setupWithMatch();
+    act(() => {
+      result.current.addGoal("my-team", "Alice");
+      result.current.addGoal("my-team", "Bob");
+    });
+    const [alice, bob] = result.current.activeMatch!.goals;
+    act(() =>
+      result.current.updateGoal(alice.id, { scorer: "Alice", type: "normal", time: "23:59" }),
+    );
+    act(() => result.current.undoLast());
+    expect(result.current.activeMatch!.goals.map((goal) => goal.id)).toEqual([bob.id]);
+  });
   beforeEach(() => {
     localStorage.clear();
   });

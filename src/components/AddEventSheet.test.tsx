@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AddEventSheet } from "./AddEventSheet";
 
@@ -90,5 +90,44 @@ describe("AddEventSheet", () => {
     expect(screen.getByText("Pause Timer")).toBeInTheDocument();
     expect(handlers.onClose).not.toHaveBeenCalled();
     expect(handlers.onAddEvent).not.toHaveBeenCalled();
+  });
+
+  it("waits for direct event confirmation and submits once", async () => {
+    let resolve: (value: boolean) => void = () => {};
+    const onAddEvent = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const handlers = renderSheet({ onAddEvent });
+    fireEvent.click(screen.getByText("Pause Timer"));
+    fireEvent.click(screen.getByText("Pause Timer"));
+
+    expect(onAddEvent).toHaveBeenCalledTimes(1);
+    expect(handlers.onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    resolve(true);
+    await waitFor(() => expect(handlers.onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([false, "throw"] as const)("retains card details after %s", async (result) => {
+    const onAddEvent =
+      result === "throw"
+        ? vi.fn().mockRejectedValue(new Error("failed"))
+        : vi.fn().mockResolvedValue(false);
+    renderSheet({ onAddEvent });
+    fireEvent.click(screen.getByRole("button", { name: "Yellow Card" }));
+    fireEvent.click(screen.getByText("Rivals"));
+    fireEvent.change(screen.getByPlaceholderText("Opponent player name"), {
+      target: { value: "Jones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Card Event" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Add Card Event" })).toBeEnabled(),
+    );
+    expect(screen.getByPlaceholderText("Opponent player name")).toHaveValue("Jones");
+    expect(screen.getByText("Rivals").closest("button")).toHaveClass("bg-accent");
   });
 });

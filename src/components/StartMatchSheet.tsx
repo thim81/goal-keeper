@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState, useEffect } from "react";
 import { X, Play, Home, Plane } from "lucide-react";
 import { PlayerAutocomplete } from "./PlayerAutocomplete";
@@ -5,7 +6,11 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface StartMatchSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onStartMatch: (myTeamName: string, opponentName: string, isHome: boolean) => void;
+  onStartMatch: (
+    myTeamName: string,
+    opponentName: string,
+    isHome: boolean,
+  ) => boolean | void | Promise<boolean | void>;
   defaultTeamName?: string;
   opponentSuggestions?: string[];
   initialOpponentName?: string;
@@ -24,6 +29,12 @@ export function StartMatchSheet({
   const [myTeamName, setMyTeamName] = useState("");
   const [opponentName, setOpponentName] = useState("");
   const [isHome, setIsHome] = useState(true);
+  const { submit, isSubmitting } = useSubmitAction(onStartMatch, () => {
+    setMyTeamName("");
+    setOpponentName("");
+    setIsHome(true);
+    onClose();
+  });
 
   // Apply defaults each time the sheet opens so scheduled matches can prefill it.
   useEffect(() => {
@@ -34,12 +45,11 @@ export function StartMatchSheet({
     }
   }, [defaultTeamName, initialIsHome, initialOpponentName, isOpen]);
 
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
   const handleSubmit = () => {
-    onStartMatch(myTeamName.trim() || "My Team", opponentName.trim() || "Opponent", isHome);
-    setMyTeamName("");
-    setOpponentName("");
-    setIsHome(true);
-    onClose();
+    void submit(myTeamName.trim() || "My Team", opponentName.trim() || "Opponent", isHome);
   };
 
   if (!isOpen) return null;
@@ -47,7 +57,7 @@ export function StartMatchSheet({
   return (
     <div className="fixed inset-0 z-50 animate-fade-in mb-6">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl p-6 safe-bottom animate-slide-up border-t border-border/50">
@@ -58,12 +68,15 @@ export function StartMatchSheet({
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-foreground">New Match ⚽</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={isSubmitting}
             className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
+
+        {isSubmitting && <p role="status">Saving…</p>}
 
         {/* Form */}
         <div className="space-y-4">
@@ -142,10 +155,11 @@ export function StartMatchSheet({
           {/* Submit */}
           <button
             onClick={handleSubmit}
+            disabled={isSubmitting}
             className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl hover:bg-primary/90 transition-colors btn-glow mt-2 flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5" />
-            Kick Off!
+            {isSubmitting ? "Saving…" : "Kick Off!"}
           </button>
         </div>
       </div>

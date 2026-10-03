@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsScreen } from "@/components/SettingsScreen";
 import { DEFAULT_SETTINGS } from "@/types/match";
@@ -246,6 +246,61 @@ describe("SettingsScreen interactions", () => {
     fireEvent.click(addButton);
 
     expect(handlers.onAddPlayer).toHaveBeenCalledWith("Alice");
+  });
+
+  it.each([false, "throw"] as const)("keeps player draft after %s add", async (result) => {
+    const handlers = renderFullSettings();
+    if (result === "throw") handlers.onAddPlayer.mockRejectedValue(new Error("offline"));
+    else handlers.onAddPlayer.mockResolvedValue(false);
+    const input = screen.getByPlaceholderText("Add player name");
+    fireEvent.change(input, { target: { value: "Alice" } });
+    fireEvent.click(input.closest("div")!.querySelector("button")!);
+
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(input).toHaveValue("Alice");
+  });
+
+  it("clears player draft only after async add succeeds", async () => {
+    let resolve: (result: boolean) => void = () => {};
+    const handlers = renderFullSettings();
+    handlers.onAddPlayer.mockImplementation(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const input = screen.getByPlaceholderText("Add player name");
+    fireEvent.change(input, { target: { value: "Alice" } });
+    fireEvent.click(input.closest("div")!.querySelector("button")!);
+    expect(input).toBeDisabled();
+    expect(screen.getAllByRole("status").some((status) => status.textContent === "Saving…")).toBe(
+      true,
+    );
+    await act(async () => {
+      resolve(true);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(input).toHaveValue(""));
+  });
+
+  it("retains team and calendar drafts when async saves fail", async () => {
+    const handlers = renderFullSettings();
+    handlers.onUpdateTeamName.mockResolvedValue(false);
+    handlers.onUpdateCalendarSettings.mockRejectedValue(new Error("offline"));
+    const team = screen.getByPlaceholderText("Enter your team name");
+    fireEvent.change(team, { target: { value: "New Team" } });
+    fireEvent.blur(team);
+    await waitFor(() => expect(team).toBeEnabled());
+    expect(team).toHaveValue("New Team");
+
+    const url = screen.getByPlaceholderText("Paste ProSoccerData subscription URL");
+    const calendarTeam = screen.getByPlaceholderText("Detected automatically, for example IPU15");
+    fireEvent.change(url, { target: { value: "https://example.test/calendar.ics" } });
+    fireEvent.change(calendarTeam, { target: { value: "IPU15" } });
+    fireEvent.blur(calendarTeam);
+    await waitFor(() => expect(url).toBeEnabled());
+    expect(url).toHaveValue("https://example.test/calendar.ics");
+    expect(calendarTeam).toHaveValue("IPU15");
   });
 
   it("removes a player from the list", () => {

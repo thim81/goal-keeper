@@ -1,3 +1,4 @@
+import { useSubmitAction, type SubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -23,14 +24,17 @@ import { toast } from "sonner";
 interface SettingsScreenProps {
   settings: AppSettings;
   onBack: () => void;
-  onUpdateTeamName: (name: string) => void;
-  onUpdateCalendarSettings: (url: string, teamName: string) => void;
-  onAddPlayer: (name: string) => void;
-  onRemovePlayer: (name: string) => void;
-  onUpdatePeriods: (count: number, duration: number) => void;
+  onUpdateTeamName: (name: string) => boolean | void | Promise<boolean | void>;
+  onUpdateCalendarSettings: (
+    url: string,
+    teamName: string,
+  ) => boolean | void | Promise<boolean | void>;
+  onAddPlayer: (name: string) => boolean | void | Promise<boolean | void>;
+  onRemovePlayer: (name: string) => boolean | void | Promise<boolean | void>;
+  onUpdatePeriods: (count: number, duration: number) => boolean | void | Promise<boolean | void>;
   onUpdateSyncToken: (token: string) => void | boolean;
-  onUpdateTheme: (theme: Theme) => void;
-  onUpdateDebug: (debug: boolean) => void;
+  onUpdateTheme: (theme: Theme) => boolean | void | Promise<boolean | void>;
+  onUpdateDebug: (debug: boolean) => boolean | void | Promise<boolean | void>;
   onExportBackup: () => void;
   onImportBackup: (file: File) => Promise<void> | void;
   canEdit?: boolean;
@@ -74,6 +78,10 @@ export function SettingsScreen({
   const [shareFailed, setShareFailed] = useState(false);
   const [shareUnavailable, setShareUnavailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { submit: runMutation, isSubmitting } = useSubmitAction(
+    (mutation: SubmitAction, _onSuccess?: () => void) => mutation(),
+    (_mutation, onSuccess) => onSuccess?.(),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -97,26 +105,34 @@ export function SettingsScreen({
 
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
 
+  useEffect(() => setTeamName(settings.teamName), [settings.teamName]);
+
   useEffect(() => {
     setCalendarUrl(settings.calendarUrl);
     setCalendarTeamName(settings.calendarTeamName);
   }, [settings.calendarTeamName, settings.calendarUrl]);
 
   const handleAddPlayer = () => {
-    if (newPlayer.trim()) {
-      onAddPlayer(newPlayer.trim());
-      setNewPlayer("");
-    }
+    const name = newPlayer.trim();
+    if (name)
+      runMutation(
+        () => onAddPlayer(name),
+        () => setNewPlayer(""),
+      );
   };
 
   const handleTeamNameBlur = () => {
     if (teamName.trim() && teamName !== settings.teamName) {
-      onUpdateTeamName(teamName.trim());
+      const name = teamName.trim();
+      runMutation(
+        () => onUpdateTeamName(name),
+        () => setTeamName(name),
+      );
     }
   };
 
   const handleCalendarSettingsBlur = () => {
-    onUpdateCalendarSettings(calendarUrl, calendarTeamName);
+    runMutation(() => onUpdateCalendarSettings(calendarUrl, calendarTeamName));
   };
 
   const loadViewerLinkForAction = async () => {
@@ -174,6 +190,11 @@ export function SettingsScreen({
         className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-none"
         style={{ paddingBottom: `calc(1rem + env(safe-area-inset-bottom, 0px))` }}
       >
+        {isSubmitting && (
+          <p role="status" aria-live="polite">
+            Saving…
+          </p>
+        )}
         {/* Team Name */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -186,6 +207,7 @@ export function SettingsScreen({
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               onBlur={handleTeamNameBlur}
+              disabled={isSubmitting}
               placeholder="Enter your team name"
               className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
             />
@@ -210,8 +232,11 @@ export function SettingsScreen({
                   <select
                     value={settings.periodsCount}
                     onChange={(e) =>
-                      onUpdatePeriods(parseInt(e.target.value), settings.periodDuration)
+                      runMutation(() =>
+                        onUpdatePeriods(parseInt(e.target.value), settings.periodDuration),
+                      )
                     }
+                    disabled={isSubmitting}
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -226,8 +251,11 @@ export function SettingsScreen({
                   <select
                     value={settings.periodDuration}
                     onChange={(e) =>
-                      onUpdatePeriods(settings.periodsCount, parseInt(e.target.value))
+                      runMutation(() =>
+                        onUpdatePeriods(settings.periodsCount, parseInt(e.target.value)),
+                      )
                     }
+                    disabled={isSubmitting}
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {[10, 15, 20, 25, 30, 35, 40, 45].map((n) => (
@@ -257,12 +285,13 @@ export function SettingsScreen({
                   value={newPlayer}
                   onChange={(e) => setNewPlayer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddPlayer()}
+                  disabled={isSubmitting}
                   placeholder="Add player name"
                   className="flex-1 px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <button
                   onClick={handleAddPlayer}
-                  disabled={!newPlayer.trim()}
+                  disabled={!newPlayer.trim() || isSubmitting}
                   className="px-4 py-3 bg-primary text-primary-foreground rounded-xl disabled:opacity-50 hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
@@ -279,7 +308,9 @@ export function SettingsScreen({
                     >
                       <span className="text-foreground">{player}</span>
                       <button
-                        onClick={() => onRemovePlayer(player)}
+                        onClick={() => runMutation(() => onRemovePlayer(player))}
+                        disabled={isSubmitting}
+                        aria-label={`Remove ${player}`}
                         className="p-1 rounded-full hover:bg-accent/20 transition-colors"
                       >
                         <X className="w-3 h-3 text-muted-foreground hover:text-accent" />
@@ -304,7 +335,8 @@ export function SettingsScreen({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={() => onUpdateTheme("light")}
+              onClick={() => runMutation(() => onUpdateTheme("light"))}
+              disabled={isSubmitting}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "light"
                   ? "border-primary bg-primary/5 text-primary"
@@ -315,7 +347,8 @@ export function SettingsScreen({
               <span className="text-xs font-medium">Light</span>
             </button>
             <button
-              onClick={() => onUpdateTheme("dark")}
+              onClick={() => runMutation(() => onUpdateTheme("dark"))}
+              disabled={isSubmitting}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "dark"
                   ? "border-primary bg-primary/5 text-primary"
@@ -326,7 +359,8 @@ export function SettingsScreen({
               <span className="text-xs font-medium">Dark</span>
             </button>
             <button
-              onClick={() => onUpdateTheme("system")}
+              onClick={() => runMutation(() => onUpdateTheme("system"))}
+              disabled={isSubmitting}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "system"
                   ? "border-primary bg-primary/5 text-primary"
@@ -432,6 +466,7 @@ export function SettingsScreen({
                   value={calendarUrl}
                   onChange={(e) => setCalendarUrl(e.target.value)}
                   onBlur={handleCalendarSettingsBlur}
+                  disabled={isSubmitting}
                   placeholder="Paste ProSoccerData subscription URL"
                   className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -440,6 +475,7 @@ export function SettingsScreen({
                   value={calendarTeamName}
                   onChange={(e) => setCalendarTeamName(e.target.value)}
                   onBlur={handleCalendarSettingsBlur}
+                  disabled={isSubmitting}
                   placeholder="Detected automatically, for example IPU15"
                   className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -496,7 +532,8 @@ export function SettingsScreen({
                 <span className="text-sm font-semibold uppercase tracking-wider">Debug Mode</span>
               </div>
               <button
-                onClick={() => onUpdateDebug(!settings.debug)}
+                onClick={() => runMutation(() => onUpdateDebug(!settings.debug))}
+                disabled={isSubmitting}
                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
                   settings.debug
                     ? "border-primary bg-primary/5"
