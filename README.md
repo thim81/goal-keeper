@@ -86,27 +86,28 @@ built into `dist` before Wrangler starts.
 
 ### Cloud Sync and View-only Sharing
 
-The app uses one Cloudflare Pages deployment and one `GOALKEEPER_KV` namespace
-for both editors and viewers. Configure `AUTH_TOKEN` and `VIEWER_TOKEN` as
-secrets for the Pages Functions environment. They must be different values.
-The editor token can read and write the shared workspace. The viewer token can
-read it, while the server rejects viewer writes. Shared links contain the
-viewer token in the URL fragment, which is not sent with HTTP requests.
+The app uses one Cloudflare Pages deployment and a separate SQLite Durable
+Object Worker. Bind Pages `WORKSPACES` to the Worker's `Workspace` class.
+Editors and viewers use the same stable `WORKSPACE_ID` and authoritative state.
+Configure distinct `AUTH_TOKEN` and `VIEWER_TOKEN` secrets on Pages. The editor
+can submit commands; viewers can read, and the server rejects their commands.
+Shared links contain the viewer token in the URL fragment.
 
-Viewer responses also include the configured public calendar URL and team name
-so viewers can read upcoming fixtures. The URL is disclosed to viewers, so only
-use a public calendar subscription. Calendar settings remain editor-only, and
-viewer fixture rows cannot start or change matches. Refreshing fixtures reads
-through `/api/calendar` and never writes workspace state to `/api/state`.
+Connected actions require server confirmation. State updates and cache saves do
+not upload data. Live commands return only live state; structural commands
+return the full workspace. Polling and separate revision metadata keep cached
+history/settings from claiming freshness after a partial response. Cached data
+remains readable offline; token-free local editing stays available.
 
-Set both secrets before deploying the sharing UI. The app does not provide a
-second data store or deployment for viewers. If the viewer secret is missing
-or matches the editor secret, the share endpoint stays unavailable and existing
-editor sync continues to use the same KV data.
+Viewer responses include the public calendar URL and team name for upcoming
+fixtures. Calendar configuration remains editor-only. Fixture refreshes never
+write workspace state. Missing or matching viewer credentials disable sharing.
 
-Legacy `settings.syncToken` values are omitted from every API response. They are
-removed from the stored workspace the next time an editor writes state. This
-change does not run a direct migration against production KV data.
+Legacy KV is read once during guarded initialization and retained permanently
+unchanged. Remote state excludes device-local theme and credentials. New clients
+use protocol version 2; old reads require an upgrade, and whole-workspace
+uploads are rejected. Follow [the sync architecture and cutover guide](docs/durable-object-sync.md)
+for isolated local verification, deployment bindings, migration, and recovery.
 
 To revoke viewer links, replace `VIEWER_TOKEN` with a new random value in the
 Pages environment and deploy the updated secret. Previously copied links then

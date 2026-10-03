@@ -5,6 +5,11 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/workspace-mutations.ts", "src/hooks/useSync.ts"],
+      thresholds: { perFile: true, branches: 90 },
+    },
     environment: "jsdom",
     pool: "vmThreads",
     globals: true,
