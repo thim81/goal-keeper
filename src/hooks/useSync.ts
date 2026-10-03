@@ -71,12 +71,13 @@ export function useSync(
     full: null,
     live: null,
   });
+  const announceFullRefresh = useRef(false);
   const scheduleRef = useRef(() => {});
   const refreshRef = useRef<(full?: boolean) => Promise<void>>(async () => {});
 
   const apply = useCallback(
     (response: WorkspaceResponse & { role: WorkspaceRole }, epoch: number) => {
-      if (epoch !== generation.current) return;
+      if (epoch !== generation.current) return false;
       if (workspaceId.current && workspaceId.current !== response.workspaceId) {
         confirmed.current = null;
         setConfirmedCredential(null);
@@ -85,7 +86,7 @@ export function useSync(
       }
       workspaceId.current = response.workspaceId;
       if (response.revision < Math.max(meta.current.liveRevision, meta.current.fullRevision))
-        return;
+        return false;
       setConfirmedCredential(current.current.token);
       confirmed.current = response.role;
       setRole(response.role);
@@ -134,21 +135,33 @@ export function useSync(
         state: snapshot.current,
         metadata: meta.current,
       });
+      return true;
     },
     [],
   );
 
   const refresh = useCallback(
-    (full = true): Promise<void> => {
+    (full = true, announce = false): Promise<void> => {
       const credential = current.current.token;
       if (!credential) return Promise.resolve();
       const epoch = generation.current;
       const kind = full ? "full" : "live";
+      if (full && announce) announceFullRefresh.current = true;
       if (reads.current[kind]) return reads.current[kind]!;
       setIsSyncing(true);
       const request = (async () => {
         try {
-          apply(await (full ? fetchRemoteState(credential) : fetchActiveMatch(credential)), epoch);
+          const response = await (full
+            ? fetchRemoteState(credential)
+            : fetchActiveMatch(credential));
+          if (
+            apply(response, epoch) &&
+            full &&
+            announceFullRefresh.current &&
+            response.role === "editor"
+          ) {
+            toast.success("Goals Synced", { duration: 2000 });
+          }
         } catch (error) {
           if (epoch !== generation.current) return;
           const statusCode = (error as { status?: number }).status;
@@ -160,6 +173,7 @@ export function useSync(
           } else setStatus("unavailable");
         } finally {
           if (epoch === generation.current) {
+            if (full) announceFullRefresh.current = false;
             reads.current[kind] = null;
             setIsSyncing(!!reads.current.full || !!reads.current.live);
           }
@@ -177,6 +191,7 @@ export function useSync(
     setConfirmedCredential(null);
     confirmed.current = null;
     reads.current = { full: null, live: null };
+    announceFullRefresh.current = false;
     commandInFlight.current = false;
     setPendingCommand(null);
     setFailedCommand(null);
@@ -216,16 +231,23 @@ export function useSync(
     scheduleRef.current = schedule;
     const visible = () => {
       clearTimeout(timer);
-      if (document.visibilityState !== "hidden") void refresh(true).finally(schedule);
+      if (document.visibilityState !== "hidden") void refresh(true, true).finally(schedule);
+    };
+    const editorReturned = () => {
+      if (confirmed.current !== "viewer") visible();
     };
     document.addEventListener("visibilitychange", visible);
-    void refresh(true).finally(schedule);
+    window.addEventListener("focus", editorReturned);
+    window.addEventListener("pageshow", editorReturned);
+    void refresh(true, true).finally(schedule);
     return () => {
       scheduleRef.current = () => {};
       disposed = true;
       generation.current += 1;
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", editorReturned);
+      window.removeEventListener("pageshow", editorReturned);
     };
   }, [token, refresh]);
 
@@ -297,7 +319,7 @@ export function useSync(
     isWorkspaceStale: metadata.observedStructureRevision !== metadata.fullStructureRevision,
     isSyncing,
     isCoolingDown: false,
-    syncNow: () => refresh(true),
+    syncNow: () => refresh(true, true),
     executeCommand,
     retryCommand,
     pendingCommand,

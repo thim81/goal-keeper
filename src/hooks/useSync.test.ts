@@ -7,6 +7,8 @@ import { fetchRemoteState, fetchActiveMatch, postCommand } from "../lib/sync";
 import { applyWorkspaceCommand } from "../lib/workspace-mutations";
 import { saveWorkspaceCache, emptyMetadata } from "../lib/workspace-cache";
 import { readWorkspaceCache } from "../lib/workspace-cache";
+import { toast } from "sonner";
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../lib/sync", async (importOriginal) => ({
   ...(await importOriginal<any>()),
   fetchRemoteState: vi.fn(),
@@ -47,6 +49,7 @@ beforeEach(() => {
   vi.mocked(fetchRemoteState).mockReset().mockResolvedValue(full());
   vi.mocked(fetchActiveMatch).mockReset().mockResolvedValue(live());
   vi.mocked(postCommand).mockReset();
+  vi.mocked(toast.success).mockClear();
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 });
 afterEach(() => {
@@ -65,6 +68,128 @@ function mount(token = "editor", onFull = vi.fn(), onLive = vi.fn()) {
   };
 }
 describe("authoritative sync", () => {
+  it("refreshes immediately on opening and confirms editor sync with the familiar toast", async () => {
+    const d = deferred();
+    vi.mocked(fetchRemoteState).mockReturnValue(d.promise);
+    const h = mount();
+    expect(fetchRemoteState).toHaveBeenCalledOnce();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(h.result.current.isCredentialConfirmed).toBe(false);
+    d.resolve(full());
+    await flush();
+    expect(h.onFull).toHaveBeenCalledOnce();
+    expect(h.result.current.isCredentialConfirmed).toBe(true);
+    expect(toast.success).toHaveBeenCalledExactlyOnceWith("Goals Synced", { duration: 2000 });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    expect(toast.success).toHaveBeenCalledOnce();
+  });
+  it.each(["focus", "pageshow"])(
+    "refreshes editors immediately on %s without waiting for polling",
+    async (event) => {
+      const h = mount();
+      await flush();
+      vi.mocked(toast.success).mockClear();
+      vi.mocked(fetchRemoteState).mockResolvedValue(full(2));
+      act(() => window.dispatchEvent(new Event(event)));
+      await flush();
+      expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+      expect(h.result.current.metadata.fullRevision).toBe(2);
+      expect(toast.success).toHaveBeenCalledExactlyOnceWith("Goals Synced", { duration: 2000 });
+    },
+  );
+  it("coalesces editor return events into one full read and one success toast", async () => {
+    mount();
+    await flush();
+    vi.mocked(toast.success).mockClear();
+    const d = deferred();
+    vi.mocked(fetchRemoteState).mockReturnValue(d.promise);
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("pageshow"));
+    });
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    expect(toast.success).not.toHaveBeenCalled();
+    d.resolve(full(2));
+    await flush();
+    expect(toast.success).toHaveBeenCalledOnce();
+  });
+  it("announces an existing polling read when an editor returns during it", async () => {
+    mount();
+    await flush();
+    vi.mocked(toast.success).mockClear();
+    const d = deferred();
+    vi.mocked(fetchRemoteState).mockReturnValue(d.promise);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    act(() => window.dispatchEvent(new Event("focus")));
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    d.resolve(full(2));
+    await flush();
+    expect(toast.success).toHaveBeenCalledOnce();
+  });
+  it("removes editor return listeners on unmount", async () => {
+    const h = mount();
+    await flush();
+    h.unmount();
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("pageshow"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await flush();
+    expect(fetchRemoteState).toHaveBeenCalledOnce();
+  });
+  it("keeps viewer focus and page restoration on the existing polling schedule without editor toasts", async () => {
+    vi.mocked(fetchRemoteState).mockResolvedValue({ ...full(), role: "viewer" });
+    mount("viewer");
+    await flush();
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("pageshow"));
+    });
+    await flush();
+    expect(fetchRemoteState).toHaveBeenCalledOnce();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+  it("does not announce a failed editor opening refresh", async () => {
+    vi.mocked(fetchRemoteState).mockRejectedValue(new Error("offline"));
+    mount();
+    await flush();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+  it("does not announce a late opening response from previous credentials", async () => {
+    const d = deferred();
+    vi.mocked(fetchRemoteState)
+      .mockReturnValueOnce(d.promise)
+      .mockResolvedValue({ ...full(2), role: "viewer" });
+    const h = mount();
+    h.rerender({ token: "viewer" });
+    await flush();
+    d.resolve(full(3));
+    await flush();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+  it("never refreshes a hidden editor from window focus or page restoration", async () => {
+    mount();
+    await flush();
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("pageshow"));
+    });
+    await flush();
+    expect(fetchRemoteState).toHaveBeenCalledOnce();
+  });
   it("reads startup and never uploads on local rerenders", async () => {
     const h = mount();
     await flush();
@@ -118,6 +243,7 @@ describe("authoritative sync", () => {
   it("older read cannot replace a newer command", async () => {
     const h = mount();
     await flush();
+    vi.mocked(toast.success).mockClear();
     const d = deferred();
     vi.mocked(fetchRemoteState).mockReturnValue(d.promise);
     let read: Promise<any>;
@@ -134,6 +260,7 @@ describe("authoritative sync", () => {
     });
     expect(h.onFull).toHaveBeenCalledOnce();
     expect(h.result.current.metadata.liveRevision).toBe(3);
+    expect(toast.success).not.toHaveBeenCalled();
   });
   it("failed full refresh leaves history stale", async () => {
     const h = mount();
