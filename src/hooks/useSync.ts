@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { fetchRemoteState, pushLocalState, type SyncState } from "@/lib/sync";
-import { Match, AppSettings, Season } from "@/types/match";
+import { Match, AppSettings, Season, DEFAULT_SETTINGS } from "@/types/match";
 import { toast } from "sonner";
 
 export type SyncStatus = "local" | "checking" | "editor" | "viewer" | "invalid" | "unavailable";
@@ -99,8 +99,16 @@ export function useSync(
   const currentRef = useRef({ getLocalState, onSyncState });
   currentRef.current = { getLocalState, onSyncState };
 
-  const serialize = (value: unknown): string =>
-    JSON.stringify(value, (_key, nested) => {
+  const serialize = (value: SyncState): string => {
+    const {
+      theme: _theme,
+      syncToken: _token,
+      ...sharedSettings
+    } = {
+      ...DEFAULT_SETTINGS,
+      ...value.settings,
+    };
+    return JSON.stringify({ ...value, settings: sharedSettings }, (_key, nested) => {
       if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
       return Object.fromEntries(
         Object.keys(nested)
@@ -108,6 +116,7 @@ export function useSync(
           .map((key) => [key, (nested as Record<string, unknown>)[key]]),
       );
     });
+  };
 
   const writeState = useCallback(async (token: string, local: SyncState, generation: number) => {
     const operation = writeQueueRef.current
@@ -259,7 +268,11 @@ export function useSync(
       writeTimerRef.current = null;
     }
     const cached = readCachedAccess(syncToken ?? "");
-    lastPushedState.current = cached?.baseline ?? "";
+    try {
+      lastPushedState.current = cached?.baseline ? serialize(JSON.parse(cached.baseline)) : "";
+    } catch {
+      lastPushedState.current = "";
+    }
     writeBlockedRef.current = false;
     manualInFlight.current = false;
     manualGeneration.current = 0;
@@ -310,32 +323,26 @@ export function useSync(
   }, [syncToken, status, role, checkedToken, getLocalState, writeState]);
 
   useEffect(() => {
-    if (!syncToken || role === "viewer" || status === "invalid" || checkedToken !== syncToken)
-      return;
+    if (!syncToken || role !== null || status === "invalid" || checkedToken !== syncToken) return;
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        if (role === "editor") void syncNowQuietly();
-        else void pull(syncToken, generationRef.current, true);
+        void pull(syncToken, generationRef.current, true);
       }
-    };
-    const syncNowQuietly = async () => {
-      const generation = generationRef.current;
-      if (!(await flushPendingWrite(generation))) return;
-      if (generation === generationRef.current) await pull(syncToken, generation, true);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [syncToken, role, status, checkedToken, pull, flushPendingWrite]);
+  }, [syncToken, role, status, checkedToken, pull]);
 
   useEffect(() => {
-    if (!syncToken || role !== "viewer" || status === "invalid" || checkedToken !== syncToken)
-      return;
+    if (!syncToken || !role || status === "invalid" || checkedToken !== syncToken) return;
     let timer: number | undefined;
     let disposed = false;
     const refresh = async () => {
       if (disposed || document.visibilityState !== "visible" || manualInFlight.current)
         return schedule();
-      await pull(syncToken, generationRef.current, true);
+      const generation = generationRef.current;
+      if (role === "editor" && !(await flushPendingWrite(generation))) return schedule();
+      if (generation === generationRef.current) await pull(syncToken, generation, true);
       schedule();
     };
     const schedule = () => {
@@ -355,7 +362,16 @@ export function useSync(
       if (timer) window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [syncToken, status, role, checkedToken, !!activeMatch, pull, refreshSignal]);
+  }, [
+    syncToken,
+    status,
+    role,
+    checkedToken,
+    !!activeMatch,
+    pull,
+    flushPendingWrite,
+    refreshSignal,
+  ]);
 
   const syncNow = useCallback(async () => {
     if (!syncToken || manualInFlight.current || Date.now() < manualCooldownUntil.current) return;

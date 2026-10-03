@@ -80,7 +80,13 @@ describe("SeasonStatsCard", () => {
   it("shows all players tied for the lead", () => {
     render(
       <SeasonStatsCard
-        stats={{ ...stats, topScorers: ["Alice", "Bob"], topAssisters: ["Dana", "Eli"], topScorerGoals: 3, topAssists: 2 }}
+        stats={{
+          ...stats,
+          topScorers: ["Alice", "Bob"],
+          topAssisters: ["Dana", "Eli"],
+          topScorerGoals: 3,
+          topAssists: 2,
+        }}
       />,
     );
 

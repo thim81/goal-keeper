@@ -210,17 +210,11 @@ describe("season helpers", () => {
       time: "10:00",
       timestamp: Number(id),
     });
-    const migrated = migrateLegacyDataToSeasons(
-      [createMatchSummary()],
-      {
-        m1: createFullMatch({
-          goals: [
-            goal("1", "Alice", "Dana"),
-            goal("2", "Bob", "Eli"),
-          ],
-        }),
-      },
-    );
+    const migrated = migrateLegacyDataToSeasons([createMatchSummary()], {
+      m1: createFullMatch({
+        goals: [goal("1", "Alice", "Dana"), goal("2", "Bob", "Eli")],
+      }),
+    });
     const stats = getSeasonStats(migrated.seasons[migrated.activeSeasonId]);
 
     expect(stats.topScorers).toEqual(["Alice", "Bob"]);

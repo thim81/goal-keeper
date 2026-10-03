@@ -170,6 +170,94 @@ describe("useSync manual refresh", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it.each(["editor", "viewer"] as const)(
+    "polls idle %ss every thirty seconds and live matches every ten seconds",
+    async (role) => {
+      vi.useFakeTimers();
+      let visibility: DocumentVisibilityState = "visible";
+      vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+      const activeMatch = { id: "remote-match" } as NonNullable<SyncState["activeMatch"]>;
+      let updated: SyncState = { ...remoteState, activeMatch };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(remoteResponse(role))
+        .mockImplementation(() => remoteResponse(role, updated));
+      vi.stubGlobal("fetch", fetchMock);
+      const onSyncState = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ match }) => useSync("token", {}, "season-1", match, settings, onSyncState),
+        { initialProps: { match: null as SyncState["activeMatch"] } },
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.status).toBe(role);
+
+      await act(async () => vi.advanceTimersByTimeAsync(29_999));
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(onSyncState).toHaveBeenLastCalledWith(updated);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      rerender({ match: activeMatch });
+      await act(async () => vi.advanceTimersByTimeAsync(10_000));
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls.every(([, options]) => options?.method !== "POST")).toBe(true);
+
+      visibility = "hidden";
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      await act(async () => vi.advanceTimersByTimeAsync(30_000));
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      visibility = "visible";
+      await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      await act(async () => vi.advanceTimersByTimeAsync(10_000));
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+      updated = remoteState;
+      await act(async () => vi.advanceTimersByTimeAsync(10_000));
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+      rerender({ match: null });
+      await act(async () => vi.advanceTimersByTimeAsync(29_999));
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(fetchMock).toHaveBeenCalledTimes(7);
+      expect(fetchMock.mock.calls.every(([, options]) => options?.method !== "POST")).toBe(true);
+    },
+  );
+
+  it("retries unsaved editor changes before an automatic pull", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const localEdit = { id: "unsaved-match" } as NonNullable<SyncState["activeMatch"]>;
+    const updated = { ...remoteState, activeMatch: localEdit };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(remoteResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockImplementation(() => remoteResponse("editor", updated));
+    vi.stubGlobal("fetch", fetchMock);
+    const onSyncState = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ match }) => useSync("token", {}, "season-1", match, settings, onSyncState),
+      { initialProps: { match: null as SyncState["activeMatch"] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    rerender({ match: localEdit });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(result.current.status).toBe("unavailable");
+
+    await act(async () => vi.advanceTimersByTimeAsync(10_000));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[2][1].method).toBe("POST");
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body).activeMatch).toEqual(localEdit);
+    expect(fetchMock.mock.calls[3][1].method).toBeUndefined();
+    expect(onSyncState).toHaveBeenLastCalledWith(updated);
+  });
+
   it("clears stale local matches when a valid viewer credential reads an empty workspace", async () => {
     const fetchMock = vi
       .fn()

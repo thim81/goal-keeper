@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
-import type { Match, MatchSummary, Season } from "@/types/match";
+import { DEFAULT_SETTINGS, type Match, type MatchSummary, type Season } from "@/types/match";
 import { toast } from "sonner";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -269,6 +269,51 @@ describe("Index viewer access", () => {
       "saved-editor",
     );
   });
+
+  it.each([true, false])(
+    "opens another editor's active match after restarting (complete settings: %s)",
+    async (completeSettings) => {
+      const { theme: _theme, syncToken: _token, ...sharedDefaults } = DEFAULT_SETTINGS;
+      const savedState = {
+        ...remoteState,
+        settings: completeSettings
+          ? { ...sharedDefaults, ...remoteState.settings }
+          : remoteState.settings,
+      };
+      localStorage.setItem(
+        "football-tracker-settings",
+        JSON.stringify({
+          ...savedState.settings,
+          syncToken: "editor-token",
+          theme: "system",
+        }),
+      );
+      const fetchMock = vi.fn().mockImplementation(() => response("editor", savedState));
+      vi.stubGlobal("fetch", fetchMock);
+      const first = render(<Index />);
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith("Goals Synced", { duration: 2000 }),
+      );
+      first.unmount();
+      if (!completeSettings) {
+        // Reproduce the baseline saved by versions that did not include default fields.
+        localStorage.setItem(
+          "football-tracker-workspace-access",
+          JSON.stringify({
+            token: "editor-token",
+            role: "editor",
+            baseline: JSON.stringify(savedState),
+          }),
+        );
+      }
+
+      fetchMock.mockImplementation(() => response("editor", { ...savedState, activeMatch }));
+      render(<Index />);
+      expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.every(([, options]) => options?.method !== "POST")).toBe(true);
+    },
+  );
 
   it("returns a viewer to home when the editor ends the active match", async () => {
     localStorage.setItem(
