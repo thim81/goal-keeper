@@ -19,6 +19,32 @@ afterEach(() => {
 });
 
 describe("useWorkspaceActions", () => {
+  it("captures device submission time once and preserves the complete failed command on retry", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T13:00:00Z"));
+    const execute = vi.fn(async (_command: WorkspaceCommand) => false);
+    const hook = renderHook(
+      ({ failed }) => useWorkspaceActions(state, false, vi.fn(), execute, failed),
+      { initialProps: { failed: null as WorkspaceCommand | null } },
+    );
+    await act(async () => {
+      await hook.result.current("add-goal", { team: "my-team" }, { matchId: "match" });
+    });
+    const original = execute.mock.calls[0][0];
+    expect(original).toMatchObject({ occurredAt: Date.parse("2026-10-04T13:00:00Z") });
+    hook.rerender({ failed: original });
+    clock.mockReturnValue(Date.parse("2026-10-04T13:01:00Z"));
+    await act(async () => {
+      await hook.result.current("add-goal", { team: "my-team" }, { matchId: "match" });
+    });
+    expect(execute.mock.calls[1][0]).toEqual(original);
+    await act(async () => {
+      await hook.result.current("add-goal", { team: "opponent" }, { matchId: "match" });
+    });
+    expect(execute.mock.calls[2][0]).toMatchObject({
+      occurredAt: Date.parse("2026-10-04T13:01:00Z"),
+    });
+    expect(execute.mock.calls[2][0].id).not.toBe(original.id);
+  });
   it("applies local actions and caches without device credentials", async () => {
     const apply = vi.fn();
     const execute = vi.fn(async (_command: WorkspaceCommand) => true);

@@ -47,6 +47,36 @@ async function body(response: Response) {
 }
 
 describe("SQLite workspace Worker", () => {
+  it("returns the editor's recorded goal time unchanged to live/full reads, retries and completed history", async () => {
+    await seed();
+    const stub = workspace();
+    const started = await body(
+      await command(stub, { id: "start", type: "start-match", payload: { isHome: true } }),
+    );
+    const matchId = started.state.activeMatch.id;
+    const occurredAt = Date.parse("2026-10-04T13:00:00Z");
+    const goal = {
+      id: "at-one",
+      type: "add-goal",
+      matchId,
+      occurredAt,
+      timeZone: "UTC",
+      payload: { team: "my-team" },
+    };
+    const accepted = await body(await command(stub, goal));
+    expect(accepted.activeMatch.goals[0]).toMatchObject({ timestamp: occurredAt, time: "13:00" });
+    expect((await body(await get(stub, "/active-match"))).activeMatch.goals[0]).toEqual(
+      accepted.activeMatch.goals[0],
+    );
+    expect((await body(await get(stub))).state.activeMatch.goals[0]).toEqual(
+      accepted.activeMatch.goals[0],
+    );
+    expect(await body(await command(stub, goal))).toEqual(accepted);
+    expect((await command(stub, { ...goal, occurredAt: occurredAt + 1000 })).status).toBe(409);
+    await command(stub, { id: "end", type: "end-match", matchId });
+    const finished = await body(await get(stub));
+    expect(finished.state.fullMatches[matchId].goals[0]).toEqual(accepted.activeMatch.goals[0]);
+  });
   it("denies direct public Worker access", async () => {
     const worker = (await import("../../workspace")).default;
     expect((await worker.fetch(new Request("https://example.test/api/command"), env)).status).toBe(

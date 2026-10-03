@@ -35,14 +35,16 @@ export function useWorkspaceActions(
         ...targets,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
-      const command: WorkspaceCommand = {
-        ...content,
-        id:
-          props.failed && intent(props.failed) === intent(content)
-            ? props.failed.id
-            : (globalThis.crypto?.randomUUID?.() ??
-              `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`),
-      };
+      const command: WorkspaceCommand =
+        props.failed && intent(props.failed) === intent(content)
+          ? props.failed
+          : {
+              ...content,
+              occurredAt: Date.now(),
+              id:
+                globalThis.crypto?.randomUUID?.() ??
+                `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
+            };
       if (!props.local) return props.execute(command);
       try {
         const result = applyWorkspaceCommand(props.state, command);

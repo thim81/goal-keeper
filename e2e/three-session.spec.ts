@@ -118,7 +118,16 @@ async function submitCommand(page: Page, click: () => Promise<unknown>, type: st
   await click();
   const response = await received;
   expect(response.status()).toBe(200);
-  return response.json();
+  const result = await response.json();
+  if (type === "add-goal" || type === "add-event") {
+    const submitted = response.request().postDataJSON();
+    expect(typeof submitted.occurredAt).toBe("number");
+    const items = type === "add-goal" ? result.activeMatch.goals : result.activeMatch.events;
+    expect(items.find((item: any) => item.id.startsWith(`${submitted.id}:`)).timestamp).toBe(
+      submitted.occurredAt,
+    );
+  }
+  return result;
 }
 
 async function authoritative(page: Page) {
@@ -189,6 +198,8 @@ for (const order of ["goal-first", "card-first"] as const) {
 
       // Both forms are prepared from the same earlier state. The second editor
       // submits immediately after the first response, without a manual refresh.
+      const oneOClock = await a.page.evaluate(() => new Date().setHours(13, 0, 0, 0));
+      await a.page.clock.setFixedTime(oneOClock);
       const goalSubmit = await prepareGoal(a.page, firstScorer);
       const cardSubmit = await prepareCard(b.page, cardPlayer);
       const waveStart = commands.length;
@@ -206,9 +217,20 @@ for (const order of ["goal-first", "card-first"] as const) {
       await expect(b.page.getByPlaceholder("Which player?")).toHaveCount(0);
       const firstWave = await authoritative(a.page);
       expect(hasGoalsAndCard(firstWave, [firstScorer], cardPlayer)).toBe(true);
+      expect(
+        firstWave.state.activeMatch.goals.find((goal: any) => goal.scorer === firstScorer),
+      ).toMatchObject({ timestamp: oneOClock, time: "13:00" });
       await waitForRead(c.reads, (read) => hasGoalsAndCard(read.body, [firstScorer], cardPlayer));
       await expect(c.page.getByText(firstScorer)).toBeVisible({ timeout: POLL_TIMEOUT });
       await expect(c.page.getByText(new RegExp(cardPlayer))).toBeVisible({ timeout: POLL_TIMEOUT });
+      for (const session of [a, b, c]) {
+        await expect(
+          session.page
+            .locator("div.flex.items-center.justify-between")
+            .filter({ has: session.page.getByText(firstScorer, { exact: true }) })
+            .getByText("13:00", { exact: true }),
+        ).toBeVisible({ timeout: POLL_TIMEOUT });
+      }
 
       const secondGoalSubmit = await prepareGoal(b.page, secondScorer);
       await submitCommand(b.page, () => secondGoalSubmit.click(), "add-goal");
@@ -264,6 +286,12 @@ for (const order of ["goal-first", "card-first"] as const) {
         await expect(scoreboard.locator(".font-black").nth(0)).toHaveText("2");
         await expect(scoreboard.locator(".font-black").nth(1)).toHaveText("0");
         await expect(session.page.getByText(firstScorer, { exact: true }).last()).toBeVisible();
+        await expect(
+          session.page
+            .locator("div.flex.items-center.justify-between")
+            .filter({ has: session.page.getByText(firstScorer, { exact: true }) })
+            .getByText("13:00", { exact: true }),
+        ).toBeVisible();
         await expect(session.page.getByText(secondScorer, { exact: true }).last()).toBeVisible();
         await expect(session.page.getByText(new RegExp(cardPlayer))).toBeVisible();
         expect(await cachedMatch(session.page, opponent)).toMatchObject({

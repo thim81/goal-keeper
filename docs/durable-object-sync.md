@@ -18,6 +18,8 @@ The client tracks live revision, full revision, and the structure revision repre
 
 Only one command is submitted per browser at a time. A transport failure gets one automatic retry with the same ID. Explicit retries retain the ID. Reads cannot confirm an uncertain command. Offline data stays readable; a cached role cannot grant editor access before current credential confirmation. There is no offline command replay queue.
 
+Commands capture device submission time in `occurredAt`. Goals and manually added timeline events preserve this timestamp and the submitting device's time zone, so every editor and viewer sees the recorded time even after network delays or retries. The server validates that it is a nonnegative, finite JavaScript date timestamp; it does not clamp valid device times to server receipt time. Commands without this field fall back to execution time. Match start, pause/resume, period boundaries, and match completion continue to calculate timing using the mutation clock. Explicit retry reuses the complete original command, including its timestamp.
+
 Submission dialogs use `useSubmitAction(action, onSuccess)` for pending state and duplicate-submit protection. They close after confirmation and retain input on failure. Token-free local actions remain immediate. Undo deletes the last displayed timeline entry by its ID; it never reverses an edit.
 
 The cache stores a complete workspace plus separate revision metadata. Raw legacy browser storage is preserved once under `football-tracker-legacy-recovery`. Browser credentials and theme remain device-local. Remote state and recovery snapshots contain shared settings only.

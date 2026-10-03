@@ -201,8 +201,8 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       canonicalize(state);
       return;
     }
-    case "add-goal": addGoal(state, command, payload, now); return;
-    case "add-event": addEvent(state, command, payload, now); return;
+    case "add-goal": addGoal(state, command, payload, command.occurredAt ?? now); return;
+    case "add-event": addEvent(state, command, payload, command.occurredAt ?? now); return;
     case "delete-goal": {
       const match = targetMatch(state, command);
       const id = text(payload, "goalId");
@@ -391,6 +391,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
 
 export function applyWorkspaceCommand(state: SyncState, command: WorkspaceCommand, now = Date.now()): Result {
   if (!own(command) || !nonempty(command.id) || !Object.prototype.hasOwnProperty.call(COMMAND_SCOPES, command.type)) fail(400, "Invalid command");
+  if (command.occurredAt !== undefined && (!finite(command.occurredAt) || command.occurredAt < 0 || command.occurredAt > 8_640_000_000_000_000)) fail(400, "Invalid occurredAt");
   let normalized: SyncState;
   try {
     normalized = normalizeWorkspace(state);

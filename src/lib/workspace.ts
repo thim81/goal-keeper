@@ -37,6 +37,7 @@ export interface WorkspaceCommand {
   expectedRevision?: number;
   payload?: Record<string, unknown>;
   timeZone?: string;
+  occurredAt?: number;
 }
 
 export interface LiveResponse {

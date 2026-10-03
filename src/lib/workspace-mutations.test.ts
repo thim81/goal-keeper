@@ -15,6 +15,32 @@ const live = (state = base()) => {
 };
 
 describe("applyWorkspaceCommand live mutations", () => {
+  it.each([
+    ["add-goal", { team: "my-team" }],
+    ["add-event", { eventType: "yellow-card", player: "Alice" }],
+  ])("preserves the device's 13:00 timeline time for %s despite request delay or clock differences", (type, payload) => {
+    const { state, matchId } = live();
+    const occurredAt = Date.parse("2026-10-04T13:00:00Z");
+    for (const now of [occurredAt + 5000, occurredAt + 600_000, occurredAt - 120_000]) {
+      const result = applyWorkspaceCommand(state, command(type, payload, { matchId, timeZone: "UTC", occurredAt } as Partial<WorkspaceCommand>), now);
+      const match = result.state.activeMatch!;
+      const item = type === "add-goal" ? match.goals[0] : match.events[match.events.length - 1];
+      expect(item).toMatchObject({ timestamp: occurredAt, time: "13:00" });
+      expect(result.state.activeMatch!.startedAt).toBe(state.activeMatch!.startedAt);
+    }
+  });
+  it.each([null, "13:00", NaN, Infinity, -1, 8_640_000_000_000_001])("rejects invalid occurredAt %s without mutating state", occurredAt => {
+    const { state, matchId } = live();
+    const original = structuredClone(state);
+    expect(() => applyWorkspaceCommand(state, command("add-goal", { team: "my-team" }, { matchId, occurredAt } as Partial<WorkspaceCommand>))).toThrow("Invalid occurredAt");
+    expect(state).toEqual(original);
+  });
+  it("keeps shared pause timing on the mutation clock", () => {
+    const { state, matchId } = live();
+    const now = state.activeMatch!.startedAt + 60_000;
+    const result = applyWorkspaceCommand(state, command("pause-match", {}, { matchId, occurredAt: now - 120_000 } as Partial<WorkspaceCommand>), now);
+    expect(result.state.activeMatch!.pausedAt).toBe(now);
+  });
   it.each([{ isActive: false }, { endedAt: 1_700_000_000_100 }])("rejects live writes to an ended match snapshot", ended => {
     const { state, matchId } = live();
     Object.assign(state.activeMatch!, ended);
