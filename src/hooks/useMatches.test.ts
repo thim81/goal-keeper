@@ -21,6 +21,23 @@ async function setupWithMatch(overrides?: {
   return result;
 }
 
+describe("saved workspace initialization", () => {
+  afterEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
+  it("does not remove a saved active match while initializing", async () => {
+    localStorage.clear();
+    const first = await setupWithMatch();
+    const match = first.current.activeMatch!;
+    const remove = vi.spyOn(Storage.prototype, "removeItem");
+    renderHook(() => useMatches());
+    expect(remove).not.toHaveBeenCalledWith("football-tracker-active-match");
+    expect(JSON.parse(localStorage.getItem("football-tracker-active-match")!)).toEqual(match);
+  });
+  it("recovers from corrupt local match storage", () => {
+    localStorage.setItem("football-tracker-seasons", "{broken");
+    expect(() => renderHook(() => useMatches())).not.toThrow();
+  });
+});
+
 describe("useMatches period history", () => {
   beforeEach(() => {
     localStorage.clear();
