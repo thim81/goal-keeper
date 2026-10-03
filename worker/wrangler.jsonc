@@ -1,0 +1,16 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "goal-keeper-workspace",
+  "main": "./workspace.ts",
+  "compatibility_date": "2026-10-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "WORKSPACES", "class_name": "Workspace" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Workspace"] }],
+  "kv_namespaces": [{ "binding": "GOALKEEPER_KV", "id": "legacy-state" }],
+  "vars": {
+    "ALLOW_EMPTY_WORKSPACE": "false",
+    "WORKSPACE_ID": "goal-keeper"
+  }
+}

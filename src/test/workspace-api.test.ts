@@ -1,126 +1,97 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { onRequestGet, onRequestPost } from "../../functions/api/state";
-
-const state = {
-  matches: [],
-  fullMatches: {},
-  activeMatch: null,
-  settings: {
-    teamName: "Club",
-    players: ["Alice"],
-    periodsCount: 4,
-    periodDuration: 20,
-    syncToken: "editor",
-    calendarUrl: "https://public.example/calendar.ics",
-    calendarTeamName: "Club U15",
-    debug: true,
-  },
-};
-function context(token: string, method = "GET", stored: unknown = state) {
+import { onRequestGet as live } from "../../functions/api/active-match";
+import { onRequestPost as command } from "../../functions/api/command";
+import { onRequestGet as share } from "../../functions/api/share";
+import { createEmptyWorkspace } from "../lib/workspace";
+function context(token = "editor", protocol = "2", method = "GET") {
+  const state = createEmptyWorkspace();
+  state.settings = { ...state.settings, theme: "dark", syncToken: "secret", secret: "hidden" };
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(
+      Response.json({
+        scope: "structural",
+        workspaceId: "goal-keeper",
+        revision: 1,
+        structureRevision: 1,
+        state,
+      }),
+    );
   return {
+    request: new Request("https://example.com/api/state", {
+      method,
+      headers: { "x-auth-token": token, "X-Workspace-Protocol": protocol },
+      ...(method === "POST"
+        ? { body: JSON.stringify({ id: "c", type: "start-match", payload: { isHome: true } }) }
+        : {}),
+    }),
     env: {
       AUTH_TOKEN: "editor",
       VIEWER_TOKEN: "viewer",
-      GOALKEEPER_KV: {
-        get: vi.fn().mockResolvedValue(stored === null ? null : JSON.stringify(stored)),
-        put: vi.fn(),
+      WORKSPACES: {
+        idFromName: vi.fn().mockReturnValue("stable"),
+        get: vi.fn().mockReturnValue({ fetch }),
       },
+      GOALKEEPER_KV: { get: vi.fn(), put: vi.fn() },
     },
-    request: new Request("https://example.com/api/state", {
-      method,
-      headers: { "x-auth-token": token },
-      ...(method === "POST" ? { body: JSON.stringify(state) } : {}),
-    }),
+    fetch,
   };
 }
-describe("workspace permissions", () => {
-  it("shares public calendar details without exposing credentials or private settings", async () => {
-    const ctx = context("viewer");
-    const response = await onRequestGet(ctx as never);
-    expect(response.status).toBe(200);
-    expect(ctx.env.GOALKEEPER_KV.get).toHaveBeenCalledWith("goal-keeper-state", { cacheTtl: 30 });
-    expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
-    expect((await response.json()).settings).toEqual({
-      teamName: "Club",
-      players: ["Alice"],
-      periodsCount: 4,
-      periodDuration: 20,
-      calendarUrl: "https://public.example/calendar.ics",
-      calendarTeamName: "Club U15",
-    });
+describe("Pages authoritative adapters", () => {
+  it.each(["editor", "viewer"])("%s reads stable workspace without touching KV", async (token) => {
+    const c = context(token);
+    const r = await onRequestGet(c as never);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("X-Workspace-Role")).toBe(token);
+    expect(c.env.WORKSPACES.idFromName).toHaveBeenCalledWith("goal-keeper");
+    const data = await r.json();
+    expect(data.state.settings).not.toHaveProperty("syncToken");
+    expect(data.state.settings).not.toHaveProperty("theme");
+    expect(data.state.settings).not.toHaveProperty("secret");
+    expect(c.env.GOALKEEPER_KV.get).not.toHaveBeenCalled();
   });
-  it("clears viewer calendar settings when omitted from stored state", async () => {
-    const body = {
-      ...state,
-      settings: { teamName: "Club", players: [], periodsCount: 4, periodDuration: 20 },
-    };
-    const response = await onRequestGet(context("viewer", "GET", body) as never);
-    expect((await response.json()).settings).toMatchObject({
-      calendarUrl: "",
-      calendarTeamName: "",
-    });
-  });
-  it("strips legacy credentials for editors too", async () => {
-    const response = await onRequestGet(context("editor") as never);
-    expect((await response.json()).settings).not.toHaveProperty("syncToken");
-    expect(response.headers.get("X-Workspace-Role")).toBe("editor");
-  });
-  it("returns viewer permissions even for an empty workspace", async () => {
-    const response = await onRequestGet(context("viewer", "GET", null) as never);
-    expect(response.status).toBe(204);
-    expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
-  });
-  it("returns an error for unreadable JSON", async () => {
-    const ctx = context("editor");
-    ctx.env.GOALKEEPER_KV.get.mockResolvedValue("{broken-json");
-    const response = await onRequestGet(ctx as never);
-    expect(response.status).toBe(422);
-    expect(response.headers.get("X-Workspace-Role")).toBe("editor");
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response.text()).toContain("existing data was preserved");
-    expect(ctx.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
-  });
-  it("rejects invalid stored shapes for viewers without exposing the raw state", async () => {
-    const ctx = context("viewer", "GET", []);
-    const response = await onRequestGet(ctx as never);
-    expect(response.status).toBe(422);
-    expect(response.headers.get("X-Workspace-Role")).toBe("viewer");
-    expect(await response.text()).not.toContain("syncToken");
-    expect(ctx.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
-  });
-  it("rejects viewer writes without touching KV", async () => {
-    const ctx = context("viewer", "POST");
-    expect((await onRequestPost(ctx as never)).status).toBe(403);
-    expect(ctx.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
-  });
-  it("rejects invalid credentials", async () => {
-    expect((await onRequestGet(context("bad") as never)).status).toBe(401);
-    expect((await onRequestPost(context("bad", "POST") as never)).status).toBe(401);
-  });
-  it("strips credentials on editor writes", async () => {
-    const ctx = context("editor", "POST");
-    expect((await onRequestPost(ctx as never)).status).toBe(204);
-    expect(JSON.parse(ctx.env.GOALKEEPER_KV.put.mock.calls[0][1]).settings).not.toHaveProperty(
-      "syncToken",
+  it("forwards live reads", async () => {
+    const c = context("viewer");
+    c.fetch.mockResolvedValue(
+      Response.json({ scope: "live", revision: 1, structureRevision: 1, activeMatch: null }),
     );
+    const r = await live(c as never);
+    expect(r.status).toBe(200);
+    expect(c.fetch.mock.calls[0][0].url).toContain("/active-match");
   });
-});
-
-describe("workspace sharing", () => {
-  it("only returns the viewer credential to editors", async () => {
-    const { onRequestGet: share } = await import("../../functions/api/share");
+  it("rejects viewers before forwarding writes", async () => {
+    const c = context("viewer", "2", "POST");
+    expect((await command(c as never)).status).toBe(403);
+    expect(c.fetch).not.toHaveBeenCalled();
+  });
+  it("forwards editor commands and confirmed role", async () => {
+    const c = context("editor", "2", "POST");
+    const r = await command(c as never);
+    expect(r.headers.get("X-Workspace-Role")).toBe("editor");
+    expect(c.fetch.mock.calls[0][0].url).toContain("/command");
+  });
+  it("blocks incompatible reads and legacy uploads", async () => {
+    const c = context("editor", "");
+    expect((await onRequestGet(c as never)).status).toBe(426);
+    expect((await onRequestPost(context("editor", "2", "POST") as never)).status).toBe(410);
+    expect(c.env.GOALKEEPER_KV.put).not.toHaveBeenCalled();
+  });
+  it("rejects invalid auth and reports missing binding", async () => {
+    expect((await onRequestGet(context("bad") as never)).status).toBe(401);
+    const c = context();
+    delete (c.env as any).WORKSPACES;
+    expect((await onRequestGet(c as never)).status).toBe(503);
+  });
+  it("propagates storage failure without fallback", async () => {
+    const c = context();
+    c.fetch.mockRejectedValue(new Error("storage"));
+    expect((await onRequestGet(c as never)).status).toBe(503);
+    expect(c.env.GOALKEEPER_KV.get).not.toHaveBeenCalled();
+  });
+  it("share preserves existing token contract", async () => {
+    const c = context();
+    expect(await (await share(c as never)).json()).toEqual({ viewerToken: "viewer" });
     expect((await share(context("viewer") as never)).status).toBe(403);
-    expect((await share(context("bad") as never)).status).toBe(401);
-    const response = await share(context("editor") as never);
-    expect(await response.json()).toEqual({ viewerToken: "viewer" });
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-  });
-  it("rejects missing or identical viewer secrets", async () => {
-    const { onRequestGet: share } = await import("../../functions/api/share");
-    for (const token of ["", "editor"]) {
-      const ctx = context("editor");
-      ctx.env.VIEWER_TOKEN = token;
-      expect((await share(ctx as never)).status).toBe(503);
-    }
   });
 });

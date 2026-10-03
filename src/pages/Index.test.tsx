@@ -293,6 +293,7 @@ describe("Index season dialog interactions", () => {
   });
 
   it("imports a backup and applies its settings and seasons", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { container } = render(<Index />);
     goToSettings(container);
 

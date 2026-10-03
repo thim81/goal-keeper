@@ -15,6 +15,13 @@ const live = (state = base()) => {
 };
 
 describe("applyWorkspaceCommand live mutations", () => {
+  it.each([{ isActive: false }, { endedAt: 1_700_000_000_100 }])("rejects live writes to an ended match snapshot", ended => {
+    const { state, matchId } = live();
+    Object.assign(state.activeMatch!, ended);
+    const original = structuredClone(state);
+    expect(() => applyWorkspaceCommand(state, command("add-goal", { team: "my-team", scorer: "Alice" }, { matchId }))).toThrow("Match has ended");
+    expect(state).toEqual(original);
+  });
   it.each([
     ["add-goal", { team: "my-team", scorer: "Alice", assist: "Bob", type: "normal" }],
     ["add-event", { eventType: "yellow-card", player: "Alice" }],

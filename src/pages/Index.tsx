@@ -3,6 +3,10 @@ import { History, RefreshCw, Settings } from "lucide-react";
 import { useMatches } from "@/hooks/useMatches";
 import { useSettings } from "@/hooks/useSettings";
 import { useTheme } from "@/hooks/useTheme";
+import { unstable_batchedUpdates } from "react-dom";
+import { assembleWorkspace } from "@/lib/workspace-cache";
+import { normalizeWorkspace, workspaceTimeline } from "@/lib/workspace";
+import { useWorkspaceActions } from "@/hooks/useWorkspaceActions";
 import { useSync } from "@/hooks/useSync";
 import { SyncState } from "@/lib/sync";
 import { Scoreboard } from "@/components/Scoreboard";
@@ -97,66 +101,41 @@ export default function Index() {
     activeSeasonId,
     seasons,
     matchHistory,
-    startMatch,
-    addGoal,
-    deleteGoal,
-    updateGoal,
-    addEvent,
-    deleteEvent,
-    updateEventTime,
-    undoLast,
-    endMatch,
-    deleteMatch,
-    renameHistoricalOpponent,
     getScore,
     getSeasonSummaries,
     getSeasonStatsById,
     getSeasonMatchHistory,
     getSeasonMatchDetails,
-    startPeriod,
-    endPeriod,
-    toggleTimer,
     setAllMatchesState,
-    renameOpponent,
-    closeAndStartNewSeason,
+    setActiveMatchState,
     canCloseSeason,
     canReopenSeason,
-    reopenSeason,
-    renameSeasonName,
   } = useMatches();
 
-  const {
-    settings,
-    updateTeamName,
-    updateCalendarSettings,
-    addPlayer,
-    removePlayer,
-    updatePeriods,
-    updateSyncToken,
-    updateTheme,
-    updateDebug,
-    setAllSettingsState,
-  } = useSettings();
+  const { settings, updateSyncToken, updateTheme, setAllSettingsState } = useSettings();
   const settingsTokenRef = useRef(settings.syncToken);
   settingsTokenRef.current = settings.syncToken;
   const shareRequestRef = useRef(0);
 
   const handleSyncState = useCallback(
-    (state: SyncState) => {
-      setAllMatchesState(state);
-      setAllSettingsState({
-        ...state.settings,
-        calendarUrl:
-          typeof state.settings.calendarUrl === "string"
-            ? state.settings.calendarUrl
-            : settings.calendarUrl,
-        calendarTeamName:
-          typeof state.settings.calendarTeamName === "string"
-            ? state.settings.calendarTeamName
-            : settings.calendarTeamName,
-        theme: settings.theme,
-        syncToken: settings.syncToken,
-        debug: typeof state.settings.debug === "boolean" ? state.settings.debug : settings.debug,
+    (input: SyncState) => {
+      const state = normalizeWorkspace(input);
+      unstable_batchedUpdates(() => {
+        setAllMatchesState(state);
+        setAllSettingsState({
+          ...state.settings,
+          calendarUrl:
+            typeof state.settings.calendarUrl === "string"
+              ? state.settings.calendarUrl
+              : settings.calendarUrl,
+          calendarTeamName:
+            typeof state.settings.calendarTeamName === "string"
+              ? state.settings.calendarTeamName
+              : settings.calendarTeamName,
+          theme: settings.theme,
+          syncToken: settings.syncToken,
+          debug: typeof state.settings.debug === "boolean" ? state.settings.debug : settings.debug,
+        });
       });
       if (state.activeMatch) setSyncScrollSignal((value) => value + 1);
     },
@@ -180,6 +159,14 @@ export default function Index() {
     syncNow,
     isSyncing,
     isCoolingDown,
+    isCredentialConfirmed,
+    executeCommand,
+    pendingCommand,
+    failedCommand,
+    retryCommand,
+    actionError,
+    metadata,
+    isWorkspaceStale,
   } = useSync(
     sharedToken ? undefined : settings.syncToken,
     seasons,
@@ -187,9 +174,51 @@ export default function Index() {
     activeMatch,
     settings,
     handleSyncState,
+    setActiveMatchState,
   );
   const canEdit =
-    !sharedToken && (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
+    !sharedToken &&
+    ((workspaceRole === "editor" && isCredentialConfirmed) ||
+      (syncStatus === "local" && !settings.syncToken));
+  const dispatch = useWorkspaceActions(
+    assembleWorkspace(seasons, activeSeasonId, activeMatch, settings),
+    !settings.syncToken && !sharedToken,
+    handleSyncState,
+    executeCommand,
+    failedCommand,
+  );
+  const liveAction = (
+    type: Parameters<typeof dispatch>[0],
+    payload: Record<string, unknown> = {},
+  ) =>
+    activeMatch ? dispatch(type, payload, { matchId: activeMatch.id }) : Promise.resolve(false);
+  const updateTeamName = (teamName: string) =>
+    dispatch("update-settings", { settings: { teamName } });
+  const updateCalendarSettings = (calendarUrl: string, calendarTeamName: string) =>
+    dispatch("update-settings", { settings: { calendarUrl, calendarTeamName } });
+  const addPlayer = (player: string) => dispatch("add-player", { player });
+  const removePlayer = (player: string) => dispatch("remove-player", { player });
+  const updatePeriods = (periodsCount: number, periodDuration: number) =>
+    dispatch("update-settings", { settings: { periodsCount, periodDuration } });
+  const updateDebug = (debug: boolean) => dispatch("update-settings", { settings: { debug } });
+  const deleteGoal = (goalId: string) => liveAction("delete-goal", { goalId });
+  const deleteEvent = (eventId: string) => liveAction("delete-event", { eventId });
+  const updateEventTime = (eventId: string, time: string) =>
+    liveAction("update-event-time", { eventId, time });
+  const toggleTimer = () => liveAction(activeMatch?.isRunning ? "pause-match" : "resume-match");
+  const undoLast = () => {
+    const items = workspaceTimeline(activeMatch?.goals ?? [], activeMatch?.events ?? []);
+    const latest = items[items.length - 1];
+    if (!latest) return Promise.resolve(false);
+    return latest.kind === "goal" ? deleteGoal(latest.data.id) : deleteEvent(latest.data.id);
+  };
+  const closeAndStartNewSeason = (options?: { name?: string }) =>
+    dispatch("close-season", { name: options?.name }, { seasonId: activeSeasonId ?? undefined });
+  const reopenSeason = (seasonId: string) => dispatch("reopen-season", {}, { seasonId });
+  const renameSeasonName = (seasonId: string, name: string) =>
+    dispatch("rename-season", { name }, { seasonId });
+  const renameHistoricalOpponent = (matchId: string, name: string, seasonId?: string) =>
+    dispatch("rename-historical-opponent", { name }, { matchId, seasonId });
   const hasLocalData =
     !!activeMatch ||
     Object.keys(seasons).length > 1 ||
@@ -307,8 +336,11 @@ export default function Index() {
   ]);
 
   const handleDetectedCalendarTeamName = useCallback(
-    (teamName: string) => updateCalendarSettings(settings.calendarUrl, teamName),
-    [settings.calendarUrl, updateCalendarSettings],
+    (teamName: string) => {
+      if (teamName !== settings.calendarTeamName)
+        void updateCalendarSettings(settings.calendarUrl, teamName);
+    },
+    [settings.calendarUrl, settings.calendarTeamName, dispatch],
   );
   const canViewCalendar =
     canEdit ||
@@ -335,11 +367,10 @@ export default function Index() {
     setShowRenameOpponent(true);
   }, [activeMatch]);
 
-  const handleSaveRenameOpponent = () => {
+  const handleSaveRenameOpponent = async () => {
     const trimmed = opponentNameDraft.trim();
     if (!trimmed) return;
-    renameOpponent(trimmed);
-    setShowRenameOpponent(false);
+    if (await liveAction("rename-opponent", { name: trimmed })) setShowRenameOpponent(false);
   };
 
   const seasonSummaries = useMemo(() => getSeasonSummaries(), [getSeasonSummaries]);
@@ -375,99 +406,65 @@ export default function Index() {
   const recentMatch = useMemo(() => getRecentMatchWithinDays(matchHistory), [matchHistory]);
 
   const score = getScore();
-  const lastEvent = activeMatch?.events?.[activeMatch.events.length - 1];
+  const lastEvent = [...(activeMatch?.events ?? [])]
+    .reverse()
+    .find((event) => event.type === "start" || event.type === "period-end");
   const isPeriodEnded = lastEvent?.type === "period-end";
   const periodStartedAt =
     activeMatch?.periodStartedAt ??
     [...(activeMatch?.events ?? [])].reverse().find((event) => event.type === "start")?.timestamp;
 
-  // Handle starting a new match
-  const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
+  const handleStartMatch = async (myTeamName: string, opponentName: string, isHome: boolean) => {
+    if (!(await dispatch("start-match", { myTeamName, opponentName, isHome }))) return false;
     setScheduledMatchDefaults(null);
-    startMatch(myTeamName, opponentName, isHome);
     setView("live");
+    return true;
   };
-
   const handleSelectUpcomingMatch = (match: UpcomingMatch) => {
     setScheduledMatchDefaults({ opponentName: match.opponentName, isHome: match.isHome });
     setShowStartMatch(true);
   };
-
-  const handleStartPeriod = () => {
-    startPeriod();
+  const handleStartPeriod = () =>
+    liveAction("start-period", { expectedPeriod: activeMatch?.currentPeriod });
+  const handleEndPeriod = async () => {
+    const final = activeMatch?.currentPeriod === settings.periodsCount;
+    if (!(await liveAction("end-period", { expectedPeriod: activeMatch?.currentPeriod })))
+      return false;
+    if (final) setShowEndMatchPrompt(true);
+    return true;
   };
-
-  const handleEndPeriod = () => {
-    const isFinalPeriod =
-      activeMatch !== null && activeMatch.currentPeriod === settings.periodsCount;
-    endPeriod();
-    if (isFinalPeriod) setShowEndMatchPrompt(true);
-  };
-
-  const rememberGoalPlayers = (scorer?: string, assist?: string) => {
-    if (scorer) addPlayer(scorer);
-    if (assist) addPlayer(assist);
-  };
-
-  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
-    addGoal("my-team", scorer, assist, type);
-    rememberGoalPlayers(scorer, assist);
-  };
-
-  const handleUpdateGoal = (id: string, changes: GoalEdit) => {
-    updateGoal(id, changes);
-    if (activeMatch?.goals.find((goal) => goal.id === id)?.team === "my-team") {
-      rememberGoalPlayers(changes.scorer, changes.assist);
-    }
-  };
-
-  // Handle adding opponent goal
-  const handleAddOpponentGoal = (type: GoalType) => {
-    addGoal("opponent", undefined, undefined, type);
-  };
-
-  // Handle adding an event
+  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) =>
+    liveAction("add-goal", { team: "my-team", scorer, assist, type });
+  const handleUpdateGoal = (goalId: string, changes: GoalEdit) =>
+    liveAction("update-goal", { goalId, changes });
+  const handleAddOpponentGoal = (type: GoalType) =>
+    liveAction("add-goal", { team: "opponent", type });
   const handleAddEvent = (
     type: GameEventType,
     options?: { team?: "my-team" | "opponent"; player?: string },
   ) => {
-    if (type === "start") {
-      handleStartPeriod();
-    } else if (type === "period-end") {
-      handleEndPeriod();
-    } else if (type === "pause" || type === "resume") {
-      toggleTimer();
-    } else {
-      const label =
-        type === "yellow-card" || type === "red-card"
-          ? [
-              options?.team
-                ? options.team === "my-team"
-                  ? (activeMatch?.myTeamName ?? "My Team")
-                  : (activeMatch?.opponentName ?? "Opponent")
-                : undefined,
-              options?.player,
-            ]
-              .filter(Boolean)
-              .join(" • ") || undefined
-          : undefined;
-
-      addEvent(type, label, options);
-
-      if (type === "yellow-card" || type === "red-card") {
-        if (options?.team === "my-team" && options.player) {
-          addPlayer(options.player);
-        }
-      }
-    }
+    if (type === "start") return handleStartPeriod();
+    if (type === "period-end") return handleEndPeriod();
+    if (type === "pause" || type === "resume")
+      return liveAction(type === "pause" ? "pause-match" : "resume-match");
+    const label =
+      [
+        options?.team
+          ? options.team === "my-team"
+            ? activeMatch?.myTeamName
+            : activeMatch?.opponentName
+          : undefined,
+        options?.player,
+      ]
+        .filter(Boolean)
+        .join(" • ") || undefined;
+    return liveAction("add-event", { eventType: type, label, ...options });
   };
-
-  // Handle ending match
-  const handleEndMatch = () => {
+  const handleEndMatch = async () => {
+    if (!(await liveAction("end-match"))) return false;
     setShowEndMatchPrompt(false);
-    if (activeMatch?.isRunning) endPeriod();
-    endMatch();
     setView("home");
+    return true;
   };
 
   const effectiveHistorySeasonId = selectedHistorySeasonId ?? activeSeasonId;
@@ -505,10 +502,17 @@ export default function Index() {
     setPendingDeleteMatch({ matchId, seasonId: effectiveHistorySeasonId });
   };
 
-  const handleConfirmDeleteMatch = () => {
+  const handleConfirmDeleteMatch = async (event?: React.MouseEvent) => {
+    event?.preventDefault();
     if (!pendingDeleteMatch) return;
-    deleteMatch(pendingDeleteMatch.matchId, pendingDeleteMatch.seasonId);
-    setPendingDeleteMatch(null);
+    if (
+      await dispatch(
+        "delete-historical-match",
+        {},
+        { matchId: pendingDeleteMatch.matchId, seasonId: pendingDeleteMatch.seasonId },
+      )
+    )
+      setPendingDeleteMatch(null);
   };
 
   const handleExportBackup = () => {
@@ -543,8 +547,24 @@ export default function Index() {
       return;
     }
 
-    setAllMatchesState(parsed.state);
-    setAllSettingsState(parsed.state.settings);
+    if (
+      !window.confirm(
+        "Replace the complete workspace with this backup? The current server workspace will be preserved for recovery.",
+      )
+    )
+      return;
+    if (
+      !(await dispatch(
+        "import-backup",
+        { confirmed: true, state: normalizeWorkspace(parsed.state) },
+        {
+          expectedRevision: settings.syncToken
+            ? Math.max(metadata.liveRevision, metadata.fullRevision)
+            : undefined,
+        },
+      ))
+    )
+      return;
     setView(parsed.state.activeMatch ? "live" : "home");
     setSelectedMatch(null);
     setSelectedMatchSeasonId(null);
@@ -569,535 +589,561 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Settings View */}
-      {view === "settings" && (
-        <SettingsScreen
-          settings={settings}
-          onBack={() => setView(activeMatch ? "live" : "home")}
-          onUpdateTeamName={updateTeamName}
-          onUpdateCalendarSettings={updateCalendarSettings}
-          onAddPlayer={addPlayer}
-          onRemovePlayer={removePlayer}
-          onUpdatePeriods={updatePeriods}
-          onUpdateSyncToken={handleUpdateSyncToken}
-          onUpdateTheme={updateTheme}
-          onUpdateDebug={updateDebug}
-          onExportBackup={handleExportBackup}
-          onImportBackup={handleImportBackup}
-          canEdit={canEdit}
-          syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
-          isSyncing={isSyncing}
-          isCoolingDown={isCoolingDown}
-          onSyncNow={syncNow}
-          viewerLink={viewerLink}
-          onLoadViewerLink={loadViewerLink}
-        />
+    <div className="min-h-screen bg-background flex flex-col" aria-busy={!!pendingCommand}>
+      {(pendingCommand || actionError || isWorkspaceStale) && (
+        <div role="status" className="px-4 py-2 text-sm bg-secondary">
+          {pendingCommand
+            ? "Saving action…"
+            : actionError || "History and settings are cached. Refreshing workspace…"}
+          {failedCommand && !pendingCommand && (
+            <Button variant="outline" onClick={() => void retryCommand()}>
+              Retry action
+            </Button>
+          )}
+        </div>
       )}
+      <fieldset disabled={!!pendingCommand} className="contents">
+        {/* Settings View */}
+        {view === "settings" && (
+          <SettingsScreen
+            settings={settings}
+            onBack={() => setView(activeMatch ? "live" : "home")}
+            onUpdateTeamName={updateTeamName}
+            onUpdateCalendarSettings={updateCalendarSettings}
+            onAddPlayer={addPlayer}
+            onRemovePlayer={removePlayer}
+            onUpdatePeriods={updatePeriods}
+            onUpdateSyncToken={handleUpdateSyncToken}
+            onUpdateTheme={updateTheme}
+            onUpdateDebug={updateDebug}
+            onExportBackup={handleExportBackup}
+            onImportBackup={handleImportBackup}
+            canEdit={canEdit}
+            syncStatus={syncStatus}
+            lastSyncedAt={lastSyncedAt}
+            isSyncing={isSyncing}
+            isCoolingDown={isCoolingDown}
+            onSyncNow={syncNow}
+            viewerLink={viewerLink}
+            onLoadViewerLink={loadViewerLink}
+          />
+        )}
 
-      {/* Match Detail View */}
-      {view === "detail" && selectedMatch && (
-        <MatchDetail
-          match={selectedMatch}
-          opponentSuggestions={opponentSuggestions}
-          onRenameOpponent={
-            canEdit
-              ? (name) => {
-                  const updated = renameHistoricalOpponent(
-                    selectedMatch.id,
-                    name,
-                    selectedMatchSeasonId ?? undefined,
-                  );
-                  if (updated) setSelectedMatch(updated);
-                }
-              : undefined
-          }
-          onBack={() => {
-            setSelectedMatch(null);
-            setSelectedMatchSeasonId(null);
-            setView(matchDetailOrigin);
-          }}
-        />
-      )}
+        {/* Match Detail View */}
+        {view === "detail" && selectedMatch && (
+          <MatchDetail
+            match={selectedMatch}
+            opponentSuggestions={opponentSuggestions}
+            onRenameOpponent={
+              canEdit
+                ? (name) => {
+                    return renameHistoricalOpponent(
+                      selectedMatch.id,
+                      name,
+                      selectedMatchSeasonId ?? undefined,
+                    );
+                  }
+                : undefined
+            }
+            onBack={() => {
+              setSelectedMatch(null);
+              setSelectedMatchSeasonId(null);
+              setView(matchDetailOrigin);
+            }}
+          />
+        )}
 
-      {/* History View */}
-      {view === "history" && (
-        <MatchHistoryScreen
-          seasons={seasonSummaries}
-          selectedSeasonId={effectiveHistorySeasonId}
-          selectedSeason={selectedSeasonSummary}
-          matches={historyMatches}
-          stats={historySeasonStats}
-          activeSeasonStats={activeSeasonStats}
-          canEdit={canEdit}
-          canCloseSeason={canCloseSeason}
-          canReopenSeason={canReopenSeason}
-          hasActiveMatch={!!activeMatch}
-          onSelectSeason={setSelectedHistorySeasonId}
-          onSelectMatch={handleSelectMatch}
-          onDeleteMatch={canEdit ? handleRequestDeleteMatch : undefined}
-          onOpenSettings={() => setView("settings")}
-          onGoHome={() => setView(activeMatch ? "live" : "home")}
-          onCloseSeason={(name) => {
-            const success = closeAndStartNewSeason({ name });
-            if (success) setView("home");
-            return success;
-          }}
-          onReopenSeason={(seasonId) => {
-            const success = reopenSeason(seasonId);
-            if (success) setSelectedHistorySeasonId(seasonId);
-            return success;
-          }}
-          onRenameSeason={renameSeasonName}
-        />
-      )}
+        {/* History View */}
+        {view === "history" && (
+          <MatchHistoryScreen
+            seasons={seasonSummaries}
+            selectedSeasonId={effectiveHistorySeasonId}
+            selectedSeason={selectedSeasonSummary}
+            matches={historyMatches}
+            stats={historySeasonStats}
+            activeSeasonStats={activeSeasonStats}
+            canEdit={canEdit}
+            canCloseSeason={canCloseSeason}
+            canReopenSeason={canReopenSeason}
+            hasActiveMatch={!!activeMatch}
+            onSelectSeason={setSelectedHistorySeasonId}
+            onSelectMatch={handleSelectMatch}
+            onDeleteMatch={canEdit ? handleRequestDeleteMatch : undefined}
+            onOpenSettings={() => setView("settings")}
+            onGoHome={() => setView(activeMatch ? "live" : "home")}
+            onCloseSeason={async (name) => {
+              const success = await closeAndStartNewSeason({ name });
+              if (success) setView("home");
+              return success;
+            }}
+            onReopenSeason={async (seasonId) => {
+              const success = await reopenSeason(seasonId);
+              if (success) setSelectedHistorySeasonId(seasonId);
+              return success;
+            }}
+            onRenameSeason={renameSeasonName}
+          />
+        )}
 
-      {/* Live Match View */}
-      {view === "live" && activeMatch && (
-        <LiveMatchLayout
-          debug={canEdit && settings.debug}
-          header={
-            <div className="relative flex items-center justify-between p-4">
-              <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
-              {settings.syncToken && (
+        {/* Live Match View */}
+        {view === "live" && activeMatch && (
+          <LiveMatchLayout
+            debug={canEdit && settings.debug}
+            header={
+              <div className="relative flex items-center justify-between p-4">
+                <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
+                {settings.syncToken && (
+                  <button
+                    type="button"
+                    onClick={syncNow}
+                    disabled={isSyncing || isCoolingDown}
+                    aria-label={isSyncing ? "Syncing match" : "Sync match"}
+                    title={isSyncing ? "Syncing match" : "Sync match"}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw
+                      className={`w-5 h-5 text-foreground ${isSyncing ? "animate-spin" : ""}`}
+                    />
+                  </button>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    aria-label="Settings"
+                    onClick={() => setView("settings")}
+                    className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                  >
+                    <Settings className="w-5 h-5 text-foreground" />
+                  </button>
+                  <button
+                    aria-label="History"
+                    onClick={() => setView("history")}
+                    className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                  >
+                    <History className="w-5 h-5 text-foreground" />
+                  </button>
+                </div>
+              </div>
+            }
+            top={
+              <div className="px-4">
+                <Scoreboard
+                  match={activeMatch}
+                  myTeamScore={score.myTeam}
+                  opponentScore={score.opponent}
+                  onOpponentLongPress={canEdit ? handleOpenRenameOpponent : undefined}
+                />
+                <MatchTimer
+                  startedAt={activeMatch.startedAt}
+                  periodsCount={settings.periodsCount}
+                  periodDuration={settings.periodDuration}
+                  isRunning={activeMatch.isRunning}
+                  totalPausedTime={activeMatch.totalPausedTime}
+                  pausedAt={activeMatch.pausedAt}
+                  currentPeriod={activeMatch.currentPeriod}
+                  periodStartedAt={periodStartedAt}
+                  periodPausedTime={activeMatch.periodPausedTime}
+                />
+              </div>
+            }
+            timeline={
+              <>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Timeline
+                </h2>
+                <GoalTimeline
+                  goals={activeMatch.goals}
+                  events={activeMatch.events}
+                  myTeamName={activeMatch.myTeamName}
+                  opponentName={activeMatch.opponentName}
+                  scrollToBottomSignal={syncScrollSignal}
+                  editable={canEdit}
+                  onDeleteGoal={canEdit ? deleteGoal : undefined}
+                  knownPlayers={settings.players}
+                  onUpdateGoal={canEdit ? handleUpdateGoal : undefined}
+                  onDeleteEvent={canEdit ? deleteEvent : undefined}
+                  onUpdateEventTime={canEdit ? updateEventTime : undefined}
+                />
+              </>
+            }
+            actionsHandle={
+              canEdit ? (
                 <button
                   type="button"
-                  onClick={syncNow}
-                  disabled={isSyncing || isCoolingDown}
-                  aria-label={isSyncing ? "Syncing match" : "Sync match"}
-                  title={isSyncing ? "Syncing match" : "Sync match"}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={showSecondaryActions ? "Hide extra actions" : "Show extra actions"}
+                  className="w-full flex justify-center pb-2"
+                  onClick={() => handleToggleSecondary(!showSecondaryActions)}
+                  onPointerDown={(e) => {
+                    dragging.current = true;
+                    dragStartY.current = e.clientY;
+                    try {
+                      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  onPointerMove={(e) => {
+                    if (!dragging.current) return;
+                    const deltaY = e.clientY - dragStartY.current;
+                    if (deltaY < -12) handleToggleSecondary(true);
+                    if (deltaY > 12) handleToggleSecondary(false);
+                  }}
+                  onPointerUp={() => {
+                    if (!dragging.current) return;
+                    dragging.current = false;
+                  }}
+                  onPointerCancel={() => {
+                    if (!dragging.current) return;
+                    dragging.current = false;
+                  }}
                 >
-                  <RefreshCw
-                    className={`w-5 h-5 text-foreground ${isSyncing ? "animate-spin" : ""}`}
-                  />
+                  <span className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
                 </button>
-              )}
+              ) : undefined
+            }
+            actions={
+              canEdit ? (
+                <MatchActions
+                  onAddMyGoal={() => setShowAddGoal(true)}
+                  onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
+                  onAddEvent={() => setShowAddEvent(true)}
+                  onUndo={undoLast}
+                  onEndMatch={handleEndMatch}
+                  onStartPeriod={handleStartPeriod}
+                  onEndPeriod={handleEndPeriod}
+                  onToggleTimer={toggleTimer}
+                  isRunning={activeMatch.isRunning}
+                  canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
+                  currentPeriod={activeMatch.currentPeriod}
+                  isPeriodEnded={!!isPeriodEnded}
+                  isHome={activeMatch.isHome}
+                  showSecondaryActions={showSecondaryActions}
+                />
+              ) : (
+                <div className="flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+                  <span>
+                    {syncStatus === "unavailable"
+                      ? "Connection unavailable"
+                      : syncStatus === "invalid"
+                        ? "Access token is invalid"
+                        : lastSyncedAt
+                          ? `Updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
+                          : "Checking workspace"}
+                  </span>
+                  {syncStatus !== "invalid" && (
+                    <button
+                      type="button"
+                      onClick={syncNow}
+                      disabled={isSyncing || isCoolingDown}
+                      className="inline-flex items-center gap-1 py-2 text-primary disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
+                      {isSyncing
+                        ? "Refreshing"
+                        : syncStatus === "unavailable"
+                          ? "Retry"
+                          : "Refresh"}
+                    </button>
+                  )}
+                </div>
+              )
+            }
+          >
+            {/* Add Goal Sheet */}
+            {canEdit && (
+              <AddGoalSheet
+                isOpen={showAddGoal}
+                onClose={() => setShowAddGoal(false)}
+                onAddGoal={handleAddMyGoal}
+                knownPlayers={settings.players}
+              />
+            )}
+
+            {/* Add Opponent Goal Sheet */}
+            {canEdit && (
+              <AddOpponentGoalSheet
+                isOpen={showAddOpponentGoal}
+                onClose={() => setShowAddOpponentGoal(false)}
+                onAddGoal={handleAddOpponentGoal}
+                opponentName={activeMatch.opponentName}
+              />
+            )}
+
+            {/* Add Event Sheet */}
+            {canEdit && (
+              <AddEventSheet
+                isOpen={showAddEvent}
+                onClose={() => setShowAddEvent(false)}
+                onAddEvent={handleAddEvent}
+                myTeamName={activeMatch.myTeamName}
+                opponentName={activeMatch.opponentName}
+                knownPlayers={settings.players}
+              />
+            )}
+
+            <Dialog open={canEdit && showEndMatchPrompt} onOpenChange={setShowEndMatchPrompt}>
+              <DialogContent className="max-w-sm rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle>Final whistle?</DialogTitle>
+                  <DialogDescription>Ready to end the game and save the result?</DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="!flex-row !justify-center !gap-2 !space-x-0">
+                  <Button variant="secondary" onClick={() => setShowEndMatchPrompt(false)}>
+                    Continue Game
+                  </Button>
+                  <Button onClick={handleEndMatch}>End Match</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </LiveMatchLayout>
+        )}
+
+        {/* Home View */}
+        {view === "home" && !activeMatch && (
+          <div className="min-h-screen flex flex-col safe-top">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <h1 className="text-2xl font-black text-foreground">⚽️ Goal Keeper</h1>
+                <p className="text-sm text-muted-foreground">Track your football matches</p>
+              </div>
               <div className="flex gap-2">
                 <button
+                  aria-label="Settings"
                   onClick={() => setView("settings")}
-                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                  className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <Settings className="w-5 h-5 text-foreground" />
                 </button>
                 <button
+                  aria-label="History"
                   onClick={() => setView("history")}
-                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                  className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <History className="w-5 h-5 text-foreground" />
                 </button>
               </div>
             </div>
-          }
-          top={
-            <div className="px-4">
-              <Scoreboard
-                match={activeMatch}
-                myTeamScore={score.myTeam}
-                opponentScore={score.opponent}
-                onOpponentLongPress={canEdit ? handleOpenRenameOpponent : undefined}
-              />
-              <MatchTimer
-                startedAt={activeMatch.startedAt}
-                periodsCount={settings.periodsCount}
-                periodDuration={settings.periodDuration}
-                isRunning={activeMatch.isRunning}
-                totalPausedTime={activeMatch.totalPausedTime}
-                pausedAt={activeMatch.pausedAt}
-                currentPeriod={activeMatch.currentPeriod}
-                periodStartedAt={periodStartedAt}
-                periodPausedTime={activeMatch.periodPausedTime}
-              />
-            </div>
-          }
-          timeline={
-            <>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Timeline
-              </h2>
-              <GoalTimeline
-                goals={activeMatch.goals}
-                events={activeMatch.events}
-                myTeamName={activeMatch.myTeamName}
-                opponentName={activeMatch.opponentName}
-                scrollToBottomSignal={syncScrollSignal}
-                editable={canEdit}
-                onDeleteGoal={canEdit ? deleteGoal : undefined}
-                knownPlayers={settings.players}
-                onUpdateGoal={canEdit ? handleUpdateGoal : undefined}
-                onDeleteEvent={canEdit ? deleteEvent : undefined}
-                onUpdateEventTime={canEdit ? updateEventTime : undefined}
-              />
-            </>
-          }
-          actionsHandle={
-            canEdit ? (
-              <button
-                type="button"
-                aria-label={showSecondaryActions ? "Hide extra actions" : "Show extra actions"}
-                className="w-full flex justify-center pb-2"
-                onClick={() => handleToggleSecondary(!showSecondaryActions)}
-                onPointerDown={(e) => {
-                  dragging.current = true;
-                  dragStartY.current = e.clientY;
-                  try {
-                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                  } catch {
-                    // ignore
-                  }
-                }}
-                onPointerMove={(e) => {
-                  if (!dragging.current) return;
-                  const deltaY = e.clientY - dragStartY.current;
-                  if (deltaY < -12) handleToggleSecondary(true);
-                  if (deltaY > 12) handleToggleSecondary(false);
-                }}
-                onPointerUp={() => {
-                  if (!dragging.current) return;
-                  dragging.current = false;
-                }}
-                onPointerCancel={() => {
-                  if (!dragging.current) return;
-                  dragging.current = false;
-                }}
-              >
-                <span className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
-              </button>
-            ) : undefined
-          }
-          actions={
-            canEdit ? (
-              <MatchActions
-                onAddMyGoal={() => setShowAddGoal(true)}
-                onAddOpponentGoal={() => setShowAddOpponentGoal(true)}
-                onAddEvent={() => setShowAddEvent(true)}
-                onUndo={undoLast}
-                onEndMatch={handleEndMatch}
-                onStartPeriod={handleStartPeriod}
-                onEndPeriod={handleEndPeriod}
-                onToggleTimer={toggleTimer}
-                isRunning={activeMatch.isRunning}
-                canUndo={activeMatch.goals.length > 0 || activeMatch.events.length > 0}
-                currentPeriod={activeMatch.currentPeriod}
-                isPeriodEnded={!!isPeriodEnded}
-                isHome={activeMatch.isHome}
-                showSecondaryActions={showSecondaryActions}
-              />
-            ) : (
-              <div className="flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
-                <span>
-                  {syncStatus === "unavailable"
-                    ? "Connection unavailable"
-                    : syncStatus === "invalid"
-                      ? "Access token is invalid"
-                      : lastSyncedAt
-                        ? `Updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
-                        : "Checking workspace"}
-                </span>
-                {syncStatus !== "invalid" && (
-                  <button
-                    type="button"
-                    onClick={syncNow}
-                    disabled={isSyncing || isCoolingDown}
-                    className="inline-flex items-center gap-1 py-2 text-primary disabled:opacity-50"
-                  >
-                    <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
-                    {isSyncing ? "Refreshing" : syncStatus === "unavailable" ? "Retry" : "Refresh"}
-                  </button>
-                )}
+
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col items-center justify-center p-6">
+              <div className="text-center mb-8">
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-5xl">⚽</span>
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  {canEdit
+                    ? "Ready to Play?"
+                    : countdown
+                      ? "Get ready for kickoff"
+                      : "Waiting for the next match"}
+                </h2>
+                <p className="text-muted-foreground">
+                  {canEdit
+                    ? "Start tracking your match goals in real time"
+                    : "View live scores and browse past match results"}
+                </p>
               </div>
-            )
-          }
-        >
-          {/* Add Goal Sheet */}
-          {canEdit && (
-            <AddGoalSheet
-              isOpen={showAddGoal}
-              onClose={() => setShowAddGoal(false)}
-              onAddGoal={handleAddMyGoal}
-              knownPlayers={settings.players}
-            />
-          )}
 
-          {/* Add Opponent Goal Sheet */}
-          {canEdit && (
-            <AddOpponentGoalSheet
-              isOpen={showAddOpponentGoal}
-              onClose={() => setShowAddOpponentGoal(false)}
-              onAddGoal={handleAddOpponentGoal}
-              opponentName={activeMatch.opponentName}
-            />
-          )}
-
-          {/* Add Event Sheet */}
-          {canEdit && (
-            <AddEventSheet
-              isOpen={showAddEvent}
-              onClose={() => setShowAddEvent(false)}
-              onAddEvent={handleAddEvent}
-              myTeamName={activeMatch.myTeamName}
-              opponentName={activeMatch.opponentName}
-              knownPlayers={settings.players}
-            />
-          )}
-
-          <Dialog open={canEdit && showEndMatchPrompt} onOpenChange={setShowEndMatchPrompt}>
-            <DialogContent className="max-w-sm rounded-2xl">
-              <DialogHeader>
-                <DialogTitle>Final whistle?</DialogTitle>
-                <DialogDescription>Ready to end the game and save the result?</DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="!flex-row !justify-center !gap-2 !space-x-0">
-                <Button variant="secondary" onClick={() => setShowEndMatchPrompt(false)}>
-                  Continue Game
-                </Button>
-                <Button onClick={handleEndMatch}>End Match</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </LiveMatchLayout>
-      )}
-
-      {/* Home View */}
-      {view === "home" && !activeMatch && (
-        <div className="min-h-screen flex flex-col safe-top">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4">
-            <div>
-              <h1 className="text-2xl font-black text-foreground">⚽️ Goal Keeper</h1>
-              <p className="text-sm text-muted-foreground">Track your football matches</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setView("settings")}
-                className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-              >
-                <Settings className="w-5 h-5 text-foreground" />
-              </button>
-              <button
-                onClick={() => setView("history")}
-                className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-              >
-                <History className="w-5 h-5 text-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="text-center mb-8">
-              <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-5xl">⚽</span>
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                {canEdit
-                  ? "Ready to Play?"
-                  : countdown
-                    ? "Get ready for kickoff"
-                    : "Waiting for the next match"}
-              </h2>
-              <p className="text-muted-foreground">
-                {canEdit
-                  ? "Start tracking your match goals in real time"
-                  : "View live scores and browse past match results"}
-              </p>
-            </div>
-
-            {countdown && (
-              <MatchCountdown
-                match={countdown.match}
-                teamName={settings.teamName}
-                secondsRemaining={countdown.secondsRemaining}
-                onStart={canEdit ? () => handleSelectUpcomingMatch(countdown.match) : undefined}
-              />
-            )}
-
-            {!canEdit && settings.syncToken && (
-              <div className="mb-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
-                <span>
-                  {syncStatus === "unavailable"
-                    ? "Connection unavailable"
-                    : syncStatus === "invalid"
-                      ? "Access token is invalid"
-                      : lastSyncedAt
-                        ? `Last updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
-                        : "Checking workspace"}
-                </span>
-                {syncStatus !== "invalid" && (
-                  <button
-                    type="button"
-                    onClick={syncNow}
-                    disabled={isSyncing || isCoolingDown}
-                    className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-foreground disabled:opacity-50"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                    {isSyncing ? "Refreshing" : syncStatus === "unavailable" ? "Retry" : "Refresh"}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {canEdit && (
-              <button
-                onClick={() => {
-                  setScheduledMatchDefaults(null);
-                  setShowStartMatch(true);
-                }}
-                className={
-                  countdown
-                    ? "mt-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    : "w-full max-w-xs py-5 bg-primary text-primary-foreground font-bold text-xl rounded-2xl hover:bg-primary/90 transition-all active:scale-[0.98] btn-glow"
-                }
-              >
-                {countdown ? "Start a different match" : "Start New Match"}
-              </button>
-            )}
-
-            {recentMatch && (
-              <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
-                <MatchResultCard
-                  match={recentMatch}
-                  onSelect={() =>
-                    handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, "home")
-                  }
+              {countdown && (
+                <MatchCountdown
+                  match={countdown.match}
+                  teamName={settings.teamName}
+                  secondsRemaining={countdown.secondsRemaining}
+                  onStart={canEdit ? () => handleSelectUpcomingMatch(countdown.match) : undefined}
                 />
-              </div>
-            )}
+              )}
 
-            {activeSeasonMatchCount > 0 && (
-              <button
-                onClick={() => setView("history")}
-                className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                View {activeSeasonMatchCount} past match{activeSeasonMatchCount !== 1 ? "es" : ""}
-              </button>
-            )}
+              {!canEdit && settings.syncToken && (
+                <div className="mb-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {syncStatus === "unavailable"
+                      ? "Connection unavailable"
+                      : syncStatus === "invalid"
+                        ? "Access token is invalid"
+                        : lastSyncedAt
+                          ? `Last updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
+                          : "Checking workspace"}
+                  </span>
+                  {syncStatus !== "invalid" && (
+                    <button
+                      type="button"
+                      onClick={syncNow}
+                      disabled={isSyncing || isCoolingDown}
+                      className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-foreground disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                      {isSyncing
+                        ? "Refreshing"
+                        : syncStatus === "unavailable"
+                          ? "Retry"
+                          : "Refresh"}
+                    </button>
+                  )}
+                </div>
+              )}
 
-            {canViewCalendar && !countdown && (
-              <UpcomingMatches
-                matches={upcomingMatches.matches}
-                loaded={upcomingMatches.loaded}
-                onSelect={canEdit ? handleSelectUpcomingMatch : undefined}
-                onRefresh={upcomingMatches.refresh}
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setScheduledMatchDefaults(null);
+                    setShowStartMatch(true);
+                  }}
+                  className={
+                    countdown
+                      ? "mt-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      : "w-full max-w-xs py-5 bg-primary text-primary-foreground font-bold text-xl rounded-2xl hover:bg-primary/90 transition-all active:scale-[0.98] btn-glow"
+                  }
+                >
+                  {countdown ? "Start a different match" : "Start New Match"}
+                </button>
+              )}
+
+              {recentMatch && (
+                <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
+                  <MatchResultCard
+                    match={recentMatch}
+                    onSelect={() =>
+                      handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, "home")
+                    }
+                  />
+                </div>
+              )}
+
+              {activeSeasonMatchCount > 0 && (
+                <button
+                  aria-label="History"
+                  onClick={() => setView("history")}
+                  className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  View {activeSeasonMatchCount} past match{activeSeasonMatchCount !== 1 ? "es" : ""}
+                </button>
+              )}
+
+              {canViewCalendar && !countdown && (
+                <UpcomingMatches
+                  matches={upcomingMatches.matches}
+                  loaded={upcomingMatches.loaded}
+                  onSelect={canEdit ? handleSelectUpcomingMatch : undefined}
+                  onRefresh={upcomingMatches.refresh}
+                />
+              )}
+            </div>
+
+            {/* Start Match Sheet */}
+            {canEdit && (
+              <StartMatchSheet
+                isOpen={showStartMatch}
+                onClose={() => setShowStartMatch(false)}
+                onStartMatch={handleStartMatch}
+                defaultTeamName={settings.teamName}
+                opponentSuggestions={opponentSuggestions}
+                initialOpponentName={scheduledMatchDefaults?.opponentName}
+                initialIsHome={scheduledMatchDefaults?.isHome}
               />
             )}
           </div>
+        )}
 
-          {/* Start Match Sheet */}
-          {canEdit && (
-            <StartMatchSheet
-              isOpen={showStartMatch}
-              onClose={() => setShowStartMatch(false)}
-              onStartMatch={handleStartMatch}
-              defaultTeamName={settings.teamName}
-              opponentSuggestions={opponentSuggestions}
-              initialOpponentName={scheduledMatchDefaults?.opponentName}
-              initialIsHome={scheduledMatchDefaults?.isHome}
+        <AlertDialog
+          open={!!pendingWorkspaceToken}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingWorkspaceToken(null);
+              setSharedToken("");
+            }
+          }}
+        >
+          <AlertDialogContent className="max-w-sm rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Replace local match data?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Joining this workspace may replace the matches and seasons saved on this device.
+                Download a backup first if you want to keep them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <Button type="button" variant="secondary" onClick={handleExportBackup}>
+              Download backup
+            </Button>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (pendingWorkspaceToken) updateSyncToken(pendingWorkspaceToken.token);
+                  setPendingWorkspaceToken(null);
+                  setSharedToken("");
+                }}
+              >
+                {pendingWorkspaceToken?.fromLink
+                  ? "Open view-only workspace"
+                  : "Connect to workspace"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={canEdit && !!pendingDeleteMatch}
+          onOpenChange={(open) => {
+            if (!open) setPendingDeleteMatch(null);
+          }}
+        >
+          <AlertDialogContent className="max-w-sm rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete match?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingDeleteMatchSummary
+                  ? `This will permanently remove ${pendingDeleteMatchSummary.myTeamName} vs ${pendingDeleteMatchSummary.opponentName} (${pendingDeleteMatchSummary.date}) from your history.`
+                  : "This will permanently remove the selected match from your history."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteMatch}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete Match
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Dialog
+          open={canEdit && showRenameOpponent}
+          onOpenChange={(open) => {
+            setShowRenameOpponent(open);
+            if (!open && activeMatch) {
+              setOpponentNameDraft(activeMatch.opponentName);
+            }
+          }}
+        >
+          <DialogContent className="max-w-sm rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Opponent Name</DialogTitle>
+              <DialogDescription>
+                Long-pressing the opponent team name opens this dialog.
+              </DialogDescription>
+            </DialogHeader>
+            <PlayerAutocomplete
+              value={opponentNameDraft}
+              onChange={setOpponentNameDraft}
+              players={opponentSuggestions}
+              placeholder="Opponent name"
+              autoFocus
+              maxLength={60}
+              onEnter={handleSaveRenameOpponent}
             />
-          )}
-        </div>
-      )}
-
-      <AlertDialog
-        open={!!pendingWorkspaceToken}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingWorkspaceToken(null);
-            setSharedToken("");
-          }
-        }}
-      >
-        <AlertDialogContent className="max-w-sm rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Replace local match data?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Joining this workspace may replace the matches and seasons saved on this device.
-              Download a backup first if you want to keep them.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Button type="button" variant="secondary" onClick={handleExportBackup}>
-            Download backup
-          </Button>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingWorkspaceToken) updateSyncToken(pendingWorkspaceToken.token);
-                setPendingWorkspaceToken(null);
-                setSharedToken("");
-              }}
-            >
-              {pendingWorkspaceToken?.fromLink
-                ? "Open view-only workspace"
-                : "Connect to workspace"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={canEdit && !!pendingDeleteMatch}
-        onOpenChange={(open) => {
-          if (!open) setPendingDeleteMatch(null);
-        }}
-      >
-        <AlertDialogContent className="max-w-sm rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete match?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingDeleteMatchSummary
-                ? `This will permanently remove ${pendingDeleteMatchSummary.myTeamName} vs ${pendingDeleteMatchSummary.opponentName} (${pendingDeleteMatchSummary.date}) from your history.`
-                : "This will permanently remove the selected match from your history."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDeleteMatch}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete Match
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog
-        open={canEdit && showRenameOpponent}
-        onOpenChange={(open) => {
-          setShowRenameOpponent(open);
-          if (!open && activeMatch) {
-            setOpponentNameDraft(activeMatch.opponentName);
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Opponent Name</DialogTitle>
-            <DialogDescription>
-              Long-pressing the opponent team name opens this dialog.
-            </DialogDescription>
-          </DialogHeader>
-          <PlayerAutocomplete
-            value={opponentNameDraft}
-            onChange={setOpponentNameDraft}
-            players={opponentSuggestions}
-            placeholder="Opponent name"
-            autoFocus
-            maxLength={60}
-            onEnter={handleSaveRenameOpponent}
-          />
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveRenameOpponent} disabled={!opponentNameDraft.trim()}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveRenameOpponent} disabled={!opponentNameDraft.trim()}>
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </fieldset>
     </div>
   );
 }

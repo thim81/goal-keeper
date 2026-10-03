@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["@cloudflare/workers-types"],
+    "paths": { "@/*": ["../src/*"] },
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["./workspace.ts", "./test-runtime/worker/*.test.ts", "../src/lib/workspace.ts", "../src/lib/workspace-mutations.ts", "../src/lib/sync.ts", "../src/types/match.ts"]
+}

@@ -83,6 +83,7 @@ function lastPeriodBoundary(match: Match): GameEvent | undefined {
 function targetMatch(state: SyncState, command: WorkspaceCommand): Match {
   if (!nonempty(command.matchId)) fail(400, "matchId required");
   if (!state.activeMatch || state.activeMatch.id !== command.matchId) fail(409, "Active match changed");
+  if (!state.activeMatch.isActive || state.activeMatch.endedAt !== undefined) fail(409, "Match has ended");
   return state.activeMatch;
 }
 

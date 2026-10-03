@@ -1,3 +1,12 @@
+import { createEmptyWorkspace } from "./workspace";
+const full = () =>
+  JSON.stringify({
+    scope: "structural",
+    workspaceId: "goal-keeper",
+    revision: 0,
+    structureRevision: 0,
+    state: createEmptyWorkspace(),
+  });
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearViewerTokenFromUrl,
@@ -24,8 +33,8 @@ describe("viewer links", () => {
   it("validates the viewer token and keeps a separately validated editor credential", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response("{}", { headers: { "X-Workspace-Role": "viewer" } }))
-      .mockResolvedValueOnce(new Response("{}", { headers: { "X-Workspace-Role": "editor" } }));
+      .mockResolvedValueOnce(new Response(full(), { headers: { "X-Workspace-Role": "viewer" } }))
+      .mockResolvedValueOnce(new Response(full(), { headers: { "X-Workspace-Role": "editor" } }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(validateViewerLink("viewer-token", "editor-token")).resolves.toBe("editor-token");
   });
@@ -45,7 +54,7 @@ describe("viewer links", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValueOnce(new Response("{}", { headers: { "X-Workspace-Role": "viewer" } }))
+        .mockResolvedValueOnce(new Response(full(), { headers: { "X-Workspace-Role": "viewer" } }))
         .mockResolvedValueOnce(new Response("Unavailable", { status: 503 })),
     );
     await expect(validateViewerLink("viewer-token", "saved-editor")).rejects.toMatchObject({
@@ -58,7 +67,7 @@ describe("viewer links", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValueOnce(new Response("{}", { headers: { "X-Workspace-Role": "viewer" } }))
+        .mockResolvedValueOnce(new Response(full(), { headers: { "X-Workspace-Role": "viewer" } }))
         .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 })),
     );
     await expect(validateViewerLink("viewer-token", "revoked-editor")).resolves.toBe(
