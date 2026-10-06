@@ -38,6 +38,7 @@ export interface WorkspaceCommand {
   payload?: Record<string, unknown>;
   timeZone?: string;
   occurredAt?: number;
+  occurredTime?: string;
 }
 
 export interface LiveResponse {

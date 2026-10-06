@@ -293,7 +293,7 @@ describe("Index season dialog interactions", () => {
   });
 
   it("imports a backup and applies its settings and seasons", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     const { container } = render(<Index />);
     goToSettings(container);
 
@@ -336,5 +336,6 @@ describe("Index season dialog interactions", () => {
 
     goToSettings(container);
     expect(screen.getByPlaceholderText("Enter your team name")).toHaveValue("Imported Team");
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

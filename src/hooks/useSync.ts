@@ -38,6 +38,8 @@ export function useSync(
     cached?.credential === token ? cached.metadata : emptyMetadata(),
   );
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingCommand, setPendingCommand] = useState<WorkspaceCommand | null>(null);
   const [failedCommand, setFailedCommand] = useState<WorkspaceCommand | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -188,6 +190,9 @@ export function useSync(
 
   useEffect(() => {
     generation.current += 1;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    cooldownTimer.current = null;
+    setIsCoolingDown(false);
     setConfirmedCredential(null);
     confirmed.current = null;
     reads.current = { full: null, live: null };
@@ -246,6 +251,7 @@ export function useSync(
       generation.current += 1;
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", visible);
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       window.removeEventListener("focus", editorReturned);
       window.removeEventListener("pageshow", editorReturned);
     };
@@ -310,6 +316,18 @@ export function useSync(
     () => (failedCommand ? executeCommand(failedCommand) : Promise.resolve(false)),
     [executeCommand, failedCommand],
   );
+  const syncNow = async () => {
+    if (!current.current.token || cooldownTimer.current) return;
+    const epoch = generation.current;
+    await refresh(true, true);
+    if (epoch !== generation.current) return;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    setIsCoolingDown(true);
+    cooldownTimer.current = setTimeout(() => {
+      cooldownTimer.current = null;
+      setIsCoolingDown(false);
+    }, 3000);
+  };
   return {
     status,
     role,
@@ -318,8 +336,8 @@ export function useSync(
     metadata,
     isWorkspaceStale: metadata.observedStructureRevision !== metadata.fullStructureRevision,
     isSyncing,
-    isCoolingDown: false,
-    syncNow: () => refresh(true, true),
+    isCoolingDown,
+    syncNow,
     executeCommand,
     retryCommand,
     pendingCommand,

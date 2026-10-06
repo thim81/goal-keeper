@@ -35,12 +35,16 @@ export function useWorkspaceActions(
         ...targets,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
+      const occurredAt = Date.now();
       const command: WorkspaceCommand =
         props.failed && intent(props.failed) === intent(content)
           ? props.failed
           : {
               ...content,
-              occurredAt: Date.now(),
+              occurredAt,
+              occurredTime: new Date(occurredAt).toLocaleTimeString("en-GB", {
+                hour: "2-digit", minute: "2-digit",
+              }),
               id:
                 globalThis.crypto?.randomUUID?.() ??
                 `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,

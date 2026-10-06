@@ -80,6 +80,31 @@ describe("Index viewer access", () => {
     history.replaceState({}, "", "/");
   });
 
+  it("keeps navigation and device preferences available while an editor command is pending", async () => {
+    localStorage.setItem("football-tracker-settings", JSON.stringify({ ...DEFAULT_SETTINGS, syncToken: "editor-token" }));
+    let resolve: (response: Response) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn((url: string) => url.includes("/api/command")
+      ? new Promise<Response>(done => { resolve = done; })
+      : Promise.resolve(response("editor", emptyRemoteState))));
+    const { container } = render(<Index />);
+    await screen.findByRole("button", { name: /start new match/i });
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    const player = await screen.findByPlaceholderText("Add player name");
+    fireEvent.change(player, { target: { value: "Alice" } });
+    fireEvent.click(player.closest("div")!.querySelector("button")!);
+    await screen.findByText("Saving action…");
+    const dark = screen.getByRole("button", { name: "Dark" });
+    expect(dark).toBeEnabled();
+    fireEvent.click(dark);
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).theme).toBe("dark");
+    const back = container.querySelector(".lucide-arrow-left")!.closest("button")!;
+    expect(back).toBeEnabled();
+    fireEvent.click(back);
+    expect(screen.getByText("Ready to Play?")).toBeInTheDocument();
+    resolve(new Response("rejected", { status: 409 }));
+    await waitFor(() => expect(screen.queryByText("Saving action…")).not.toBeInTheDocument());
+  });
+
   it("loads shared history read-only while keeping the viewer token and local theme", async () => {
     localStorage.setItem(
       "football-tracker-settings",

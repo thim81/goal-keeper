@@ -31,6 +31,9 @@ describe("useWorkspaceActions", () => {
     });
     const original = execute.mock.calls[0][0];
     expect(original).toMatchObject({ occurredAt: Date.parse("2026-10-04T13:00:00Z") });
+    expect(original).toMatchObject({
+      occurredTime: new Date(original.occurredAt!).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    });
     hook.rerender({ failed: original });
     clock.mockReturnValue(Date.parse("2026-10-04T13:01:00Z"));
     await act(async () => {

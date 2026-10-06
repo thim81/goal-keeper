@@ -50,7 +50,7 @@ async function startMatch(page: Page, team: string, opponent: string) {
   await page.getByRole("button", { name: "Start New Match" }).click();
   await page.getByPlaceholder("My Team").fill(team);
   await page.getByPlaceholder("Opponent").fill(opponent);
-  await page.getByRole("button", { name: "Kick Off!" }).click();
+  await submitCommand(page, () => page.getByRole("button", { name: "Kick Off!" }).click(), "start-match");
   await expect(page.getByRole("button", { name: "We Scored!" })).toBeVisible();
 }
 
@@ -119,13 +119,16 @@ async function submitCommand(page: Page, click: () => Promise<unknown>, type: st
   const response = await received;
   expect(response.status()).toBe(200);
   const result = await response.json();
-  if (type === "add-goal" || type === "add-event") {
+  if (["add-goal", "add-event", "start-match", "end-match"].includes(type)) {
     const submitted = response.request().postDataJSON();
     expect(typeof submitted.occurredAt).toBe("number");
-    const items = type === "add-goal" ? result.activeMatch.goals : result.activeMatch.events;
-    expect(items.find((item: any) => item.id.startsWith(`${submitted.id}:`)).timestamp).toBe(
-      submitted.occurredAt,
-    );
+    const match = type === "end-match" ? result.state.fullMatches[submitted.matchId] : liveMatch(result);
+    const items = type === "add-goal" ? match.goals : match.events;
+    expect(items.find((item: any) => item.id.startsWith(`${submitted.id}:`))).toMatchObject({
+      timestamp: submitted.occurredAt, time: submitted.occurredTime,
+    });
+    if (type === "start-match") expect(match.startedAt).toBe(submitted.occurredAt);
+    if (type === "end-match") expect(match.endedAt).toBe(submitted.occurredAt);
   }
   return result;
 }
@@ -179,6 +182,9 @@ for (const order of ["goal-first", "card-first"] as const) {
       }
       const beforeStartB = b.reads.length;
       const beforeStartC = c.reads.length;
+      const oneOClock = await a.page.evaluate(() => new Date().setHours(13, 0, 0, 0));
+      await a.page.clock.setFixedTime(oneOClock);
+      await b.page.clock.setFixedTime(oneOClock);
       await startMatch(a.page, team, opponent);
       await waitForRead(
         b.reads,
@@ -198,8 +204,6 @@ for (const order of ["goal-first", "card-first"] as const) {
 
       // Both forms are prepared from the same earlier state. The second editor
       // submits immediately after the first response, without a manual refresh.
-      const oneOClock = await a.page.evaluate(() => new Date().setHours(13, 0, 0, 0));
-      await a.page.clock.setFixedTime(oneOClock);
       const goalSubmit = await prepareGoal(a.page, firstScorer);
       const cardSubmit = await prepareCard(b.page, cardPlayer);
       const waveStart = commands.length;
@@ -249,6 +253,7 @@ for (const order of ["goal-first", "card-first"] as const) {
       expect(beforeEnd.goals).toHaveLength(2);
       expect(beforeEnd.events.filter((event: any) => event.type === "yellow-card")).toHaveLength(1);
 
+      await a.page.clock.setFixedTime(oneOClock + 30 * 60_000);
       await a.page.getByRole("button", { name: "Show extra actions" }).click();
       await submitCommand(
         a.page,

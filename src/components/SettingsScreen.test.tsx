@@ -108,8 +108,8 @@ function renderFullSettings(settingsOverrides: Partial<typeof DEFAULT_SETTINGS> 
     onExportBackup: vi.fn(),
     onImportBackup: vi.fn(),
   };
-  render(<SettingsScreen settings={{ ...DEFAULT_SETTINGS, ...settingsOverrides }} {...handlers} />);
-  return handlers;
+  const view = render(<SettingsScreen settings={{ ...DEFAULT_SETTINGS, ...settingsOverrides }} {...handlers} />);
+  return { ...handlers, ...view };
 }
 
 function renderSharingSettings({
@@ -141,6 +141,28 @@ function renderSharingSettings({
 }
 
 describe("SettingsScreen interactions", () => {
+  it("preserves an unsaved team name when remote settings arrive", () => {
+    const { rerender, ...handlers } = renderFullSettings();
+    const input = screen.getByPlaceholderText("Enter your team name");
+    fireEvent.change(input, { target: { value: "My draft" } });
+    rerender(<SettingsScreen settings={{ ...DEFAULT_SETTINGS, teamName: "Other editor's team" }} {...handlers} />);
+    expect(input).toHaveValue("My draft");
+    fireEvent.blur(input);
+    expect(handlers.onUpdateTeamName).toHaveBeenCalledWith("My draft");
+  });
+
+  it("allows device theme changes while a shared save is pending", async () => {
+    const handlers = renderFullSettings();
+    let resolve: (value: boolean) => void = () => {};
+    handlers.onAddPlayer.mockImplementation(() => new Promise<boolean>(done => { resolve = done; }));
+    const input = screen.getByPlaceholderText("Add player name");
+    fireEvent.change(input, { target: { value: "Alice" } });
+    fireEvent.click(input.closest("div")!.querySelector("button")!);
+    expect(input).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    expect(handlers.onUpdateTheme).toHaveBeenCalledWith("dark");
+    await act(async () => { resolve(true); });
+  });
   it("hides sharing when viewer access is not configured", async () => {
     renderSharingSettings({ onLoadViewerLink: vi.fn().mockResolvedValue(null) });
     await waitFor(() =>

@@ -47,6 +47,36 @@ async function body(response: Response) {
 }
 
 describe("SQLite workspace Worker", () => {
+  it("persists client timestamps and display times for match and period actions", async () => {
+    await seed();
+    const stub = workspace();
+    const start = Date.parse("2026-10-04T13:00:00Z");
+    let matchId: string | undefined;
+    const run = async (type: string, minutes: number, payload = {}) => {
+      const submitted = { id: `${type}-${minutes}`, type, matchId, payload,
+        occurredAt: start + minutes * 60_000,
+        occurredTime: `13:${String(minutes).padStart(2, "0")}`, timeZone: "America/Chicago" };
+      const response = await command(stub, submitted);
+      expect(response.status).toBe(200);
+      const accepted = await body(response);
+      expect(await body(await command(stub, submitted))).toEqual(accepted);
+      return accepted.scope === "structural" ? accepted.state : accepted;
+    };
+    const started = await run("start-match", 0, { isHome: true });
+    matchId = started.activeMatch.id;
+    expect(started.activeMatch.startedAt).toBe(start);
+    const paused = await run("pause-match", 1);
+    expect(paused.activeMatch.pausedAt).toBe(start + 60_000);
+    const resumed = await run("resume-match", 2);
+    expect(resumed.activeMatch.totalPausedTime).toBe(60_000);
+    await run("end-period", 20, { expectedPeriod: 1 });
+    const next = await run("start-period", 25, { expectedPeriod: 1 });
+    expect(next.activeMatch.periodStartedAt).toBe(start + 25 * 60_000);
+    const ended = await run("end-match", 40);
+    expect(ended.fullMatches[matchId!].events.map((event: any) => event.time)).toEqual(["13:00", "13:20", "13:25", "13:40"]);
+    expect(ended.fullMatches[matchId!].endedAt).toBe(start + 40 * 60_000);
+    expect((await body(await get(stub))).state).toEqual(ended);
+  });
   it("returns the editor's recorded goal time unchanged to live/full reads, retries and completed history", async () => {
     await seed();
     const stub = workspace();

@@ -68,6 +68,25 @@ function mount(token = "editor", onFull = vi.fn(), onLive = vi.fn()) {
   };
 }
 describe("authoritative sync", () => {
+  it("keeps the manual refresh cooldown while returning to the app still refreshes immediately", async () => {
+    const h = mount();
+    await flush();
+    await act(async () => { await h.result.current.syncNow(); });
+    expect(h.result.current.isCoolingDown).toBe(true);
+    await act(async () => { await h.result.current.syncNow(); });
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    act(() => window.dispatchEvent(new Event("focus")));
+    await flush();
+    expect(fetchRemoteState).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(h.result.current.isCoolingDown).toBe(false);
+    await act(async () => { await h.result.current.syncNow(); });
+    expect(fetchRemoteState).toHaveBeenCalledTimes(4);
+    h.rerender({ token: "different-editor" });
+    await flush();
+    expect(h.result.current.isCoolingDown).toBe(false);
+    expect(postCommand).not.toHaveBeenCalled();
+  });
   it("refreshes immediately on opening and confirms editor sync with the familiar toast", async () => {
     const d = deferred();
     vi.mocked(fetchRemoteState).mockReturnValue(d.promise);

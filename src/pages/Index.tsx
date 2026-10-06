@@ -548,6 +548,7 @@ export default function Index() {
     }
 
     if (
+      settings.syncToken &&
       !window.confirm(
         "Replace the complete workspace with this backup? The current server workspace will be preserved for recovery.",
       )
@@ -602,7 +603,7 @@ export default function Index() {
           )}
         </div>
       )}
-      <fieldset disabled={!!pendingCommand} className="contents">
+      <>
         {/* Settings View */}
         {view === "settings" && (
           <SettingsScreen
@@ -1143,7 +1144,7 @@ export default function Index() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </fieldset>
+      </>
     </div>
   );
 }

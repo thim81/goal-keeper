@@ -17,7 +17,7 @@ const live = (state = base()) => {
 describe("applyWorkspaceCommand live mutations", () => {
   it.each([
     ["add-goal", { team: "my-team" }],
-    ["add-event", { eventType: "yellow-card", player: "Alice" }],
+    ["add-event", { eventType: "yellow-card", team: "my-team", player: "Alice" }],
   ])("preserves the device's 13:00 timeline time for %s despite request delay or clock differences", (type, payload) => {
     const { state, matchId } = live();
     const occurredAt = Date.parse("2026-10-04T13:00:00Z");
@@ -35,11 +35,69 @@ describe("applyWorkspaceCommand live mutations", () => {
     expect(() => applyWorkspaceCommand(state, command("add-goal", { team: "my-team" }, { matchId, occurredAt } as Partial<WorkspaceCommand>))).toThrow("Invalid occurredAt");
     expect(state).toEqual(original);
   });
-  it("keeps shared pause timing on the mutation clock", () => {
+  it("preserves client timing throughout match, pause and period actions despite server delay", () => {
+    const start = Date.parse("2026-10-04T13:00:00Z");
+    let state = base();
+    const run = (type: WorkspaceCommandType, offset: number, payload: Record<string, unknown> = {}) => {
+      state = applyWorkspaceCommand(state, command(`${type}-${offset}`, payload, {
+        type, matchId: state.activeMatch?.id, occurredAt: start + offset,
+        occurredTime: new Date(start + offset).toISOString().slice(11, 16), timeZone: "America/Chicago",
+      } as Partial<WorkspaceCommand>), start + offset + 600_000).state;
+    };
+    run("start-match", 0, { isHome: true });
+    const matchId = state.activeMatch!.id;
+    expect(state.activeMatch).toMatchObject({ startedAt: start, periodStartedAt: start });
+    expect(state.activeMatch!.events[0]).toMatchObject({ timestamp: start, time: "13:00" });
+    run("pause-match", 60_000);
+    expect(state.activeMatch!.pausedAt).toBe(start + 60_000);
+    run("resume-match", 120_000);
+    expect(state.activeMatch!.totalPausedTime).toBe(60_000);
+    run("end-period", 1_200_000, { expectedPeriod: 1 });
+    expect(state.activeMatch!.pausedAt).toBe(start + 1_200_000);
+    run("start-period", 1_500_000, { expectedPeriod: 1 });
+    expect(state.activeMatch!.periodStartedAt).toBe(start + 1_500_000);
+    expect(state.activeMatch!.totalPausedTime).toBe(360_000);
+    run("end-match", 2_400_000);
+    expect(state.activeMatch).toBeNull();
+    expect(state.matches[0].endedAt).toBe(start + 2_400_000);
+    expect(state.fullMatches[matchId]).toMatchObject({ endedAt: start + 2_400_000 });
+    expect(state.fullMatches[matchId].events.map(({ time, timestamp }) => ({ time, timestamp }))).toEqual([
+      { time: "13:00", timestamp: start },
+      { time: "13:20", timestamp: start + 1_200_000 },
+      { time: "13:25", timestamp: start + 1_500_000 },
+      { time: "13:40", timestamp: start + 2_400_000 },
+    ]);
+  });
+  it.each(["add-goal", "add-event"] as const)("preserves the client display time for %s", type => {
     const { state, matchId } = live();
-    const now = state.activeMatch!.startedAt + 60_000;
-    const result = applyWorkspaceCommand(state, command("pause-match", {}, { matchId, occurredAt: now - 120_000 } as Partial<WorkspaceCommand>), now);
-    expect(result.state.activeMatch!.pausedAt).toBe(now);
+    const result = applyWorkspaceCommand(state, command(type,
+      type === "add-goal" ? { team: "my-team" } : { eventType: "yellow-card", team: "my-team" },
+      { matchId, occurredAt: 1000, occurredTime: "13:00", timeZone: "UTC" } as Partial<WorkspaceCommand>), 6000).state;
+    const match = result.activeMatch!;
+    const item = type === "add-goal" ? match.goals[0] : match.events[match.events.length - 1];
+    expect(item).toMatchObject({ timestamp: 1000, time: "13:00" });
+  });
+  it.each(["25:00", "bad", null, 13])("rejects invalid client display time %s", occurredTime => {
+    const { state, matchId } = live();
+    expect(() => applyWorkspaceCommand(state, command("add-goal", { team: "my-team" },
+      { matchId, occurredTime } as any))).toThrow("Invalid occurredTime");
+  });
+  it.each(["yellow-card", "red-card"])("remembers only our players from %s", eventType => {
+    const { state, matchId } = live();
+    const opponent = applyWorkspaceCommand(state, command("opponent-card", { eventType, team: "opponent", player: "Rival" }, { type: "add-event", matchId }));
+    expect(opponent.state.settings.players).toEqual([]);
+    expect(opponent.structureChanged).toBe(false);
+    const ours = applyWorkspaceCommand(opponent.state, command("our-card", { eventType, team: "my-team", player: "Alice" }, { type: "add-event", matchId }));
+    expect(ours.state.settings.players).toEqual(["Alice"]);
+    expect(ours.structureChanged).toBe(true);
+  });
+  it("deletes a historical summary when its full match is missing", () => {
+    const { state, matchId } = live();
+    const ended = applyWorkspaceCommand(state, command("end-match", {}, { matchId })).state;
+    delete ended.fullMatches[matchId];
+    const removed = applyWorkspaceCommand(ended, command("delete-historical-match", {}, { matchId, seasonId: ended.activeSeasonId! })).state;
+    expect(removed.matches).toEqual([]);
+    expect(removed.fullMatches).toEqual({});
   });
   it.each([{ isActive: false }, { endedAt: 1_700_000_000_100 }])("rejects live writes to an ended match snapshot", ended => {
     const { state, matchId } = live();
@@ -50,7 +108,7 @@ describe("applyWorkspaceCommand live mutations", () => {
   });
   it.each([
     ["add-goal", { team: "my-team", scorer: "Alice", assist: "Bob", type: "normal" }],
-    ["add-event", { eventType: "yellow-card", player: "Alice" }],
+    ["add-event", { eventType: "yellow-card", team: "my-team", player: "Alice" }],
     ["pause-match", {}],
     ["end-period", { expectedPeriod: 1 }],
     ["rename-opponent", { name: " Other " }],
@@ -318,7 +376,8 @@ describe("applyWorkspaceCommand structural mutations", () => {
     const state = base();
     const activeId = state.activeSeasonId!;
     const closed = applyWorkspaceCommand(state, command("no-name", {}, { type: "close-season", seasonId: activeId }), 0).state;
-    expect(closed.seasons!["cmd-no-name:season"].name).toBe("1970-1971");
+    const year = new Date(0).getFullYear();
+    expect(closed.seasons!["cmd-no-name:season"].name).toBe(`${year}-${year + 1}`);
     expect(() => applyWorkspaceCommand(closed, command("bad-close", {}, { type: "close-season", seasonId: activeId }))).toThrow(WorkspaceError);
     expect(() => applyWorkspaceCommand(closed, command("reopen-active", {}, { type: "reopen-season", seasonId: closed.activeSeasonId }))).toThrow(WorkspaceError);
     const occupiedId = "cmd-occupied:season";

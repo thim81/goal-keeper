@@ -35,9 +35,10 @@ function flag(payload: RecordValue, key: string): boolean {
   return payload[key] as boolean;
 }
 
-function timeLabel(now: number, timeZone?: string): string {
+function timeLabel(now: number, command: WorkspaceCommand): string {
+  if (command.occurredTime !== undefined) return command.occurredTime;
   try {
-    return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }).format(now);
+    return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: command.timeZone }).format(now);
   } catch {
     fail(400, "Invalid time zone");
   }
@@ -136,7 +137,7 @@ function addGoal(state: SyncState, command: WorkspaceCommand, payload: RecordVal
   const scorer = team === "my-team" ? (typeof payload.scorer === "string" ? payload.scorer.trim() : undefined) : undefined;
   const assist = team === "my-team" ? (typeof payload.assist === "string" ? payload.assist.trim() : undefined) : undefined;
   const id = `${command.id}:goal`;
-  const goal: Goal = { id, team, scorer: scorer || undefined, assist: assist || undefined, type, time: timeLabel(now, command.timeZone), timestamp: now };
+  const goal: Goal = { id, team, scorer: scorer || undefined, assist: assist || undefined, type, time: timeLabel(now, command), timestamp: now };
   match.goals = [...match.goals, goal];
   if (team === "my-team") rememberPlayers(state, scorer, assist);
 }
@@ -151,13 +152,13 @@ function addEvent(state: SyncState, command: WorkspaceCommand, payload: RecordVa
   if (payload.label !== undefined && typeof payload.label !== "string") fail(400, "Invalid event label");
   const id = `${command.id}:event`;
   const event: GameEvent = {
-    id, type: type as GameEvent["type"], time: timeLabel(now, command.timeZone), timestamp: now,
+    id, type: type as GameEvent["type"], time: timeLabel(now, command), timestamp: now,
     ...(typeof payload.label === "string" ? { label: payload.label } : {}),
     ...(validTeam(payload.team) ? { team: payload.team } : {}),
     ...(typeof payload.player === "string" && payload.player.trim() ? { player: payload.player.trim() } : {}),
   };
   match.events = [...match.events, event];
-  rememberPlayers(state, event.player);
+  if ((event.type === "yellow-card" || event.type === "red-card") && event.team === "my-team") rememberPlayers(state, event.player);
 }
 
 function mutate(state: SyncState, command: WorkspaceCommand, now: number): void {
@@ -172,7 +173,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       const isHome = flag(payload, "isHome");
       state.activeMatch = {
         id, myTeamName, opponentName, isHome, goals: [],
-        events: [{ id: `${command.id}:start`, type: "start", label: "Start Period 1", time: timeLabel(now, command.timeZone), timestamp: now }],
+        events: [{ id: `${command.id}:start`, type: "start", label: "Start Period 1", time: timeLabel(now, command), timestamp: now }],
         startedAt: now, isActive: true, isRunning: true, totalPausedTime: 0, currentPeriod: 1,
         periodStartedAt: now, periodPausedTime: 0,
       };
@@ -192,7 +193,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       };
       const finalMatch: Match = {
         ...match,
-        events: match.isRunning ? [...match.events, { id: `${command.id}:period-end`, type: "period-end", label: `End Period ${match.currentPeriod}`, time: timeLabel(now, command.timeZone), timestamp: now }] : match.events,
+        events: match.isRunning ? [...match.events, { id: `${command.id}:period-end`, type: "period-end", label: `End Period ${match.currentPeriod}`, time: timeLabel(now, command), timestamp: now }] : match.events,
         endedAt: now, isActive: false, isRunning: false, pausedAt: match.isRunning ? now : match.pausedAt,
       };
       season.matches = [summary, ...season.matches.filter((item) => item.id !== match.id)];
@@ -201,8 +202,8 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       canonicalize(state);
       return;
     }
-    case "add-goal": addGoal(state, command, payload, command.occurredAt ?? now); return;
-    case "add-event": addEvent(state, command, payload, command.occurredAt ?? now); return;
+    case "add-goal": addGoal(state, command, payload, now); return;
+    case "add-event": addEvent(state, command, payload, now); return;
     case "delete-goal": {
       const match = targetMatch(state, command);
       const id = text(payload, "goalId");
@@ -277,7 +278,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       if (payload.expectedPeriod !== match.currentPeriod) fail(409, "Period changed");
       if (lastPeriodBoundary(match)?.type === "period-end") fail(409, "Period already ended");
       const pausedAt = match.isRunning ? now : match.pausedAt;
-      match.events = [...match.events, { id: `${command.id}:event`, type: "period-end", label: `End Period ${match.currentPeriod}`, time: timeLabel(now, command.timeZone), timestamp: now }];
+      match.events = [...match.events, { id: `${command.id}:event`, type: "period-end", label: `End Period ${match.currentPeriod}`, time: timeLabel(now, command), timestamp: now }];
       match.isRunning = false; match.pausedAt = pausedAt;
       return;
     }
@@ -292,7 +293,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       const pauseDuration = match.pausedAt ? Math.max(0, now - match.pausedAt) : 0;
       match.isRunning = true; match.pausedAt = undefined; match.totalPausedTime += pauseDuration;
       match.periodStartedAt = now; match.periodPausedTime = 0; match.currentPeriod = nextPeriod;
-      match.events = [...match.events, { id: `${command.id}:event`, type: "start", label: `Start Period ${nextPeriod}`, time: timeLabel(now, command.timeZone), timestamp: now }];
+      match.events = [...match.events, { id: `${command.id}:event`, type: "start", label: `Start Period ${nextPeriod}`, time: timeLabel(now, command), timestamp: now }];
       return;
     }
     case "rename-opponent": {
@@ -355,7 +356,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       const season = targetSeason(state, command);
       const id = command.matchId;
       if (!nonempty(id)) fail(400, "matchId required");
-      if (!season.fullMatches[id]) fail(404, "Historical match not found");
+      if (!season.fullMatches[id] && !season.matches.some((item) => item.id === id)) fail(404, "Historical match not found");
       const { [id]: _deleted, ...fullMatches } = season.fullMatches;
       season.fullMatches = fullMatches;
       season.matches = season.matches.filter((item) => item.id !== id);
@@ -392,6 +393,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
 export function applyWorkspaceCommand(state: SyncState, command: WorkspaceCommand, now = Date.now()): Result {
   if (!own(command) || !nonempty(command.id) || !Object.prototype.hasOwnProperty.call(COMMAND_SCOPES, command.type)) fail(400, "Invalid command");
   if (command.occurredAt !== undefined && (!finite(command.occurredAt) || command.occurredAt < 0 || command.occurredAt > 8_640_000_000_000_000)) fail(400, "Invalid occurredAt");
+  if (command.occurredTime !== undefined && (typeof command.occurredTime !== "string" || !parseClockTime(command.occurredTime))) fail(400, "Invalid occurredTime");
   let normalized: SyncState;
   try {
     normalized = normalizeWorkspace(state);
@@ -401,7 +403,7 @@ export function applyWorkspaceCommand(state: SyncState, command: WorkspaceComman
   const next = structuredClone(normalized);
   const before = JSON.stringify(next);
   const structureBefore = JSON.stringify({ matches: next.matches, fullMatches: next.fullMatches, seasons: next.seasons, activeSeasonId: next.activeSeasonId, settings: next.settings });
-  mutate(next, command, now);
+  mutate(next, command, command.occurredAt ?? now);
   const structural = COMMAND_SCOPES[command.type];
   if (structural === "structural") canonicalize(next);
   const changed = JSON.stringify(next) !== before;

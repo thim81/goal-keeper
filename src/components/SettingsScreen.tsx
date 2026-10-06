@@ -105,8 +105,6 @@ export function SettingsScreen({
 
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
 
-  useEffect(() => setTeamName(settings.teamName), [settings.teamName]);
-
   useEffect(() => {
     setCalendarUrl(settings.calendarUrl);
     setCalendarTeamName(settings.calendarTeamName);
@@ -335,8 +333,7 @@ export function SettingsScreen({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={() => runMutation(() => onUpdateTheme("light"))}
-              disabled={isSubmitting}
+              onClick={() => onUpdateTheme("light")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "light"
                   ? "border-primary bg-primary/5 text-primary"
@@ -347,8 +344,7 @@ export function SettingsScreen({
               <span className="text-xs font-medium">Light</span>
             </button>
             <button
-              onClick={() => runMutation(() => onUpdateTheme("dark"))}
-              disabled={isSubmitting}
+              onClick={() => onUpdateTheme("dark")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "dark"
                   ? "border-primary bg-primary/5 text-primary"
@@ -359,8 +355,7 @@ export function SettingsScreen({
               <span className="text-xs font-medium">Dark</span>
             </button>
             <button
-              onClick={() => runMutation(() => onUpdateTheme("system"))}
-              disabled={isSubmitting}
+              onClick={() => onUpdateTheme("system")}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                 settings.theme === "system"
                   ? "border-primary bg-primary/5 text-primary"
