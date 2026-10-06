@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
 import { DEFAULT_SETTINGS, type Match, type MatchSummary, type Season } from "@/types/match";
@@ -418,6 +418,52 @@ describe("Index viewer access", () => {
 
     expect(await screen.findByText("Waiting for the next match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("advances the live Updated label on polling while settings keep their full-refresh timestamp", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-06T14:02:00Z"));
+    const openedAt = Date.now();
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "viewer-token" }),
+    );
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url === "/api/active-match"
+          ? new Response(
+              JSON.stringify({
+                scope: "live",
+                workspaceId: "workspace-1",
+                revision: 1,
+                structureRevision: 1,
+                activeMatch,
+                activeSeasonId: "remote-season",
+              }),
+              { headers: { "X-Workspace-Role": "viewer" } },
+            )
+          : response("viewer", { ...remoteState, activeMatch }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(<Index />));
+    });
+    expect(
+      screen.getByText(`Updated ${new Date(openedAt).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/state", "/api/active-match"]);
+    expect(
+      screen.getByText(`Updated ${new Date(openedAt + 10_000).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    expect(
+      screen.getByText(`Last refreshed ${new Date(openedAt).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
   });
 
   it("keeps viewer settings open when the editor ends the active match", async () => {

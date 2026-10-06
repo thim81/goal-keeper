@@ -330,16 +330,51 @@ describe("authoritative sync", () => {
   it("partial commands never refresh history/settings freshness", async () => {
     const h = mount();
     await flush();
-    const before = h.result.current.lastSyncedAt;
+    const before = h.result.current.metadata.fullUpdatedAt;
     vi.mocked(postCommand).mockResolvedValue({ ...live(2), commandId: "cmd" });
     await act(async () => {
       await h.result.current.executeCommand({ id: "cmd", type: "pause-match", matchId: "m" });
     });
     expect(h.onFull).toHaveBeenCalledOnce();
     expect(h.onLive).toHaveBeenCalledOnce();
-    expect(h.result.current.lastSyncedAt).toBe(before);
+    expect(h.result.current.metadata.fullUpdatedAt).toBe(before);
     expect(readWorkspaceCache()?.metadata.fullRevision).toBe(1);
   });
+  it.each([1, 2])(
+    "updates the viewer timestamp after a live poll at revision %s without refreshing the full workspace",
+    async (revision) => {
+      const active = applyWorkspaceCommand(state, {
+        id: "start",
+        type: "start-match",
+        payload: { isHome: true },
+      }).state;
+      vi.mocked(fetchRemoteState).mockResolvedValue({ ...full(), state: active, role: "viewer" });
+      vi.mocked(fetchActiveMatch).mockResolvedValue({
+        ...live(revision),
+        activeMatch: active.activeMatch,
+        role: "viewer",
+      });
+      const h = mount("viewer");
+      await flush();
+      const initialTime = h.result.current.lastSyncedAt;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(fetchActiveMatch).toHaveBeenCalledOnce();
+      expect(fetchRemoteState).toHaveBeenCalledOnce();
+      expect(h.result.current.lastSyncedAt).toBe(initialTime! + 10_000);
+      expect(h.result.current.metadata.fullUpdatedAt).toBe(initialTime);
+      expect(readWorkspaceCache()?.metadata.fullUpdatedAt).toBe(initialTime);
+      expect(h.result.current.metadata.fullRevision).toBe(1);
+      expect(h.result.current.metadata.fullStructureRevision).toBe(1);
+      const lastSuccess = h.result.current.lastSyncedAt;
+      vi.mocked(fetchActiveMatch).mockRejectedValue(new Error("offline"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(h.result.current.lastSyncedAt).toBe(lastSuccess);
+    },
+  );
   it("same-revision full response completes partial data", async () => {
     const h = mount();
     await flush();
@@ -366,12 +401,15 @@ describe("authoritative sync", () => {
     await act(async () => {
       await h.result.current.executeCommand({ id: "cmd", type: "pause-match", matchId: "m" });
     });
+    const lastSuccess = h.result.current.lastSyncedAt;
+    vi.setSystemTime(Date.now() + 1000);
     d.resolve(full(2));
     await act(async () => {
       await read!;
     });
     expect(h.onFull).toHaveBeenCalledOnce();
     expect(h.result.current.metadata.liveRevision).toBe(3);
+    expect(h.result.current.lastSyncedAt).toBe(lastSuccess);
     expect(toast.success).not.toHaveBeenCalled();
   });
   it("failed full refresh leaves history stale", async () => {

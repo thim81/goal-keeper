@@ -600,7 +600,7 @@ export default function Index() {
           onImportBackup={handleImportBackup}
           canEdit={canEdit}
           syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
+          lastSyncedAt={metadata.fullUpdatedAt}
           isSyncing={isSyncing}
           isCoolingDown={isCoolingDown}
           onSyncNow={syncNow}

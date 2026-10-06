@@ -37,6 +37,9 @@ export function useSync(
   const [metadata, setMetadata] = useState<RevisionMetadata>(
     cached?.credential === token ? cached.metadata : emptyMetadata(),
   );
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(
+    cached?.credential === token ? cached.metadata.fullUpdatedAt : null,
+  );
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,6 +130,7 @@ export function useSync(
         }
       }
       setMetadata(meta.current);
+      setLastSyncedAt(Date.now());
       saveWorkspaceCache({
         credential: current.current.token,
         workspaceId: response.workspaceId,
@@ -201,6 +205,7 @@ export function useSync(
     workspaceId.current = same ? saved.workspaceId : null;
     meta.current = same ? saved.metadata : emptyMetadata();
     setMetadata(meta.current);
+    setLastSyncedAt(same ? saved.metadata.fullUpdatedAt : null);
     setRole(same ? saved.role : null);
     setStatus(token ? "checking" : "local");
     if (!token) {
@@ -328,7 +333,7 @@ export function useSync(
     status,
     role,
     isCredentialConfirmed: confirmedCredential === token && !!token,
-    lastSyncedAt: metadata.fullUpdatedAt,
+    lastSyncedAt,
     metadata,
     isWorkspaceStale: metadata.observedStructureRevision !== metadata.fullStructureRevision,
     isSyncing,
