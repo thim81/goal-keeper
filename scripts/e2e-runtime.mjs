@@ -1,10 +1,14 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Both processes are local. Every run gets fresh synthetic storage.
-const directory = await mkdtemp(join(tmpdir(), "goal-keeper-e2e-"));
+// Both processes are local. Manual development retains data; browser tests use fresh storage.
+const persistent = process.argv.includes("--persist");
+const directory = persistent
+  ? join(process.cwd(), ".wrangler", "local-workspace")
+  : await mkdtemp(join(tmpdir(), "goal-keeper-e2e-"));
+await mkdir(directory, { recursive: true });
 const children = [];
 let stopping = false;
 async function stop(code = 0) {
@@ -18,7 +22,7 @@ async function stop(code = 0) {
         : new Promise((resolve) => child.once("exit", resolve)),
     ),
   );
-  await rm(directory, { recursive: true, force: true });
+  if (!persistent) await rm(directory, { recursive: true, force: true });
   process.exit(code);
 }
 process.on("SIGINT", () => void stop());
@@ -90,7 +94,11 @@ try {
     { headers: { "x-auth-token": "e2e-editor", "X-Workspace-Protocol": "2" } },
     true,
   );
-  console.log("Synthetic Pages and Durable Object runtime ready.");
+  console.log(
+    persistent
+      ? "Local app with sync: http://127.0.0.1:8790 (editor: e2e-editor; viewer: e2e-viewer). Storage: .wrangler/local-workspace"
+      : "Synthetic Pages and Durable Object runtime ready.",
+  );
 } catch (error) {
   console.error(error);
   await stop(1);
