@@ -19,12 +19,11 @@ afterEach(() => {
 });
 
 describe("useWorkspaceActions", () => {
-  it("captures device submission time once and preserves the complete failed command on retry", async () => {
+  it("creates a fresh goal ID and device time even when its fields match a previous failed submission", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T13:00:00Z"));
     const execute = vi.fn(async (_command: WorkspaceCommand) => false);
     const hook = renderHook(
-      ({ failed }) => useWorkspaceActions(state, false, vi.fn(), execute, failed),
-      { initialProps: { failed: null as WorkspaceCommand | null } },
+      () => useWorkspaceActions(state, false, vi.fn(), execute),
     );
     await act(async () => {
       await hook.result.current("add-goal", { team: "my-team" }, { matchId: "match" });
@@ -34,12 +33,15 @@ describe("useWorkspaceActions", () => {
     expect(original).toMatchObject({
       occurredTime: new Date(original.occurredAt!).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
     });
-    hook.rerender({ failed: original });
     clock.mockReturnValue(Date.parse("2026-10-04T13:01:00Z"));
     await act(async () => {
       await hook.result.current("add-goal", { team: "my-team" }, { matchId: "match" });
     });
-    expect(execute.mock.calls[1][0]).toEqual(original);
+    expect(execute.mock.calls[1][0].id).not.toBe(original.id);
+    expect(execute.mock.calls[1][0]).toMatchObject({
+      occurredAt: Date.parse("2026-10-04T13:01:00Z"),
+      occurredTime: new Date("2026-10-04T13:01:00Z").toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    });
     await act(async () => {
       await hook.result.current("add-goal", { team: "opponent" }, { matchId: "match" });
     });
@@ -51,7 +53,7 @@ describe("useWorkspaceActions", () => {
   it("applies local actions and caches without device credentials", async () => {
     const apply = vi.fn();
     const execute = vi.fn(async (_command: WorkspaceCommand) => true);
-    const hook = renderHook(() => useWorkspaceActions(state, true, apply, execute, null));
+    const hook = renderHook(() => useWorkspaceActions(state, true, apply, execute));
 
     await act(async () => {
       expect(await hook.result.current("add-player", { player: "Alice" })).toBe(true);
@@ -77,7 +79,7 @@ describe("useWorkspaceActions", () => {
       metadata: emptyMetadata(),
     });
     const before = localStorage.getItem(CACHE_KEY);
-    const hook = renderHook(() => useWorkspaceActions(state, false, apply, execute, null));
+    const hook = renderHook(() => useWorkspaceActions(state, false, apply, execute));
 
     await act(async () => {
       expect(await hook.result.current("add-player", { player: "Alice" })).toBe(true);
@@ -93,28 +95,14 @@ describe("useWorkspaceActions", () => {
     expect(localStorage.getItem(CACHE_KEY)).toBe(before);
   });
 
-  it("reuses failed command ID only for same intent", async () => {
-    const failed: WorkspaceCommand = {
-      id: "retry-id",
-      type: "add-player",
-      payload: { player: "Alice" },
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-    const execute = vi.fn(async (_command: WorkspaceCommand) => false);
-    const hook = renderHook(
-      ({ failedCommand }) => useWorkspaceActions(state, false, vi.fn(), execute, failedCommand),
-      {
-        initialProps: { failedCommand: failed },
-      },
-    );
-
+  it("gives repeated identical submissions distinct command IDs", async () => {
+    const execute = vi.fn(async (_command: WorkspaceCommand) => true);
+    const hook = renderHook(() => useWorkspaceActions(state, false, vi.fn(), execute));
     await act(async () => {
-      await hook.result.current("add-player", { player: "Alice" });
-      await hook.result.current("add-player", { player: "Bob" });
+      await hook.result.current("add-goal", { team: "my-team", scorer: "Alice" }, { matchId: "match" });
+      await hook.result.current("add-goal", { team: "my-team", scorer: "Alice" }, { matchId: "match" });
     });
-
-    expect(execute.mock.calls[0][0].id).toBe("retry-id");
-    expect(execute.mock.calls[1][0].id).not.toBe("retry-id");
+    expect(execute.mock.calls[0][0].id).not.toBe(execute.mock.calls[1][0].id);
   });
 
   it("rejects invalid local command without changing state or cache", async () => {
@@ -128,7 +116,7 @@ describe("useWorkspaceActions", () => {
       metadata: emptyMetadata(),
     });
     const before = localStorage.getItem(CACHE_KEY);
-    const hook = renderHook(() => useWorkspaceActions(state, true, apply, execute, null));
+    const hook = renderHook(() => useWorkspaceActions(state, true, apply, execute));
 
     await act(async () => {
       expect(await hook.result.current("add-goal", { team: "my-team" })).toBe(false);

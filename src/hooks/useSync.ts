@@ -264,8 +264,11 @@ export function useSync(
 
   const executeCommand = useCallback(
     async (command: WorkspaceCommand): Promise<boolean> => {
-      if (!current.current.token || confirmed.current !== "editor" || commandInFlight.current)
+      if (!current.current.token || confirmed.current !== "editor") return false;
+      if (commandInFlight.current) {
+        toast.error("An action is still being saved. Please try again when it finishes.");
         return false;
+      }
       const credential = current.current.token;
       const epoch = generation.current;
       commandInFlight.current = true;

@@ -207,7 +207,6 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
     case "delete-goal": {
       const match = targetMatch(state, command);
       const id = text(payload, "goalId");
-      if (!match.goals.some((goal) => goal.id === id)) fail(404, "Goal not found");
       match.goals = match.goals.filter((goal) => goal.id !== id);
       return;
     }
@@ -234,7 +233,6 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
     case "delete-event": {
       const match = targetMatch(state, command);
       const id = text(payload, "eventId");
-      if (!match.events.some((event) => event.id === id)) fail(404, "Event not found");
       match.events = match.events.filter((event) => event.id !== id);
       return;
     }

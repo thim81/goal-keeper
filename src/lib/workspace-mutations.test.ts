@@ -274,8 +274,25 @@ describe("applyWorkspaceCommand live mutations", () => {
     const deletedEvent = applyWorkspaceCommand(deleted, command("delete-event", { eventId: withCard.activeMatch!.events[1].id }, { type: "delete-event", matchId })).state;
     expect(deletedEvent.activeMatch!.goals).toEqual([]);
     expect(deletedEvent.activeMatch!.events.some((event) => event.id === withCard.activeMatch!.events[1].id)).toBe(false);
-    expect(() => applyWorkspaceCommand(withCard, command("missing-delete-goal", { goalId: "gone" }, { type: "delete-goal", matchId }))).toThrow(WorkspaceError);
-    expect(() => applyWorkspaceCommand(withCard, command("missing-delete-event", { eventId: "gone" }, { type: "delete-event", matchId }))).toThrow(WorkspaceError);
+    expect(applyWorkspaceCommand(withCard, command("missing-delete-goal", { goalId: "gone" }, { type: "delete-goal", matchId }))).toMatchObject({ changed: false, structureChanged: false, state: withCard });
+    expect(applyWorkspaceCommand(withCard, command("missing-delete-event", { eventId: "gone" }, { type: "delete-event", matchId }))).toMatchObject({ changed: false, structureChanged: false, state: withCard });
+  });
+
+  it.each(["delete-goal", "delete-event"] as const)("makes a second %s a successful no-op within the same live match", type => {
+    const { state, matchId } = live();
+    const goalState = applyWorkspaceCommand(state, command("goal", { team: "opponent" }, { type: "add-goal", matchId })).state;
+    const initial = applyWorkspaceCommand(goalState, command("card", { eventType: "yellow-card", team: "opponent" }, { type: "add-event", matchId })).state;
+    const payload = type === "delete-goal" ? { goalId: "cmd-goal:goal" } : { eventId: "cmd-card:event" };
+    const first = applyWorkspaceCommand(initial, command("editor-a", payload, { type, matchId }));
+    expect(first.changed).toBe(true);
+    const second = applyWorkspaceCommand(first.state, command("editor-b", payload, { type, matchId }));
+    expect(second).toMatchObject({ state: first.state, changed: false, structureChanged: false });
+    expect(initial.activeMatch!.goals).toHaveLength(1);
+    expect(initial.activeMatch!.events).toHaveLength(2);
+    expect(() => applyWorkspaceCommand(first.state, command("wrong-match", payload, { type, matchId: "other" }))).toThrow("Active match changed");
+    expect(() => applyWorkspaceCommand(first.state, command("missing-id", {}, { type, matchId }))).toThrow(WorkspaceError);
+    const ended = applyWorkspaceCommand(first.state, command("end-match", {}, { matchId })).state;
+    expect(() => applyWorkspaceCommand(ended, command("ended-match", payload, { type, matchId }))).toThrow("Active match changed");
   });
 
   it("validates event time targets and clock values", () => {

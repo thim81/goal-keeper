@@ -4,24 +4,14 @@ import type { WorkspaceCommand, WorkspaceCommandType } from "@/lib/workspace";
 import type { SyncState } from "@/lib/sync";
 import { saveWorkspaceCache, emptyMetadata } from "@/lib/workspace-cache";
 import { toast } from "sonner";
-const intent = (command: Omit<WorkspaceCommand, "id">) =>
-  JSON.stringify([
-    command.type,
-    command.matchId,
-    command.seasonId,
-    command.expectedRevision,
-    command.payload,
-    command.timeZone,
-  ]);
 export function useWorkspaceActions(
   state: SyncState,
   local: boolean,
   apply: (state: SyncState) => void,
   execute: (command: WorkspaceCommand) => Promise<boolean>,
-  failed: WorkspaceCommand | null,
 ) {
-  const current = useRef({ state, local, apply, execute, failed });
-  current.current = { state, local, apply, execute, failed };
+  const current = useRef({ state, local, apply, execute });
+  current.current = { state, local, apply, execute };
   return useCallback(
     async (
       type: WorkspaceCommandType,
@@ -36,19 +26,16 @@ export function useWorkspaceActions(
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       const occurredAt = Date.now();
-      const command: WorkspaceCommand =
-        props.failed && intent(props.failed) === intent(content)
-          ? props.failed
-          : {
-              ...content,
-              occurredAt,
-              occurredTime: new Date(occurredAt).toLocaleTimeString("en-GB", {
-                hour: "2-digit", minute: "2-digit",
-              }),
-              id:
-                globalThis.crypto?.randomUUID?.() ??
-                `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
-            };
+      const command: WorkspaceCommand = {
+        ...content,
+        occurredAt,
+        occurredTime: new Date(occurredAt).toLocaleTimeString("en-GB", {
+          hour: "2-digit", minute: "2-digit",
+        }),
+        id:
+          globalThis.crypto?.randomUUID?.() ??
+          `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
+      };
       if (!props.local) return props.execute(command);
       try {
         const result = applyWorkspaceCommand(props.state, command);

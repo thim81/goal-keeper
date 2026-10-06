@@ -5,6 +5,7 @@ import { createEmptyWorkspace } from "../lib/workspace";
 import { DEFAULT_SETTINGS } from "../types/match";
 import { fetchRemoteState, fetchActiveMatch, postCommand } from "../lib/sync";
 import { applyWorkspaceCommand } from "../lib/workspace-mutations";
+import { useWorkspaceActions } from "./useWorkspaceActions";
 import { saveWorkspaceCache, emptyMetadata } from "../lib/workspace-cache";
 import { readWorkspaceCache } from "../lib/workspace-cache";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ beforeEach(() => {
   vi.mocked(fetchActiveMatch).mockReset().mockResolvedValue(live());
   vi.mocked(postCommand).mockReset();
   vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 });
 afterEach(() => {
@@ -68,6 +70,53 @@ function mount(token = "editor", onFull = vi.fn(), onLive = vi.fn()) {
   };
 }
 describe("authoritative sync", () => {
+  it("records a later identical goal with a fresh time after a committed goal loses both responses", async () => {
+    const initial = applyWorkspaceCommand(state, { id: "start", type: "start-match", payload: { isHome: true } }).state;
+    let server = initial;
+    let revision = 1;
+    let structureRevision = 1;
+    let loseResponse = true;
+    const accepted = new Set<string>();
+    vi.mocked(fetchRemoteState).mockImplementation(async () => ({ ...full(revision, structureRevision), state: server }));
+    vi.mocked(postCommand).mockImplementation(async (_token, command) => {
+      if (!accepted.has(command.id)) {
+        const update = applyWorkspaceCommand(server, command);
+        server = update.state;
+        if (update.structureChanged) structureRevision++;
+        accepted.add(command.id);
+        if (update.changed) revision++;
+      }
+      if (loseResponse) throw new TypeError("response lost after commit");
+      return { ...live(revision, structureRevision), commandId: command.id, activeMatch: server.activeMatch };
+    });
+    const h = renderHook(() => {
+      const sync = useSync("editor", initial.seasons, initial.activeSeasonId, initial.activeMatch, DEFAULT_SETTINGS, vi.fn());
+      const dispatch = useWorkspaceActions(initial, false, vi.fn(), sync.executeCommand);
+      return { sync, dispatch };
+    });
+    await flush();
+    const target = { matchId: initial.activeMatch!.id };
+    await act(async () => { expect(await h.result.current.dispatch("add-goal", { team: "my-team", scorer: "Alice" }, target)).toBe(false); });
+    expect(server.activeMatch!.goals).toHaveLength(1);
+    expect(h.result.current.sync.failedCommand).not.toBeNull();
+    const first = server.activeMatch!.goals[0];
+    loseResponse = false;
+    vi.setSystemTime(Date.now() + 60_000);
+    await act(async () => { expect(await h.result.current.dispatch("add-goal", { team: "my-team", scorer: "Alice" }, target)).toBe(true); });
+    expect(server.activeMatch!.goals).toHaveLength(2);
+    const second = server.activeMatch!.goals[1];
+    expect(second.id).not.toBe(first.id);
+    expect(second.timestamp).toBe(first.timestamp + 60_000);
+    expect(vi.mocked(postCommand).mock.calls[0][1]).toEqual(vi.mocked(postCommand).mock.calls[1][1]);
+    await act(async () => { expect(await h.result.current.dispatch("delete-goal", { goalId: second.id }, target)).toBe(true); });
+    expect(server.activeMatch!.goals).toEqual([first]);
+    vi.mocked(toast.error).mockClear();
+    await act(async () => { expect(await h.result.current.dispatch("delete-goal", { goalId: second.id }, target)).toBe(true); });
+    expect(server.activeMatch!.goals).toEqual([first]);
+    expect(h.result.current.sync.failedCommand).toBeNull();
+    expect(h.result.current.sync.actionError).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
   it("keeps the manual refresh cooldown while returning to the app still refreshes immediately", async () => {
     const h = mount();
     await flush();
@@ -341,6 +390,7 @@ describe("authoritative sync", () => {
       await first!;
     });
     expect(postCommand).toHaveBeenCalledOnce();
+    expect(toast.error).toHaveBeenCalledWith("An action is still being saved. Please try again when it finishes.");
   });
   it("blocks offline/viewer editing; local mode sends no requests", async () => {
     vi.mocked(fetchRemoteState).mockResolvedValue({ ...full(), role: "viewer" });
@@ -450,13 +500,16 @@ describe("authoritative sync", () => {
     await flush();
     vi.mocked(postCommand).mockRejectedValue(new Error("lost"));
     await act(async () => {
-      await h.result.current.executeCommand({ id: "cmd", type: "pause-match", matchId: "m" });
+      await h.result.current.executeCommand({ id: "cmd", type: "pause-match", matchId: "m", occurredAt: 1000, occurredTime: "13:00" });
     });
+    const original = vi.mocked(postCommand).mock.calls[0][1];
+    vi.setSystemTime(Date.now() + 60_000);
     vi.mocked(postCommand).mockResolvedValue({ ...live(2), commandId: "cmd" });
     await act(async () => {
       expect(await h.result.current.retryCommand()).toBe(true);
     });
     expect(h.result.current.failedCommand).toBeNull();
+    expect(vi.mocked(postCommand).mock.calls.every(([, command]) => JSON.stringify(command) === JSON.stringify(original))).toBe(true);
     expect(h.result.current.pendingCommand).toBeNull();
     expect(await h.result.current.retryCommand()).toBe(false);
   });

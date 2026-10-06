@@ -185,7 +185,6 @@ export default function Index() {
     !settings.syncToken && !sharedToken,
     handleSyncState,
     executeCommand,
-    failedCommand,
   );
   const liveAction = (
     type: Parameters<typeof dispatch>[0],

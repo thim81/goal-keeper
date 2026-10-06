@@ -47,6 +47,25 @@ async function body(response: Response) {
 }
 
 describe("SQLite workspace Worker", () => {
+  it.each(["goal", "event"])("accepts both editors deleting the same %s without losing unrelated state", async kind => {
+    await seed();
+    const stub = workspace();
+    const started = await body(await command(stub, { id: "start", type: "start-match", payload: { isHome: true } }));
+    const matchId = started.state.activeMatch.id;
+    const added = await body(await command(stub, { id: "item", type: `add-${kind}`, matchId,
+      payload: kind === "goal" ? { team: "opponent" } : { eventType: "yellow-card", team: "opponent" } }));
+    const before = await body(await command(stub, { id: "keep", type: "add-goal", matchId, payload: { team: "my-team" } }));
+    const deletion = { type: `delete-${kind}`, matchId, payload: { [`${kind}Id`]: `item:${kind}` } };
+    const responses = await Promise.all([command(stub, { ...deletion, id: "editor-a" }), command(stub, { ...deletion, id: "editor-b" })]);
+    expect(responses.map(response => response.status)).toEqual([200, 200]);
+    const accepted = await Promise.all(responses.map(body));
+    const expected = structuredClone(before.activeMatch);
+    if (kind === "goal") expected.goals = expected.goals.filter((goal: any) => goal.id !== "item:goal");
+    else expected.events = expected.events.filter((event: any) => event.id !== "item:event");
+    for (const result of accepted) expect(result).toMatchObject({ scope: "live", revision: before.revision + 1, structureRevision: added.structureRevision, activeMatch: expected });
+    expect((await body(await get(stub))).state.activeMatch).toEqual(expected);
+    expect(await body(await command(stub, { ...deletion, id: "editor-b" }))).toEqual(accepted[1]);
+  });
   it("persists client timestamps and display times for match and period actions", async () => {
     await seed();
     const stub = workspace();
@@ -207,6 +226,12 @@ describe("SQLite workspace Worker", () => {
     const matchId = started.state.activeMatch.id as string;
     const score = { id: "score", type: "add-goal", matchId, payload: { team: "my-team" } };
     const original = await body(await command(stub, score));
+    const occurredAt = original.activeMatch.goals[0].timestamp + 60_000;
+    const later = await body(await command(stub, { ...score, id: "later-score", occurredAt, occurredTime: "13:01" }));
+    expect(later.activeMatch.goals).toHaveLength(2);
+    expect(later.activeMatch.goals[1]).toMatchObject({ id: "later-score:goal", timestamp: occurredAt, time: "13:01" });
+    const removed = await body(await command(stub, { id: "remove-duplicate", type: "delete-goal", matchId, payload: { goalId: "later-score:goal" } }));
+    expect(removed.activeMatch.goals).toEqual(original.activeMatch.goals);
     await command(stub, {
       id: "end",
       type: "end-match",
