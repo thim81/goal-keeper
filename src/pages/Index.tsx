@@ -160,11 +160,7 @@ export default function Index() {
     isSyncing,
     isCoolingDown,
     isCredentialConfirmed,
-    executeCommand,
-    pendingCommand,
-    failedCommand,
-    retryCommand,
-    actionError,
+    submitCommand,
     metadata,
     isWorkspaceStale,
   } = useSync(
@@ -184,7 +180,7 @@ export default function Index() {
     assembleWorkspace(seasons, activeSeasonId, activeMatch, settings),
     !settings.syncToken && !sharedToken,
     handleSyncState,
-    executeCommand,
+    submitCommand,
   );
   const liveAction = (
     type: Parameters<typeof dispatch>[0],
@@ -444,8 +440,7 @@ export default function Index() {
   ) => {
     if (type === "start") return handleStartPeriod();
     if (type === "period-end") return handleEndPeriod();
-    if (type === "pause" || type === "resume")
-      return liveAction(type === "pause" ? "pause-match" : "resume-match");
+    if (type === "pause" || type === "resume") return toggleTimer();
     const label =
       [
         options?.team
@@ -589,17 +584,10 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" aria-busy={!!pendingCommand}>
-      {(pendingCommand || actionError || isWorkspaceStale) && (
+    <div className="min-h-screen bg-background flex flex-col">
+      {isWorkspaceStale && (
         <div role="status" className="px-4 py-2 text-sm bg-secondary">
-          {pendingCommand
-            ? "Saving action…"
-            : actionError || "History and settings are cached. Refreshing workspace…"}
-          {failedCommand && !pendingCommand && (
-            <Button variant="outline" onClick={() => void retryCommand()}>
-              Retry action
-            </Button>
-          )}
+          History and settings are cached. Refreshing workspace…
         </div>
       )}
       <>

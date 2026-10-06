@@ -373,30 +373,142 @@ describe("authoritative sync", () => {
     });
     expect(h.result.current.failedCommand?.id).toBe("cmd");
   });
-  it("allows one command at a time", async () => {
+  it("queues rapid actions in submission order without refusing a second tap", async () => {
     const h = mount();
     await flush();
-    const d = deferred();
-    vi.mocked(postCommand).mockReturnValue(d.promise);
-    let first: Promise<any>;
+    const firstResponse = deferred();
+    const secondResponse = deferred();
+    vi.mocked(postCommand).mockReturnValueOnce(firstResponse.promise).mockReturnValueOnce(secondResponse.promise)
+      .mockResolvedValueOnce({ ...live(4), commandId: "three" });
+    let first: Promise<boolean>, second: Promise<boolean>, third: Promise<boolean>;
     await act(async () => {
-      first = h.result.current.executeCommand({ id: "one", type: "pause-match", matchId: "m" });
-      expect(
-        await h.result.current.executeCommand({ id: "two", type: "pause-match", matchId: "m" }),
-      ).toBe(false);
+      first = h.result.current.executeCommand({ id: "one", type: "pause-match", matchId: "m", occurredAt: 1000 });
+      second = h.result.current.executeCommand({ id: "two", type: "add-goal", matchId: "m", occurredAt: 1001 });
+      third = h.result.current.executeCommand({ id: "three", type: "add-event", matchId: "m", occurredAt: 1002 });
     });
-    d.resolve({ ...live(), commandId: "one" });
+    expect(postCommand).toHaveBeenCalledTimes(1);
+    firstResponse.resolve({ ...live(2), commandId: "one" });
+    await act(async () => { expect(await first!).toBe(true); });
+    expect(postCommand).toHaveBeenCalledTimes(2);
+    secondResponse.resolve({ ...live(3), commandId: "two" });
+    await act(async () => { expect(await second!).toBe(true); expect(await third!).toBe(true); });
+    expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.id)).toEqual(["one", "two", "three"]);
+    expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.occurredAt)).toEqual([1000, 1001, 1002]);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(h.result.current.pendingCommand).toBeNull();
+  });
+  it("continues queued actions after an earlier command is rejected and refetches", async () => {
+    const h = mount();
+    await flush();
+    vi.mocked(postCommand).mockRejectedValueOnce(Object.assign(new Error("Already paused"), { status: 409 }))
+      .mockResolvedValueOnce({ ...live(2), commandId: "goal" });
     await act(async () => {
-      await first!;
+      const pause = h.result.current.executeCommand({ id: "pause", type: "pause-match", matchId: "m" });
+      const goal = h.result.current.executeCommand({ id: "goal", type: "add-goal", matchId: "m" });
+      expect(await pause).toBe(false);
+      expect(await goal).toBe(true);
+    });
+    expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.id)).toEqual(["pause", "goal"]);
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+  });
+  it("finishes a transport retry before the next action and reconciles a lost response", async () => {
+    const h = mount();
+    await flush();
+    vi.mocked(postCommand).mockRejectedValueOnce(new TypeError("response lost"))
+      .mockRejectedValueOnce(new TypeError("response lost again"))
+      .mockResolvedValueOnce({ ...live(3), commandId: "second" });
+    const first = { id: "first", type: "add-goal" as const, matchId: "m", occurredAt: 1000, occurredTime: "13:00" };
+    await act(async () => {
+      const a = h.result.current.executeCommand(first);
+      const b = h.result.current.executeCommand({ ...first, id: "second", occurredAt: 2000 });
+      expect(await a).toBe(false);
+      expect(await b).toBe(true);
+    });
+    expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.id)).toEqual(["first", "first", "second"]);
+    expect(vi.mocked(postCommand).mock.calls[0][1]).toEqual(vi.mocked(postCommand).mock.calls[1][1]);
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+  });
+  it("does not send queued actions after credentials are revoked", async () => {
+    const h = mount();
+    await flush();
+    vi.mocked(postCommand).mockRejectedValue(Object.assign(new Error("revoked"), { status: 403 }));
+    vi.mocked(fetchRemoteState).mockRejectedValue(Object.assign(new Error("revoked"), { status: 401 }));
+    await act(async () => {
+      const a = h.result.current.executeCommand({ id: "first", type: "add-goal", matchId: "m" });
+      const b = h.result.current.executeCommand({ id: "second", type: "add-goal", matchId: "m" });
+      expect(await a).toBe(false);
+      expect(await b).toBe(false);
     });
     expect(postCommand).toHaveBeenCalledOnce();
-    expect(toast.error).toHaveBeenCalledWith("An action is still being saved. Please try again when it finishes.");
+    expect(h.result.current.isCredentialConfirmed).toBe(false);
+  });
+  it("discards the in-memory queue when the app unmounts", async () => {
+    const h = mount();
+    await flush();
+    const response = deferred();
+    vi.mocked(postCommand).mockReturnValue(response.promise);
+    let a: Promise<boolean>, b: Promise<boolean>;
+    await act(async () => {
+      a = h.result.current.executeCommand({ id: "first", type: "add-goal", matchId: "m" });
+      b = h.result.current.executeCommand({ id: "second", type: "add-goal", matchId: "m" });
+    });
+    h.unmount();
+    response.resolve({ ...live(2), commandId: "first" });
+    expect(await a!).toBe(false);
+    expect(await b!).toBe(false);
+    expect(postCommand).toHaveBeenCalledOnce();
+  });
+  it("accepts background submissions before the response without optimistic state", async () => {
+    const h = mount();
+    await flush();
+    const response = deferred();
+    vi.mocked(postCommand).mockReturnValue(response.promise);
+    await act(async () => {
+      expect(await h.result.current.submitCommand({ id: "goal", type: "add-goal", matchId: "m" })).toBe(true);
+    });
+    expect(h.onLive).not.toHaveBeenCalled();
+    response.resolve({ ...live(2), commandId: "goal" });
+    await flush();
+    expect(h.onLive).toHaveBeenCalledOnce();
+  });
+  it("keeps backup replacement awaiting confirmation", async () => {
+    const h = mount();
+    await flush();
+    const response = deferred();
+    vi.mocked(postCommand).mockReturnValue(response.promise);
+    let done = false;
+    let submission: Promise<boolean>;
+    await act(async () => {
+      submission = h.result.current.submitCommand({ id: "import", type: "import-backup" }).then(result => { done = true; return result; });
+    });
+    expect(done).toBe(false);
+    response.resolve({ ...full(2), commandId: "import" });
+    await act(async () => { expect(await submission!).toBe(true); });
+  });
+  it("cancels queued commands across credential changes without holding up the new workspace", async () => {
+    const h = mount();
+    await flush();
+    const response = deferred();
+    vi.mocked(postCommand).mockReturnValueOnce(response.promise).mockResolvedValue({ ...live(4), commandId: "new" });
+    let old: Promise<boolean>, queued: Promise<boolean>;
+    await act(async () => {
+      old = h.result.current.executeCommand({ id: "old", type: "pause-match", matchId: "m" });
+      queued = h.result.current.executeCommand({ id: "queued", type: "add-goal", matchId: "m" });
+    });
+    h.rerender({ token: "new-editor" });
+    await flush();
+    await act(async () => { expect(await h.result.current.executeCommand({ id: "new", type: "add-goal", matchId: "m" })).toBe(true); });
+    response.resolve({ ...live(8), commandId: "old" });
+    await act(async () => { expect(await old!).toBe(false); expect(await queued!).toBe(false); });
+    expect(vi.mocked(postCommand).mock.calls.map(([token, command]) => [token, command.id])).toEqual([["editor", "old"], ["new-editor", "new"]]);
+    expect(h.result.current.metadata.liveRevision).toBe(4);
   });
   it("blocks offline/viewer editing; local mode sends no requests", async () => {
     vi.mocked(fetchRemoteState).mockResolvedValue({ ...full(), role: "viewer" });
     const h = mount();
     await flush();
     expect(await h.result.current.executeCommand({ id: "cmd", type: "pause-match" })).toBe(false);
+    expect(await h.result.current.submitCommand({ id: "cmd", type: "pause-match" })).toBe(false);
     h.rerender({ token: "" });
     await flush();
     expect(h.result.current.status).toBe("local");

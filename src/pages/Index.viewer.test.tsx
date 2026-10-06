@@ -83,16 +83,18 @@ describe("Index viewer access", () => {
   it("keeps navigation and device preferences available while an editor command is pending", async () => {
     localStorage.setItem("football-tracker-settings", JSON.stringify({ ...DEFAULT_SETTINGS, syncToken: "editor-token" }));
     let resolve: (response: Response) => void = () => {};
-    vi.stubGlobal("fetch", vi.fn((url: string) => url.includes("/api/command")
+    const fetchMock = vi.fn((url: string) => url.includes("/api/command")
       ? new Promise<Response>(done => { resolve = done; })
-      : Promise.resolve(response("editor", emptyRemoteState))));
+      : Promise.resolve(response("editor", emptyRemoteState)));
+    vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<Index />);
     await screen.findByRole("button", { name: /start new match/i });
     fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
     const player = await screen.findByPlaceholderText("Add player name");
     fireEvent.change(player, { target: { value: "Alice" } });
     fireEvent.click(player.closest("div")!.querySelector("button")!);
-    await screen.findByText("Saving action…");
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/command")).toBe(true));
+    expect(screen.queryByText("Saving action…")).not.toBeInTheDocument();
     const dark = screen.getByRole("button", { name: "Dark" });
     expect(dark).toBeEnabled();
     fireEvent.click(dark);
@@ -102,7 +104,8 @@ describe("Index viewer access", () => {
     fireEvent.click(back);
     expect(screen.getByText("Ready to Play?")).toBeInTheDocument();
     resolve(new Response("rejected", { status: 409 }));
-    await waitFor(() => expect(screen.queryByText("Saving action…")).not.toBeInTheDocument());
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("rejected"));
+    expect(screen.queryByRole("button", { name: /retry action/i })).not.toBeInTheDocument();
   });
 
   it("loads shared history read-only while keeping the viewer token and local theme", async () => {
@@ -596,15 +599,14 @@ describe("Index viewer access", () => {
     expect(screen.getByPlaceholderText("Opponent")).toHaveValue("");
   });
 
-  it("keeps the submitted match draft after a command failure", async () => {
+  it("closes the start sheet on submission and refetches after a command failure", async () => {
     localStorage.setItem(
       "football-tracker-settings",
       JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
     );
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(response("editor"))
-      .mockResolvedValueOnce(new Response("offline", { status: 500 }));
+    const fetchMock = vi.fn((_url: string, options?: RequestInit) => Promise.resolve(
+      options?.method === "POST" ? new Response("offline", { status: 500 }) : response("editor"),
+    ));
     vi.stubGlobal("fetch", fetchMock);
     render(<Index />);
 
@@ -614,8 +616,10 @@ describe("Index viewer access", () => {
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
     );
-    expect(screen.getByText("New Match ⚽")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Opponent")).toHaveValue("Rivals");
-    expect(screen.getByRole("button", { name: "Kick Off!" })).toBeEnabled();
+    await waitFor(() => expect(screen.queryByText("New Match ⚽")).not.toBeInTheDocument());
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("offline"));
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "GET")).toHaveLength(2);
+    expect(screen.getByText("Ready to Play?")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry action/i })).not.toBeInTheDocument();
   });
 });

@@ -68,7 +68,7 @@ export function useSync(
     cached?.credential === token ? cached.workspaceId : null,
   );
   const confirmed = useRef<WorkspaceRole | null>(null);
-  const commandInFlight = useRef(false);
+  const commandQueue = useRef<Promise<void>>(Promise.resolve());
   const reads = useRef<{ full: Promise<void> | null; live: Promise<void> | null }>({
     full: null,
     live: null,
@@ -197,7 +197,7 @@ export function useSync(
     confirmed.current = null;
     reads.current = { full: null, live: null };
     announceFullRefresh.current = false;
-    commandInFlight.current = false;
+    commandQueue.current = Promise.resolve();
     setPendingCommand(null);
     setFailedCommand(null);
     setActionError(null);
@@ -263,57 +263,66 @@ export function useSync(
   }, [hasLiveMatch]);
 
   const executeCommand = useCallback(
-    async (command: WorkspaceCommand): Promise<boolean> => {
-      if (!current.current.token || confirmed.current !== "editor") return false;
-      if (commandInFlight.current) {
-        toast.error("An action is still being saved. Please try again when it finishes.");
-        return false;
-      }
+    (command: WorkspaceCommand): Promise<boolean> => {
+      if (!current.current.token || confirmed.current !== "editor") return Promise.resolve(false);
       const credential = current.current.token;
       const epoch = generation.current;
-      commandInFlight.current = true;
-      setPendingCommand(command);
-      setFailedCommand(null);
-      setActionError(null);
-      try {
-        let response;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            response = await postCommand(credential, command);
-            break;
-          } catch (error) {
-            if (attempt || (error as { status?: number }).status) throw error;
+      const result = commandQueue.current.then(async () => {
+        if (epoch !== generation.current || confirmed.current !== "editor") return false;
+        setPendingCommand(command);
+        setFailedCommand(null);
+        setActionError(null);
+        try {
+          let response;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              response = await postCommand(credential, command);
+              break;
+            } catch (error) {
+              if (attempt || (error as { status?: number }).status) throw error;
+            }
+          }
+          if (epoch !== generation.current) return false;
+          apply(response!, epoch);
+          return true;
+        } catch (error) {
+          if (epoch !== generation.current) return false;
+          const code = (error as { status?: number }).status;
+          const message = code
+            ? (error as Error).message
+            : "Action unconfirmed. Refreshing the latest state.";
+          if (code === 401 || code === 403) {
+            confirmed.current = null;
+            setConfirmedCredential(null);
+            setRole(null);
+            setStatus("invalid");
+          }
+          setFailedCommand(command);
+          setActionError(message);
+          toast.error(message);
+          // Reads reconcile displayed data, never acknowledge an uncertain command.
+          void refresh(true);
+          return false;
+        } finally {
+          if (epoch === generation.current) {
+            setPendingCommand(null);
           }
         }
-        if (epoch !== generation.current) return false;
-        apply(response!, epoch);
-        return true;
-      } catch (error) {
-        if (epoch !== generation.current) return false;
-        const code = (error as { status?: number }).status;
-        const message = code
-          ? (error as Error).message
-          : "Action unconfirmed. Refresh or retry this action.";
-        if (code === 401 || code === 403) {
-          confirmed.current = null;
-          setConfirmedCredential(null);
-          setRole(null);
-          setStatus("invalid");
-        }
-        setFailedCommand(command);
-        setActionError(message);
-        toast.error(message);
-        // Reads reconcile displayed data, never acknowledge an uncertain command.
-        void refresh(true);
-        return false;
-      } finally {
-        if (epoch === generation.current) {
-          commandInFlight.current = false;
-          setPendingCommand(null);
-        }
-      }
+      });
+      // Only the current browser session buffers actions; never persist or replay this queue.
+      commandQueue.current = result.then(() => {}, () => {});
+      return result;
     },
     [apply, refresh],
+  );
+  const submitCommand = useCallback(
+    (command: WorkspaceCommand): Promise<boolean> => {
+      if (!current.current.token || confirmed.current !== "editor") return Promise.resolve(false);
+      const result = executeCommand(command);
+      // Backup replacement reports success only after the revision check and replacement succeed.
+      return command.type === "import-backup" ? result : Promise.resolve(true);
+    },
+    [executeCommand],
   );
   const retryCommand = useCallback(
     () => (failedCommand ? executeCommand(failedCommand) : Promise.resolve(false)),
@@ -342,6 +351,7 @@ export function useSync(
     isCoolingDown,
     syncNow,
     executeCommand,
+    submitCommand,
     retryCommand,
     pendingCommand,
     failedCommand,
