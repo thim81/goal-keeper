@@ -1,10 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AddGoalSheet } from "./AddGoalSheet";
 
 describe("AddGoalSheet async submission", () => {
-  it("stays open while saving, ignores duplicate submits, then closes on success", async () => {
+  it("keeps controls available without saving UI, ignores duplicate submits, then closes on acceptance", async () => {
     let resolve: (value: boolean) => void = () => {};
     const onAddGoal = vi.fn(
       () =>
@@ -19,14 +19,36 @@ describe("AddGoalSheet async submission", () => {
     fireEvent.change(screen.getByPlaceholderText("Who scored?"), { target: { value: "Alex" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Add Goal" }));
-    fireEvent.click(screen.getByRole("button", { name: "Saving…" }));
-    fireEvent.click(container.querySelector(".fixed > div")!);
+    fireEvent.click(screen.getByRole("button", { name: "Add Goal" }));
 
     expect(onAddGoal).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    container.querySelectorAll("input, button").forEach((control) => expect(control).toBeEnabled());
     resolve(true);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it("allows dismissal while submission acceptance is pending", async () => {
+    let resolve!: (value: boolean) => void;
+    const onAddGoal = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const onClose = vi.fn();
+    const { container } = render(
+      <AddGoalSheet isOpen onClose={onClose} onAddGoal={onAddGoal} knownPlayers={[]} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Who scored?"), { target: { value: "Alex" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Goal" }));
+    fireEvent.click(container.querySelector(".fixed > div")!);
+    expect(onClose).toHaveBeenCalledOnce();
+    await act(async () => {
+      resolve(false);
+    });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it.each([false, "throw"] as const)("retains values after %s", async (result) => {

@@ -4,6 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 import { AddOpponentGoalSheet } from "./AddOpponentGoalSheet";
 
 describe("AddOpponentGoalSheet", () => {
+  it("keeps controls available while guarding duplicate submissions", async () => {
+    let resolve!: (value: boolean) => void;
+    const onAddGoal = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const onClose = vi.fn();
+    const { container } = render(
+      <AddOpponentGoalSheet isOpen onClose={onClose} onAddGoal={onAddGoal} opponentName="Rivals" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add Goal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Goal" }));
+    expect(onAddGoal).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    container.querySelectorAll("button").forEach((control) => expect(control).toBeEnabled());
+    resolve(true);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
   it("renders nothing when closed", () => {
     const { container } = render(
       <AddOpponentGoalSheet

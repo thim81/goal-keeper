@@ -136,10 +136,13 @@ describe("GoalTimeline", () => {
     act(() => vi.advanceTimersByTime(500));
     fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Changed" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onUpdateGoal).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Header" })).toBeEnabled();
+    expect(screen.getByLabelText("Time")).toBeEnabled();
     expect(screen.getByDisplayValue("Changed")).toBeInTheDocument();
     resolve(false);
     await act(async () => {

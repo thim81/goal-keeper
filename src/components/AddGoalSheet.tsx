@@ -20,15 +20,12 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
   const [scorer, setScorer] = useState("");
   const [assist, setAssist] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("normal");
-  const { submit, isSubmitting } = useSubmitAction(onAddGoal, () => {
+  const { submit } = useSubmitAction(onAddGoal, () => {
     setScorer("");
     setAssist("");
     setGoalType("normal");
     onClose();
   });
-  const handleClose = () => {
-    if (!isSubmitting) onClose();
-  };
   const handleSubmit = () => {
     if (scorer.trim()) void submit(scorer.trim(), assist.trim(), goalType);
   };
@@ -38,7 +35,7 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
   return (
     <div className="fixed inset-0 z-50 animate-fade-in">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl py-4 px-6 safe-bottom animate-slide-up border-t border-border/50">
@@ -49,15 +46,12 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Add Goal ⚽</h2>
           <button
-            onClick={handleClose}
-            disabled={isSubmitting}
+            onClick={onClose}
             className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
-
-        {isSubmitting && <p role="status">Saving…</p>}
 
         {/* Form */}
         <div className="space-y-4">
@@ -118,10 +112,10 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
           {/* Submit */}
           <button
             onClick={handleSubmit}
-            disabled={!scorer.trim() || isSubmitting}
+            disabled={!scorer.trim()}
             className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors btn-glow mt-2"
           >
-            {isSubmitting ? "Saving…" : "Add Goal"}
+            Add Goal
           </button>
         </div>
       </div>

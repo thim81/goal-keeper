@@ -106,7 +106,9 @@ describe("AddEventSheet", () => {
 
     expect(onAddEvent).toHaveBeenCalledTimes(1);
     expect(handlers.onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause Timer" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Yellow Card" })).toBeEnabled();
     resolve(true);
     await waitFor(() => expect(handlers.onClose).toHaveBeenCalledTimes(1));
   });

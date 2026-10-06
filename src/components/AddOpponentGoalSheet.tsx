@@ -18,13 +18,10 @@ export function AddOpponentGoalSheet({
   opponentName,
 }: AddOpponentGoalSheetProps) {
   const [goalType, setGoalType] = useState<GoalType>("normal");
-  const { submit, isSubmitting } = useSubmitAction(onAddGoal, () => {
+  const { submit } = useSubmitAction(onAddGoal, () => {
     setGoalType("normal");
     onClose();
   });
-  const handleClose = () => {
-    if (!isSubmitting) onClose();
-  };
   const handleSubmit = () => {
     void submit(goalType);
   };
@@ -34,7 +31,7 @@ export function AddOpponentGoalSheet({
   return (
     <div className="fixed inset-0 z-50 animate-fade-in">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
       <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl py-4 px-6 safe-bottom animate-slide-up border-t border-border/50">
@@ -45,15 +42,12 @@ export function AddOpponentGoalSheet({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">{opponentName} Goal</h2>
           <button
-            onClick={handleClose}
-            disabled={isSubmitting}
+            onClick={onClose}
             className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
-
-        {isSubmitting && <p role="status">Saving…</p>}
 
         {/* Goal Type */}
         <div className="space-y-4">
@@ -84,10 +78,9 @@ export function AddOpponentGoalSheet({
           {/* Submit */}
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
             className="w-full py-4 bg-accent text-accent-foreground font-bold text-lg rounded-xl hover:bg-accent/90 transition-colors mt-2"
           >
-            {isSubmitting ? "Saving…" : "Add Goal"}
+            Add Goal
           </button>
         </div>
       </div>

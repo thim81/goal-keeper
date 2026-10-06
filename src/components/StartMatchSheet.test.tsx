@@ -4,6 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 import { StartMatchSheet } from "@/components/StartMatchSheet";
 
 describe("StartMatchSheet scheduled match defaults", () => {
+  it("keeps controls available while guarding duplicate submissions", async () => {
+    let resolve!: (value: boolean) => void;
+    const onStartMatch = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const onClose = vi.fn();
+    const { container } = render(
+      <StartMatchSheet isOpen onClose={onClose} onStartMatch={onStartMatch} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Kick Off!" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kick Off!" }));
+    expect(onStartMatch).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    container.querySelectorAll("input, button").forEach((control) => expect(control).toBeEnabled());
+    resolve(true);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
   it("prefills the opponent and away selection when supplied", () => {
     render(
       <StartMatchSheet
