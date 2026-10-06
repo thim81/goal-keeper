@@ -1,23 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import {
-  Match,
-  GoalEdit,
-  MatchSummary,
-  GoalType,
-  GameEventType,
-  Season,
-  DEFAULT_SETTINGS,
-} from "@/types/match";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Match, MatchSummary, Season, DEFAULT_SETTINGS } from "@/types/match";
 import { createDefaultSeasonName, getSeasonStats, migrateLegacyDataToSeasons } from "@/lib/seasons";
 import type { SyncState } from "@/lib/sync";
 import { readWorkspaceCache, assembleWorkspace, preserveLegacyCache } from "@/lib/workspace-cache";
-import { applyWorkspaceCommand } from "@/lib/workspace-mutations";
-import {
-  normalizeWorkspace,
-  workspaceTimeline,
-  type WorkspaceCommand,
-  type WorkspaceCommandType,
-} from "@/lib/workspace";
+import { normalizeWorkspace } from "@/lib/workspace";
 
 const LEGACY_MATCHES_KEY = "football-tracker-matches";
 const LEGACY_FULL_MATCHES_KEY = "football-tracker-full-matches";
@@ -127,8 +113,6 @@ export function useMatches() {
     [seasons, activeSeasonId],
   );
   const matchHistory = activeSeason?.matches ?? [];
-  const current = useRef({ activeMatch, seasons, activeSeasonId });
-  current.current = { activeMatch, seasons, activeSeasonId };
   useEffect(() => {
     try {
       if (activeMatch) localStorage.setItem(ACTIVE_MATCH_KEY, JSON.stringify(activeMatch));
@@ -152,51 +136,14 @@ export function useMatches() {
       state.seasons && state.activeSeasonId
         ? { seasons: state.seasons, activeSeasonId: state.activeSeasonId }
         : migrateLegacyDataToSeasons(state.matches ?? [], state.fullMatches ?? {});
-    current.current = { ...migrated, activeMatch: state.activeMatch };
     setSeasons(migrated.seasons);
     setActiveSeasonId(migrated.activeSeasonId);
     setActiveMatch(state.activeMatch);
   }, []);
-  // Local hook actions use the same rules as authoritative commands. Index dispatches shared actions explicitly.
-  const mutate = useCallback(
-    (
-      type: WorkspaceCommandType,
-      payload: Record<string, unknown> = {},
-      targets: Pick<WorkspaceCommand, "matchId" | "seasonId"> = {},
-    ) => {
-      const local = current.current;
-      try {
-        const state = assembleWorkspace(
-          local.seasons,
-          local.activeSeasonId,
-          local.activeMatch,
-          DEFAULT_SETTINGS,
-        );
-        const result = applyWorkspaceCommand(state, {
-          id: generateId(),
-          type,
-          payload,
-          matchId: local.activeMatch?.id,
-          seasonId: local.activeSeasonId ?? undefined,
-          ...targets,
-        });
-        setAllMatchesState(result.state);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [setAllMatchesState],
-  );
   const getSeasonMatchHistory = useCallback((id: string) => seasons[id]?.matches ?? [], [seasons]);
   const getSeasonMatchDetails = useCallback(
     (id: string, matchId: string) => seasons[id]?.fullMatches[matchId] ?? null,
     [seasons],
-  );
-  const getMatchDetails = useCallback(
-    (matchId: string, seasonId?: string) =>
-      getSeasonMatchDetails(seasonId ?? activeSeasonId, matchId),
-    [getSeasonMatchDetails, activeSeasonId],
   );
   const getScore = useCallback(() => {
     const goals = activeMatch?.goals ?? [];
@@ -218,78 +165,19 @@ export function useMatches() {
         .map((season) => ({ ...season, matchCount: season.matches.length })),
     [seasons],
   );
-  const deleteGoal = (goalId: string) => mutate("delete-goal", { goalId });
-  const deleteEvent = (eventId: string) => mutate("delete-event", { eventId });
-  const undoLast = () => {
-    const match = current.current.activeMatch;
-    const items = workspaceTimeline(match?.goals ?? [], match?.events ?? []);
-    const last = items[items.length - 1];
-    return last
-      ? last.kind === "goal"
-        ? deleteGoal(last.data.id)
-        : deleteEvent(last.data.id)
-      : false;
-  };
   return {
     activeMatch,
     activeSeasonId,
-    activeSeason,
     seasons,
     matchHistory,
     setAllMatchesState,
     setActiveMatchState: setActiveMatch,
     getSeasonMatchHistory,
     getSeasonMatchDetails,
-    getMatchDetails,
     getScore,
     getSeasonStatsById,
     getSeasonSummaries,
     canCloseSeason: !activeMatch,
     canReopenSeason: !activeMatch,
-    startMatch: (myTeamName: string, opponentName: string, isHome: boolean) =>
-      mutate("start-match", { myTeamName, opponentName, isHome }),
-    addGoal: (
-      team: "my-team" | "opponent",
-      scorer?: string,
-      assist?: string,
-      type: GoalType = "normal",
-    ) => mutate("add-goal", { team, scorer, assist, type }),
-    updateGoal: (goalId: string, changes: GoalEdit) => mutate("update-goal", { goalId, changes }),
-    deleteGoal,
-    addEvent: (
-      eventType: GameEventType,
-      label?: string,
-      options?: { team?: "my-team" | "opponent"; player?: string },
-    ) => mutate("add-event", { eventType, label, ...options }),
-    deleteEvent,
-    updateEventTime: (eventId: string, time: string) =>
-      mutate("update-event-time", { eventId, time }),
-    undoLast,
-    startPeriod: () =>
-      mutate("start-period", { expectedPeriod: current.current.activeMatch?.currentPeriod }),
-    endPeriod: () =>
-      mutate("end-period", { expectedPeriod: current.current.activeMatch?.currentPeriod }),
-    toggleTimer: () =>
-      mutate(current.current.activeMatch?.isRunning ? "pause-match" : "resume-match"),
-    endMatch: () => mutate("end-match"),
-    deleteMatch: (matchId: string, seasonId?: string) =>
-      mutate(
-        "delete-historical-match",
-        {},
-        { matchId, seasonId: seasonId ?? current.current.activeSeasonId },
-      ),
-    renameHistoricalOpponent: (matchId: string, name: string, seasonId?: string) => {
-      const id = seasonId ?? current.current.activeSeasonId;
-      if (!mutate("rename-historical-opponent", { name }, { matchId, seasonId: id })) return null;
-      return current.current.seasons[id]?.fullMatches[matchId] ?? null;
-    },
-    renameOpponent: (name: string) => mutate("rename-opponent", { name }),
-    closeAndStartNewSeason: (options?: { name?: string }) =>
-      mutate("close-season", { name: options?.name }),
-    reopenSeason: (seasonId: string) =>
-      current.current.seasons[seasonId]?.status === "closed" &&
-      mutate("reopen-season", {}, { seasonId }),
-    renameSeasonName: (seasonId: string, name: string) =>
-      mutate("rename-season", { name }, { seasonId }),
   };
 }

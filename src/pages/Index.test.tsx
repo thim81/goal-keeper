@@ -89,6 +89,70 @@ describe("Index match flow", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["goal", "card", "edited-goal", "start"] as const)(
+    "Undo deletes the latest displayed timeline entry (%s)",
+    async (kind) => {
+      const startedAt = Date.now() - 10_000;
+      const match: Match = {
+        id: "live",
+        myTeamName: "My Team",
+        opponentName: "Rivals",
+        isHome: true,
+        goals:
+          kind === "start"
+            ? []
+            : [
+                {
+                  id: "alice",
+                  team: "my-team",
+                  scorer: "Alice",
+                  type: "normal",
+                  time: "13:00",
+                  timestamp: startedAt + (kind === "edited-goal" ? 3000 : 1000),
+                },
+                {
+                  id: "bob",
+                  team: "my-team",
+                  scorer: "Bob",
+                  type: "normal",
+                  time: "13:01",
+                  timestamp: startedAt + 2000,
+                },
+              ],
+        events: [
+          { id: "start", type: "start", time: "13:00", timestamp: startedAt },
+          ...(kind === "card"
+            ? [
+                {
+                  id: "card",
+                  type: "yellow-card" as const,
+                  time: "13:02",
+                  timestamp: startedAt + 3000,
+                },
+              ]
+            : []),
+        ],
+        startedAt,
+        isActive: true,
+        isRunning: true,
+        totalPausedTime: 0,
+        currentPeriod: 1,
+      };
+      localStorage.setItem("football-tracker-active-match", JSON.stringify(match));
+      render(<Index />);
+      fireEvent.click(await screen.findByRole("button", { name: /show extra actions/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+      const saved = JSON.parse(localStorage.getItem("football-tracker-active-match")!);
+      const deletedId = kind === "edited-goal" ? "alice" : kind === "goal" ? "bob" : kind;
+      expect(saved.goals).toEqual(match.goals.filter((goal) => goal.id !== deletedId));
+      expect(saved.events).toEqual(match.events.filter((event) => event.id !== deletedId));
+      expect(saved.id).toBe(match.id);
+      expect(saved.startedAt).toBe(match.startedAt);
+      if (kind === "start") expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
+    },
+  );
+
   it.each([
     ["Pause Timer", true],
     ["Pause Timer", false],

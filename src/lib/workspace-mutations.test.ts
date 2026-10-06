@@ -457,6 +457,51 @@ describe("applyWorkspaceCommand live mutations", () => {
     ).toThrow(WorkspaceError);
   });
 
+  it.each([" Carl ", "   ", undefined])(
+    "edits player fields without changing the goal time or unrelated goals (assist: %s)",
+    (assist) => {
+      const { state, matchId } = live();
+      const withGoal = applyWorkspaceCommand(
+        state,
+        command(
+          "ours",
+          {
+            team: "my-team",
+            scorer: "Alice",
+            assist: "Previous assist",
+          },
+          { type: "add-goal", matchId },
+        ),
+        2000,
+      ).state;
+      const before = applyWorkspaceCommand(
+        withGoal,
+        command("theirs", { team: "opponent" }, { type: "add-goal", matchId }),
+        3000,
+      ).state;
+      const [goal, unrelatedGoal] = before.activeMatch!.goals;
+      const edited = applyWorkspaceCommand(
+        before,
+        command(
+          "edit-players",
+          {
+            goalId: goal.id,
+            changes: { scorer: " Bob ", assist, type: goal.type, time: goal.time },
+          },
+          { type: "update-goal", matchId },
+        ),
+      ).state;
+
+      expect(edited.activeMatch!.goals).toEqual([
+        { ...goal, scorer: "Bob", assist: assist?.trim() || undefined },
+        unrelatedGoal,
+      ]);
+      expect(edited.settings.players).toContain("Bob");
+      if (assist?.trim()) expect(edited.settings.players).toContain(assist.trim());
+      expect(before.activeMatch!.goals[0]).toEqual(goal);
+    },
+  );
+
   it("edits goal clocks in requested timezone across DST and UTC date boundaries", () => {
     const cases = [
       ["Europe/Brussels", "2024-03-31T12:00:00.000Z", "00:30", "2024-03-30T23:30:00.000Z"],
@@ -967,7 +1012,12 @@ describe("applyWorkspaceCommand structural mutations", () => {
   });
 
   it("closes and reopens seasons with deterministic IDs", () => {
-    const state = base();
+    const { state: started, matchId } = live();
+    const state = applyWorkspaceCommand(
+      started,
+      command("end", {}, { type: "end-match", matchId }),
+      5,
+    ).state;
     const oldId = state.activeSeasonId!;
     const closed = applyWorkspaceCommand(
       state,
@@ -976,6 +1026,11 @@ describe("applyWorkspaceCommand structural mutations", () => {
     ).state;
     expect(closed.activeSeasonId).toBe("cmd-close:season");
     expect(closed.seasons![oldId].status).toBe("closed");
+    expect(closed.seasons![oldId].closedAt).toBe(10);
+    expect(closed.seasons![oldId].matches).toEqual(state.matches);
+    expect(closed.seasons![oldId].fullMatches).toEqual(state.fullMatches);
+    expect(closed.matches).toEqual([]);
+    expect(closed.fullMatches).toEqual({});
     const reopened = applyWorkspaceCommand(
       closed,
       command("reopen", {}, { type: "reopen-season", seasonId: oldId }),
@@ -983,6 +1038,10 @@ describe("applyWorkspaceCommand structural mutations", () => {
     ).state;
     expect(reopened.activeSeasonId).toBe(oldId);
     expect(reopened.seasons!["cmd-close:season"].status).toBe("closed");
+    expect(reopened.seasons!["cmd-close:season"].closedAt).toBe(20);
+    expect(reopened.seasons![oldId].closedAt).toBeUndefined();
+    expect(reopened.matches).toEqual(state.matches);
+    expect(reopened.fullMatches).toEqual(state.fullMatches);
     expect(() =>
       applyWorkspaceCommand(
         reopened,
@@ -997,6 +1056,27 @@ describe("applyWorkspaceCommand structural mutations", () => {
         40,
       ),
     ).toThrow(WorkspaceError);
+  });
+
+  it("renames a season while preserving its status and completed match data", () => {
+    const { state: started, matchId } = live();
+    const state = applyWorkspaceCommand(
+      started,
+      command("end", {}, { type: "end-match", matchId }),
+      5,
+    ).state;
+    const seasonId = state.activeSeasonId!;
+    const renamed = applyWorkspaceCommand(
+      state,
+      command("rename", { name: " Playoffs 2026 " }, { type: "rename-season", seasonId }),
+    ).state;
+    expect(renamed.seasons![seasonId]).toEqual({
+      ...state.seasons![seasonId],
+      name: "Playoffs 2026",
+    });
+    expect(renamed.matches).toEqual(state.matches);
+    expect(renamed.fullMatches).toEqual(state.fullMatches);
+    expect(state.seasons![seasonId].name).not.toBe("Playoffs 2026");
   });
 
   it("generates default season name and rejects stale season targets", () => {

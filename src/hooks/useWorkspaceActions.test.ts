@@ -72,6 +72,28 @@ describe("useWorkspaceActions", () => {
     expect(localStorage.getItem(CACHE_KEY)).not.toBeNull();
   });
 
+  it("updates and persists trimmed calendar fields through a local command", async () => {
+    const apply = vi.fn();
+    const execute = vi.fn(async (_command: WorkspaceCommand) => true);
+    const hook = renderHook(() => useWorkspaceActions(state, true, apply, execute));
+    await act(async () => {
+      expect(
+        await hook.result.current("update-settings", {
+          settings: {
+            calendarUrl: " https://club.prosoccerdata.com/feed ",
+            calendarTeamName: " IPU15 ",
+          },
+        }),
+      ).toBe(true);
+    });
+    expect(apply.mock.calls[0][0].settings).toMatchObject({
+      calendarUrl: "https://club.prosoccerdata.com/feed",
+      calendarTeamName: "IPU15",
+    });
+    expect(readWorkspaceCache()?.state.settings).toEqual(apply.mock.calls[0][0].settings);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("dispatches connected commands without optimistic state or cache writes", async () => {
     const apply = vi.fn();
     const execute = vi.fn(async (_command: WorkspaceCommand) => true);

@@ -40,39 +40,6 @@ export function useSettings() {
     }
   }, [settings]);
 
-  const updateTeamName = useCallback((teamName: string) => {
-    setSettings((prev) => ({ ...prev, teamName }));
-  }, []);
-
-  const updateCalendarSettings = useCallback((calendarUrl: string, calendarTeamName: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      calendarUrl: calendarUrl.trim(),
-      calendarTeamName: calendarTeamName.trim(),
-    }));
-  }, []);
-
-  const updatePlayers = useCallback((players: string[]) => {
-    setSettings((prev) => ({ ...prev, players }));
-  }, []);
-
-  const addPlayer = useCallback(
-    (player: string) => {
-      if (player.trim() && !settings.players.includes(player.trim())) {
-        setSettings((prev) => ({ ...prev, players: [...prev.players, player.trim()] }));
-      }
-    },
-    [settings.players],
-  );
-
-  const removePlayer = useCallback((player: string) => {
-    setSettings((prev) => ({ ...prev, players: prev.players.filter((p) => p !== player) }));
-  }, []);
-
-  const updatePeriods = useCallback((periodsCount: number, periodDuration: number) => {
-    setSettings((prev) => ({ ...prev, periodsCount, periodDuration }));
-  }, []);
-
   const updateSyncToken = useCallback((syncToken: string) => {
     setSettings((prev) => ({ ...prev, syncToken }));
   }, []);
@@ -81,25 +48,14 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, theme }));
   }, []);
 
-  const updateDebug = useCallback((debug: boolean) => {
-    setSettings((prev) => ({ ...prev, debug }));
-  }, []);
-
   const setAllSettingsState = useCallback((newSettings: AppSettings) => {
     setSettings({ ...DEFAULT_SETTINGS, ...newSettings });
   }, []);
 
   return {
     settings,
-    updateTeamName,
-    updateCalendarSettings,
-    updatePlayers,
-    addPlayer,
-    removePlayer,
-    updatePeriods,
     updateSyncToken,
     updateTheme,
-    updateDebug,
     setAllSettingsState,
   };
 }

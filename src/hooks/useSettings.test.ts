@@ -5,7 +5,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { createEmptyWorkspace } from "@/lib/workspace";
 import { emptyMetadata, saveWorkspaceCache } from "@/lib/workspace-cache";
 
-describe("useSettings calendar settings", () => {
+describe("useSettings state and persistence", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -53,7 +53,9 @@ describe("useSettings calendar settings", () => {
     });
     try {
       const { result } = renderHook(() => useSettings());
-      act(() => result.current.updateTeamName("Local team"));
+      act(() =>
+        result.current.setAllSettingsState({ ...result.current.settings, teamName: "Local team" }),
+      );
       expect(result.current.settings.teamName).toBe("Local team");
     } finally {
       save.mockRestore();
@@ -100,15 +102,18 @@ describe("useSettings calendar settings", () => {
     },
   );
 
-  it("updates the subscription URL and calendar team name", () => {
+  it("persists device credentials and theme updates", () => {
     const { result } = renderHook(() => useSettings());
 
     act(() => {
-      result.current.updateCalendarSettings(" https://club.prosoccerdata.com/feed ", " IPU15 ");
+      result.current.updateSyncToken("device-token");
+      result.current.updateTheme("dark");
     });
 
-    expect(result.current.settings.calendarUrl).toBe("https://club.prosoccerdata.com/feed");
-    expect(result.current.settings.calendarTeamName).toBe("IPU15");
+    expect(result.current.settings).toMatchObject({ syncToken: "device-token", theme: "dark" });
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!)).toEqual(
+      result.current.settings,
+    );
   });
 
   it("fills calendar defaults when restoring an older synced settings object", () => {
