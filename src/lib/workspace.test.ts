@@ -77,6 +77,40 @@ describe("workspace normalization", () => {
 });
 
 describe("workspace responses", () => {
+  it("normalizes structural replies at the network boundary", () => {
+    const response = assertResponse({
+      scope: "structural",
+      workspaceId: "w",
+      revision: 2,
+      structureRevision: 1,
+      state: legacy,
+    });
+    expect(response.scope).toBe("structural");
+    if (response.scope !== "structural") throw Error("Expected structural response");
+    expect(response.state.activeMatch?.periodPausedTime).toBe(0);
+    expect(Object.values(response.state.seasons ?? {})).toHaveLength(1);
+    expect(response.state.settings.calendarUrl).toBe("");
+    expect(response.state.settings).not.toHaveProperty("theme");
+    expect(response.state.settings).not.toHaveProperty("syncToken");
+    expect(legacy.activeMatch).not.toHaveProperty("periodPausedTime");
+  });
+
+  it("normalizes live replies without needing a full workspace", () => {
+    const response = assertResponse({
+      scope: "live",
+      workspaceId: "w",
+      revision: 2,
+      structureRevision: 1,
+      activeMatch: match,
+      activeSeasonId: "season-1",
+    });
+    expect(response.scope).toBe("live");
+    if (response.scope !== "live") throw Error("Expected live response");
+    expect(response.activeMatch?.periodPausedTime).toBe(0);
+    expect(response.activeMatch?.goals).toEqual(match.goals);
+    expect(response).not.toHaveProperty("state");
+  });
+
   it("accepts valid live and structural response envelopes", () => {
     const state = createEmptyWorkspace();
     expect(

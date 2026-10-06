@@ -266,16 +266,11 @@ export function assertResponse(value: unknown): WorkspaceResponse {
     "response envelope",
   );
   if (value.scope === "live") {
-    required(
-      (value.activeMatch === null || validMatch(value.activeMatch)) &&
-        (value.activeSeasonId === null || string(value.activeSeasonId)),
-      "live response",
-    );
-    return value as LiveResponse;
+    required(value.activeSeasonId === null || string(value.activeSeasonId), "live response");
+    return { ...value, activeMatch: normalizeMatch(value.activeMatch) } as LiveResponse;
   }
   required(object(value.state), "structural response");
-  normalizeWorkspace(value.state);
-  return value as StructuralResponse;
+  return { ...value, state: normalizeWorkspace(value.state) } as StructuralResponse;
 }
 
 export function workspaceTimeline(

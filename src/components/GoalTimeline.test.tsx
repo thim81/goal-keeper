@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import { GoalTimeline } from "./GoalTimeline";
@@ -250,11 +250,14 @@ describe("GoalTimeline", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete goal" }));
 
     expect(onDeleteGoal).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status")).toHaveTextContent("Deleting…");
-    resolve(false);
-    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete goal" })).toBeEnabled();
+    await act(async () => resolve(false));
     expect(screen.getByRole("button", { name: "Delete goal" })).toBeEnabled();
     expect(screen.getByText("Alice")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete goal" }));
+    expect(onDeleteGoal).toHaveBeenCalledTimes(2);
+    await act(async () => resolve(false));
   });
 
   it("deletes an event after swiping its row past the reveal threshold", () => {
@@ -375,6 +378,41 @@ describe("GoalTimeline", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByDisplayValue("21:15")).toBeInTheDocument();
+  });
+
+  it("keeps period time controls available without saving indicators and guards duplicate saves", async () => {
+    vi.useFakeTimers();
+    let resolve: (result: boolean) => void = () => {};
+    const onUpdateEventTime = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[{ ...event, type: "start", label: "Start Period 1" }]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        onDeleteEvent={vi.fn()}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Start Period 1"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByDisplayValue("20:00"), { target: { value: "21:15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onUpdateEventTime).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("21:15")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await act(async () => resolve(false));
   });
 
   it("keeps swipe-to-delete behavior when the row moves horizontally", () => {

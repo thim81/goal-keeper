@@ -13,6 +13,7 @@ import type { SyncState } from "@/lib/sync";
 import { readWorkspaceCache, assembleWorkspace, preserveLegacyCache } from "@/lib/workspace-cache";
 import { applyWorkspaceCommand } from "@/lib/workspace-mutations";
 import {
+  normalizeWorkspace,
   workspaceTimeline,
   type WorkspaceCommand,
   type WorkspaceCommandType,
@@ -53,8 +54,10 @@ function validateSavedMatches(
   seasons: Record<string, Season>,
   activeSeasonId: string,
 ) {
-  assembleWorkspace(seasons, activeSeasonId, activeMatch, DEFAULT_SETTINGS);
-  return { activeMatch, seasons, activeSeasonId };
+  const state = normalizeWorkspace(
+    assembleWorkspace(seasons, activeSeasonId, activeMatch, DEFAULT_SETTINGS),
+  );
+  return { activeMatch: state.activeMatch, seasons, activeSeasonId };
 }
 
 function loadMatches() {

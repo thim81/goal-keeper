@@ -1,5 +1,5 @@
 import type { SyncState, WorkspaceRole } from "./sync";
-import { normalizeWorkspace } from "./workspace";
+import { normalizeSharedSettings, normalizeWorkspace } from "./workspace";
 export const CACHE_KEY = "football-tracker-workspace-v2";
 export const RECOVERY_KEY = "football-tracker-legacy-recovery";
 export interface RevisionMetadata {
@@ -82,12 +82,12 @@ export function assembleWorkspace(
   settings: SyncState["settings"],
 ): SyncState {
   const season = activeSeasonId ? seasons?.[activeSeasonId] : undefined;
-  return normalizeWorkspace({
+  return {
     seasons,
-    activeSeasonId,
+    activeSeasonId: activeSeasonId ?? undefined,
     activeMatch,
     matches: season?.matches ?? [],
     fullMatches: season?.fullMatches ?? {},
-    settings,
-  });
+    settings: normalizeSharedSettings(settings),
+  };
 }

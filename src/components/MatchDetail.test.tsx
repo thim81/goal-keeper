@@ -288,7 +288,7 @@ describe("MatchDetail", () => {
     expect(screen.queryByPlaceholderText("Opponent name")).not.toBeInTheDocument();
   });
 
-  it("blocks duplicate rename and dismissal while awaiting confirmation", async () => {
+  it("keeps rename controls available while guarding duplicate submission", async () => {
     vi.useFakeTimers();
     let resolve: (result: boolean) => void = () => {};
     const onRenameOpponent = vi.fn(
@@ -304,11 +304,14 @@ describe("MatchDetail", () => {
       target: { value: "New Rivals" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Saving…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onRenameOpponent).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     expect(screen.getByPlaceholderText("Opponent name")).toHaveValue("New Rivals");
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByPlaceholderText("Opponent name")).not.toBeInTheDocument();
     await act(async () => {
       resolve(true);
       await Promise.resolve();

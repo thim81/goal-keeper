@@ -47,6 +47,27 @@ async function body(response: Response) {
 }
 
 describe("SQLite workspace Worker", () => {
+  it("rejects corrupt stored workspaces on reads and commands without changing storage", async () => {
+    await seed();
+    const stub = workspace();
+    expect((await get(stub)).status).toBe(200);
+    const corrupt = JSON.stringify({ ...createEmptyWorkspace(), matches: null });
+    await runInDurableObject(stub, (_instance, state) => {
+      state.storage.sql.exec("UPDATE workspace SET state = ?", corrupt);
+    });
+
+    expect((await get(stub)).status).toBe(500);
+    expect((await get(stub, "/active-match")).status).toBe(500);
+    expect((await command(stub, {
+      id: "corrupt-state-command", type: "update-settings", payload: { settings: { teamName: "New" } },
+    })).status).toBe(500);
+    const stored = await runInDurableObject(stub, (_instance, state) => ({
+      workspace: [...state.storage.sql.exec("SELECT state, revision FROM workspace")][0],
+      commands: [...state.storage.sql.exec("SELECT id FROM commands")],
+    }));
+    expect(stored.workspace).toMatchObject({ state: corrupt, revision: 0 });
+    expect(stored.commands).toHaveLength(0);
+  });
   it.each(["goal", "event"])("accepts both editors deleting the same %s without losing unrelated state", async kind => {
     await seed();
     const stub = workspace();

@@ -79,7 +79,7 @@ export function SeasonDialogs({
     },
   };
 
-  const { submit: confirm, isSubmitting: pending } = useSubmitAction(
+  const { submit: confirm } = useSubmitAction(
     (action: SubmitAction, _close: () => void) => action(),
     (_action, close) => close(),
   );
@@ -110,7 +110,7 @@ export function SeasonDialogs({
       <AlertDialog
         open={canEdit && !!pendingReopenSeasonId}
         onOpenChange={(open) => {
-          if (!open && !pending) setPendingReopenSeasonId(null);
+          if (!open) setPendingReopenSeasonId(null);
         }}
       >
         <AlertDialogContent className="max-w-sm rounded-2xl">
@@ -127,7 +127,7 @@ export function SeasonDialogs({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmReopenSeason} disabled={pending || !canReopenSeason}>
+            <AlertDialogAction onClick={confirmReopenSeason} disabled={!canReopenSeason}>
               Reopen Season
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -137,7 +137,6 @@ export function SeasonDialogs({
       <Dialog
         open={canEdit && showCloseSeason}
         onOpenChange={(open) => {
-          if (pending) return;
           setShowCloseSeason(open);
           if (!open) setNextSeasonName(createDefaultSeasonName());
         }}
@@ -175,7 +174,7 @@ export function SeasonDialogs({
             </Button>
             <Button
               onClick={confirmCloseSeason}
-              disabled={pending || !canCloseSeason || !nextSeasonName.trim()}
+              disabled={!canCloseSeason || !nextSeasonName.trim()}
             >
               Close &amp; Start New
             </Button>
@@ -186,7 +185,6 @@ export function SeasonDialogs({
       <Dialog
         open={canEdit && showRenameSeason}
         onOpenChange={(open) => {
-          if (pending) return;
           setShowRenameSeason(open);
           if (!open && selectedSeason) setSeasonNameDraft(selectedSeason.name);
         }}
@@ -209,7 +207,7 @@ export function SeasonDialogs({
             <Button variant="secondary" onClick={() => setShowRenameSeason(false)}>
               Cancel
             </Button>
-            <Button onClick={saveSeasonName} disabled={pending || !seasonNameDraft.trim()}>
+            <Button onClick={saveSeasonName} disabled={!seasonNameDraft.trim()}>
               Save
             </Button>
           </DialogFooter>

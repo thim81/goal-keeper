@@ -118,8 +118,7 @@ export default function Index() {
   const shareRequestRef = useRef(0);
 
   const handleSyncState = useCallback(
-    (input: SyncState) => {
-      const state = normalizeWorkspace(input);
+    (state: SyncState) => {
       unstable_batchedUpdates(() => {
         setAllMatchesState(state);
         setAllSettingsState({

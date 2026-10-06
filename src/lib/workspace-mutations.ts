@@ -631,6 +631,7 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
   }
 }
 
+// Workspace input is normalized at cache, network, and storage boundaries.
 export function applyWorkspaceCommand(
   state: SyncState,
   command: WorkspaceCommand,
@@ -654,13 +655,7 @@ export function applyWorkspaceCommand(
     (typeof command.occurredTime !== "string" || !parseClockTime(command.occurredTime))
   )
     fail(400, "Invalid occurredTime");
-  let normalized: SyncState;
-  try {
-    normalized = normalizeWorkspace(state);
-  } catch {
-    fail(400, "Invalid workspace state");
-  }
-  const next = structuredClone(normalized);
+  const next = structuredClone(state);
   const before = JSON.stringify(next);
   const structureBefore = JSON.stringify({
     matches: next.matches,

@@ -29,7 +29,7 @@ export function MatchDetail({
 }: MatchDetailProps) {
   const [showRenameOpponent, setShowRenameOpponent] = useState(false);
   const [opponentDraft, setOpponentDraft] = useState(match.opponentName);
-  const { submit: saveOpponent, isSubmitting: isSavingOpponent } = useSubmitAction(
+  const { submit: saveOpponent } = useSubmitAction(
     (name: string) => onRenameOpponent?.(name),
     () => setShowRenameOpponent(false),
   );
@@ -347,7 +347,6 @@ export function MatchDetail({
       <Dialog
         open={!!onRenameOpponent && showRenameOpponent}
         onOpenChange={(open) => {
-          if (!open && isSavingOpponent) return;
           setShowRenameOpponent(open);
           if (!open) setOpponentDraft(match.opponentName);
         }}
@@ -366,20 +365,12 @@ export function MatchDetail({
             maxLength={60}
             onEnter={handleSaveOpponentName}
           />
-          {isSavingOpponent && <p role="status">Saving…</p>}
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setShowRenameOpponent(false)}
-              disabled={isSavingOpponent}
-            >
+            <Button variant="secondary" onClick={() => setShowRenameOpponent(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveOpponentName}
-              disabled={!opponentDraft.trim() || isSavingOpponent}
-            >
-              {isSavingOpponent ? "Saving…" : "Save"}
+            <Button onClick={handleSaveOpponentName} disabled={!opponentDraft.trim()}>
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

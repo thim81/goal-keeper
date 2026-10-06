@@ -9,6 +9,7 @@ import {
   preserveLegacyCache,
 } from "./workspace-cache";
 import { createEmptyWorkspace } from "./workspace";
+import { applyWorkspaceCommand } from "./workspace-mutations";
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 describe("complete workspace cache", () => {
@@ -79,5 +80,28 @@ describe("complete workspace cache", () => {
     });
     expect(result).toEqual(state);
     expect(result.settings).not.toHaveProperty("syncToken");
+  });
+  it("assembles validated history without reading its match records again", () => {
+    const started = applyWorkspaceCommand(createEmptyWorkspace(), {
+      id: "start",
+      type: "start-match",
+      payload: { isHome: true },
+    }).state;
+    const matchId = started.activeMatch!.id;
+    const state = applyWorkspaceCommand(started, {
+      id: "end",
+      type: "end-match",
+      matchId,
+    }).state;
+    const season = state.seasons![state.activeSeasonId!];
+    const archivedMatch = season.fullMatches[matchId];
+    const readMatch = vi.fn(() => archivedMatch);
+    Object.defineProperty(season.fullMatches, matchId, { enumerable: true, get: readMatch });
+
+    const assembled = assembleWorkspace(state.seasons, state.activeSeasonId!, null, state.settings);
+
+    expect(assembled.fullMatches).toBe(season.fullMatches);
+    expect(assembled.matches).toBe(season.matches);
+    expect(readMatch).not.toHaveBeenCalled();
   });
 });

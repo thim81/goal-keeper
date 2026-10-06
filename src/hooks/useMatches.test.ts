@@ -462,7 +462,7 @@ describe("useMatches timer control", () => {
 
     expect(result.current.activeMatch).toMatchObject({ id: "legacy", currentPeriod: 1 });
     expect(result.current.activeMatch).not.toHaveProperty("periodStartedAt");
-    expect(result.current.activeMatch).not.toHaveProperty("periodPausedTime");
+    expect(result.current.activeMatch?.periodPausedTime).toBe(0);
   });
 
   it("marks the match paused and logs a period-end event on endPeriod", async () => {
