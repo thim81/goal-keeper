@@ -30,7 +30,8 @@ export function useWorkspaceActions(
         ...content,
         occurredAt,
         occurredTime: new Date(occurredAt).toLocaleTimeString("en-GB", {
-          hour: "2-digit", minute: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
         }),
         id:
           globalThis.crypto?.randomUUID?.() ??

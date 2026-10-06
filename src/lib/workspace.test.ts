@@ -2,14 +2,23 @@ import { describe, expect, it } from "vitest";
 import { assertResponse, createEmptyWorkspace, normalizeWorkspace } from "./workspace";
 
 const match = {
-  id: "match-1", myTeamName: "Team", opponentName: "Rivals", isHome: true,
+  id: "match-1",
+  myTeamName: "Team",
+  opponentName: "Rivals",
+  isHome: true,
   goals: [{ id: "goal-1", team: "my-team", type: "normal", time: "01:00", timestamp: 1 }],
   events: [{ id: "event-1", type: "start", time: "00:00", timestamp: 0 }],
-  startedAt: 1, isActive: true, isRunning: true, totalPausedTime: 0, currentPeriod: 1,
+  startedAt: 1,
+  isActive: true,
+  isRunning: true,
+  totalPausedTime: 0,
+  currentPeriod: 1,
 };
 
 const legacy = {
-  matches: [], fullMatches: {}, activeMatch: match,
+  matches: [],
+  fullMatches: {},
+  activeMatch: match,
   settings: { teamName: "Team", theme: "dark", syncToken: "secret", debug: true },
 };
 
@@ -31,23 +40,38 @@ describe("workspace normalization", () => {
   });
 
   it("keeps allowed shared settings and drops unknown credential fields", () => {
-    const state = normalizeWorkspace({ ...legacy, settings: { ...legacy.settings, apiKey: "private", cloudToken: "private" } });
+    const state = normalizeWorkspace({
+      ...legacy,
+      settings: { ...legacy.settings, apiKey: "private", cloudToken: "private" },
+    });
     expect(state.settings).toMatchObject({ teamName: "Team", debug: true });
     expect(state.settings).not.toHaveProperty("apiKey");
     expect(state.settings).not.toHaveProperty("cloudToken");
   });
 
   it("rejects malformed goals, events, and season references", () => {
-    expect(() => normalizeWorkspace({ ...legacy, activeMatch: { ...match, goals: [null] } })).toThrow();
-    expect(() => normalizeWorkspace({ ...legacy, activeMatch: { ...match, events: [null] } })).toThrow();
-    expect(() => normalizeWorkspace({ ...legacy, activeMatch: { ...match, isRunning: "yes" } })).toThrow();
-    expect(() => normalizeWorkspace({ ...legacy, seasons: {}, activeSeasonId: "missing" })).toThrow();
-    expect(() => normalizeWorkspace({ ...legacy, settings: { ...legacy.settings, debug: "yes" } })).toThrow();
+    expect(() =>
+      normalizeWorkspace({ ...legacy, activeMatch: { ...match, goals: [null] } }),
+    ).toThrow();
+    expect(() =>
+      normalizeWorkspace({ ...legacy, activeMatch: { ...match, events: [null] } }),
+    ).toThrow();
+    expect(() =>
+      normalizeWorkspace({ ...legacy, activeMatch: { ...match, isRunning: "yes" } }),
+    ).toThrow();
+    expect(() =>
+      normalizeWorkspace({ ...legacy, seasons: {}, activeSeasonId: "missing" }),
+    ).toThrow();
+    expect(() =>
+      normalizeWorkspace({ ...legacy, settings: { ...legacy.settings, debug: "yes" } }),
+    ).toThrow();
   });
 
   it("creates an empty workspace with exactly one active season", () => {
     const state = createEmptyWorkspace();
-    expect(Object.values(state.seasons ?? {}).filter((season) => season.status === "active")).toHaveLength(1);
+    expect(
+      Object.values(state.seasons ?? {}).filter((season) => season.status === "active"),
+    ).toHaveLength(1);
     expect(state.activeSeasonId).toBe(Object.keys(state.seasons ?? {})[0]);
   });
 });
@@ -55,15 +79,66 @@ describe("workspace normalization", () => {
 describe("workspace responses", () => {
   it("accepts valid live and structural response envelopes", () => {
     const state = createEmptyWorkspace();
-    expect(assertResponse({ scope: "live", workspaceId: "w", revision: 2, structureRevision: 1, activeMatch: null, activeSeasonId: null })).toMatchObject({ scope: "live" });
-    expect(assertResponse({ scope: "structural", workspaceId: "w", revision: 2, structureRevision: 1, state })).toMatchObject({ scope: "structural" });
+    expect(
+      assertResponse({
+        scope: "live",
+        workspaceId: "w",
+        revision: 2,
+        structureRevision: 1,
+        activeMatch: null,
+        activeSeasonId: null,
+      }),
+    ).toMatchObject({ scope: "live" });
+    expect(
+      assertResponse({
+        scope: "structural",
+        workspaceId: "w",
+        revision: 2,
+        structureRevision: 1,
+        state,
+      }),
+    ).toMatchObject({ scope: "structural" });
   });
 
   it("rejects invalid revisions and malformed payloads", () => {
     const state = createEmptyWorkspace();
-    expect(() => assertResponse({ scope: "live", workspaceId: "w", revision: -1, structureRevision: 0, activeMatch: null, activeSeasonId: null })).toThrow();
-    expect(() => assertResponse({ scope: "live", workspaceId: "w", revision: 1.2, structureRevision: 0, activeMatch: null, activeSeasonId: null })).toThrow();
-    expect(() => assertResponse({ scope: "live", workspaceId: "w", revision: 1, structureRevision: 2, activeMatch: null })).toThrow();
-    expect(() => assertResponse({ scope: "structural", workspaceId: "w", revision: 1, structureRevision: 0, state: { ...state, matches: null } })).toThrow();
+    expect(() =>
+      assertResponse({
+        scope: "live",
+        workspaceId: "w",
+        revision: -1,
+        structureRevision: 0,
+        activeMatch: null,
+        activeSeasonId: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      assertResponse({
+        scope: "live",
+        workspaceId: "w",
+        revision: 1.2,
+        structureRevision: 0,
+        activeMatch: null,
+        activeSeasonId: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      assertResponse({
+        scope: "live",
+        workspaceId: "w",
+        revision: 1,
+        structureRevision: 2,
+        activeMatch: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      assertResponse({
+        scope: "structural",
+        workspaceId: "w",
+        revision: 1,
+        structureRevision: 0,
+        state: { ...state, matches: null },
+      }),
+    ).toThrow();
   });
 });

@@ -22,16 +22,17 @@ describe("useWorkspaceActions", () => {
   it("creates a fresh goal ID and device time even when its fields match a previous failed submission", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T13:00:00Z"));
     const execute = vi.fn(async (_command: WorkspaceCommand) => false);
-    const hook = renderHook(
-      () => useWorkspaceActions(state, false, vi.fn(), execute),
-    );
+    const hook = renderHook(() => useWorkspaceActions(state, false, vi.fn(), execute));
     await act(async () => {
       await hook.result.current("add-goal", { team: "my-team" }, { matchId: "match" });
     });
     const original = execute.mock.calls[0][0];
     expect(original).toMatchObject({ occurredAt: Date.parse("2026-10-04T13:00:00Z") });
     expect(original).toMatchObject({
-      occurredTime: new Date(original.occurredAt!).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      occurredTime: new Date(original.occurredAt!).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     });
     clock.mockReturnValue(Date.parse("2026-10-04T13:01:00Z"));
     await act(async () => {
@@ -40,7 +41,10 @@ describe("useWorkspaceActions", () => {
     expect(execute.mock.calls[1][0].id).not.toBe(original.id);
     expect(execute.mock.calls[1][0]).toMatchObject({
       occurredAt: Date.parse("2026-10-04T13:01:00Z"),
-      occurredTime: new Date("2026-10-04T13:01:00Z").toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      occurredTime: new Date("2026-10-04T13:01:00Z").toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     });
     await act(async () => {
       await hook.result.current("add-goal", { team: "opponent" }, { matchId: "match" });
@@ -99,8 +103,16 @@ describe("useWorkspaceActions", () => {
     const execute = vi.fn(async (_command: WorkspaceCommand) => true);
     const hook = renderHook(() => useWorkspaceActions(state, false, vi.fn(), execute));
     await act(async () => {
-      await hook.result.current("add-goal", { team: "my-team", scorer: "Alice" }, { matchId: "match" });
-      await hook.result.current("add-goal", { team: "my-team", scorer: "Alice" }, { matchId: "match" });
+      await hook.result.current(
+        "add-goal",
+        { team: "my-team", scorer: "Alice" },
+        { matchId: "match" },
+      );
+      await hook.result.current(
+        "add-goal",
+        { team: "my-team", scorer: "Alice" },
+        { matchId: "match" },
+      );
     });
     expect(execute.mock.calls[0][0].id).not.toBe(execute.mock.calls[1][0].id);
   });

@@ -78,10 +78,20 @@ export function SettingsScreen({
   const [shareFailed, setShareFailed] = useState(false);
   const [shareUnavailable, setShareUnavailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { submit: runMutation, isSubmitting } = useSubmitAction(
-    (mutation: SubmitAction, _onSuccess?: () => void) => mutation(),
-    (_mutation, onSuccess) => onSuccess?.(),
+  const previousCalendar = useRef({
+    url: settings.calendarUrl,
+    teamName: settings.calendarTeamName,
+  });
+  const { submit: addPlayer, isSubmitting: isAddingPlayer } = useSubmitAction(onAddPlayer, (name) =>
+    setNewPlayer((draft) => (draft.trim() === name ? "" : draft)),
   );
+  const runMutation = async (mutation: SubmitAction, onSuccess?: () => void) => {
+    try {
+      if ((await mutation()) !== false) onSuccess?.();
+    } catch {
+      // Actions report errors; keep the draft available for another submission.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -106,31 +116,35 @@ export function SettingsScreen({
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
 
   useEffect(() => {
-    setCalendarUrl(settings.calendarUrl);
-    setCalendarTeamName(settings.calendarTeamName);
+    const previous = previousCalendar.current;
+    setCalendarUrl((draft) => (draft === previous.url ? settings.calendarUrl : draft));
+    setCalendarTeamName((draft) =>
+      draft === previous.teamName ? settings.calendarTeamName : draft,
+    );
+    previousCalendar.current = { url: settings.calendarUrl, teamName: settings.calendarTeamName };
   }, [settings.calendarTeamName, settings.calendarUrl]);
 
   const handleAddPlayer = () => {
     const name = newPlayer.trim();
-    if (name)
-      runMutation(
-        () => onAddPlayer(name),
-        () => setNewPlayer(""),
-      );
+    if (name) void addPlayer(name);
   };
 
   const handleTeamNameBlur = () => {
-    if (teamName.trim() && teamName !== settings.teamName) {
-      const name = teamName.trim();
+    const name = teamName.trim();
+    if (name && name !== settings.teamName.trim()) {
       runMutation(
         () => onUpdateTeamName(name),
-        () => setTeamName(name),
+        () => setTeamName((draft) => (draft.trim() === name ? name : draft)),
       );
     }
   };
 
   const handleCalendarSettingsBlur = () => {
-    runMutation(() => onUpdateCalendarSettings(calendarUrl, calendarTeamName));
+    const url = calendarUrl.trim();
+    const name = calendarTeamName.trim();
+    if (url !== settings.calendarUrl.trim() || name !== settings.calendarTeamName.trim()) {
+      runMutation(() => onUpdateCalendarSettings(url, name));
+    }
   };
 
   const loadViewerLinkForAction = async () => {
@@ -146,8 +160,9 @@ export function SettingsScreen({
   };
 
   const handleSyncTokenBlur = () => {
-    if (syncToken !== settings.syncToken) {
-      if (onUpdateSyncToken(syncToken.trim()) === false) setSyncToken(settings.syncToken || "");
+    const token = syncToken.trim();
+    if (token !== (settings.syncToken || "").trim()) {
+      if (onUpdateSyncToken(token) === false) setSyncToken(settings.syncToken || "");
     }
   };
 
@@ -188,11 +203,6 @@ export function SettingsScreen({
         className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-none"
         style={{ paddingBottom: `calc(1rem + env(safe-area-inset-bottom, 0px))` }}
       >
-        {isSubmitting && (
-          <p role="status" aria-live="polite">
-            Saving…
-          </p>
-        )}
         {/* Team Name */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -205,7 +215,6 @@ export function SettingsScreen({
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               onBlur={handleTeamNameBlur}
-              disabled={isSubmitting}
               placeholder="Enter your team name"
               className="w-full px-4 py-4 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary text-lg"
             />
@@ -234,7 +243,6 @@ export function SettingsScreen({
                         onUpdatePeriods(parseInt(e.target.value), settings.periodDuration),
                       )
                     }
-                    disabled={isSubmitting}
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -253,7 +261,6 @@ export function SettingsScreen({
                         onUpdatePeriods(settings.periodsCount, parseInt(e.target.value)),
                       )
                     }
-                    disabled={isSubmitting}
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {[10, 15, 20, 25, 30, 35, 40, 45].map((n) => (
@@ -283,13 +290,12 @@ export function SettingsScreen({
                   value={newPlayer}
                   onChange={(e) => setNewPlayer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddPlayer()}
-                  disabled={isSubmitting}
                   placeholder="Add player name"
                   className="flex-1 px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <button
                   onClick={handleAddPlayer}
-                  disabled={!newPlayer.trim() || isSubmitting}
+                  disabled={!newPlayer.trim() || isAddingPlayer}
                   className="px-4 py-3 bg-primary text-primary-foreground rounded-xl disabled:opacity-50 hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
@@ -307,7 +313,6 @@ export function SettingsScreen({
                       <span className="text-foreground">{player}</span>
                       <button
                         onClick={() => runMutation(() => onRemovePlayer(player))}
-                        disabled={isSubmitting}
                         aria-label={`Remove ${player}`}
                         className="p-1 rounded-full hover:bg-accent/20 transition-colors"
                       >
@@ -461,7 +466,6 @@ export function SettingsScreen({
                   value={calendarUrl}
                   onChange={(e) => setCalendarUrl(e.target.value)}
                   onBlur={handleCalendarSettingsBlur}
-                  disabled={isSubmitting}
                   placeholder="Paste ProSoccerData subscription URL"
                   className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -470,7 +474,6 @@ export function SettingsScreen({
                   value={calendarTeamName}
                   onChange={(e) => setCalendarTeamName(e.target.value)}
                   onBlur={handleCalendarSettingsBlur}
-                  disabled={isSubmitting}
                   placeholder="Detected automatically, for example IPU15"
                   className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -528,7 +531,6 @@ export function SettingsScreen({
               </div>
               <button
                 onClick={() => runMutation(() => onUpdateDebug(!settings.debug))}
-                disabled={isSubmitting}
                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
                   settings.debug
                     ? "border-primary bg-primary/5"

@@ -7,17 +7,15 @@ import { createEmptyWorkspace } from "../lib/workspace";
 function context(token = "editor", protocol = "2", method = "GET") {
   const state = createEmptyWorkspace();
   state.settings = { ...state.settings, theme: "dark", syncToken: "secret", secret: "hidden" };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(
-      Response.json({
-        scope: "structural",
-        workspaceId: "goal-keeper",
-        revision: 1,
-        structureRevision: 1,
-        state,
-      }),
-    );
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json({
+      scope: "structural",
+      workspaceId: "goal-keeper",
+      revision: 1,
+      structureRevision: 1,
+      state,
+    }),
+  );
   return {
     request: new Request("https://example.com/api/state", {
       method,

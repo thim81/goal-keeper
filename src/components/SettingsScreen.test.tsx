@@ -89,8 +89,97 @@ describe("SettingsScreen calendar settings", () => {
     );
 
     fireEvent.blur(screen.getByPlaceholderText("Paste ProSoccerData subscription URL"));
+    expect(screen.getByPlaceholderText("Detected automatically, for example IPU15")).toHaveValue(
+      "IPU15",
+    );
+    expect(onUpdateCalendarSettings).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("Paste ProSoccerData subscription URL"), {
+      target: { value: "https://example.test/calendar.ics" },
+    });
+    fireEvent.blur(screen.getByPlaceholderText("Paste ProSoccerData subscription URL"));
+    expect(onUpdateCalendarSettings).toHaveBeenCalledWith(
+      "https://example.test/calendar.ics",
+      "IPU15",
+    );
+  });
 
-    expect(onUpdateCalendarSettings).toHaveBeenCalledWith("", "IPU15");
+  it.each([false, true])(
+    "skips unchanged calendar values on either blur, surrounding spaces: %s",
+    (spaces) => {
+      const handlers = renderFullSettings({
+        calendarUrl: "https://example.test/calendar.ics",
+        calendarTeamName: "IPU15",
+      });
+      const url = screen.getByPlaceholderText("Paste ProSoccerData subscription URL");
+      const calendarTeam = screen.getByPlaceholderText("Detected automatically, for example IPU15");
+      if (spaces) {
+        fireEvent.change(url, { target: { value: " https://example.test/calendar.ics " } });
+        fireEvent.change(calendarTeam, { target: { value: " IPU15 " } });
+      }
+      fireEvent.blur(url);
+      fireEvent.blur(calendarTeam);
+      expect(handlers.onUpdateCalendarSettings).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps focus and accepts later field saves while a calendar save is pending", async () => {
+    const handlers = renderFullSettings();
+    let resolve!: (success: boolean) => void;
+    handlers.onUpdateCalendarSettings.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const url = screen.getByPlaceholderText("Paste ProSoccerData subscription URL");
+    const calendarTeam = screen.getByPlaceholderText("Detected automatically, for example IPU15");
+    const team = screen.getByPlaceholderText("Enter your team name");
+    act(() => {
+      url.focus();
+    });
+    fireEvent.change(url, { target: { value: " https://example.test/calendar.ics " } });
+    act(() => {
+      calendarTeam.focus();
+    });
+    expect(calendarTeam).toBeEnabled();
+    expect(calendarTeam).toHaveFocus();
+    expect(team).toBeEnabled();
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+    fireEvent.change(calendarTeam, { target: { value: " IPU15 " } });
+    act(() => {
+      team.focus();
+    });
+    fireEvent.change(team, { target: { value: " New Team " } });
+    fireEvent.blur(team);
+    expect(handlers.onUpdateCalendarSettings.mock.calls).toEqual([
+      ["https://example.test/calendar.ics", ""],
+      ["https://example.test/calendar.ics", "IPU15"],
+    ]);
+    expect(handlers.onUpdateTeamName).toHaveBeenCalledWith("New Team");
+    await act(async () => {
+      resolve(true);
+    });
+  });
+
+  it("preserves a newer calendar draft when an earlier save response arrives", () => {
+    const { rerender, ...handlers } = renderFullSettings();
+    const url = screen.getByPlaceholderText("Paste ProSoccerData subscription URL");
+    const calendarTeam = screen.getByPlaceholderText("Detected automatically, for example IPU15");
+    fireEvent.change(url, { target: { value: "https://example.test/calendar.ics" } });
+    fireEvent.blur(url);
+    fireEvent.change(calendarTeam, { target: { value: "IPU15" } });
+    rerender(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, calendarUrl: "https://example.test/calendar.ics" }}
+        {...handlers}
+      />,
+    );
+    expect(calendarTeam).toHaveValue("IPU15");
+    fireEvent.blur(calendarTeam);
+    expect(handlers.onUpdateCalendarSettings).toHaveBeenLastCalledWith(
+      "https://example.test/calendar.ics",
+      "IPU15",
+    );
   });
 });
 
@@ -108,7 +197,9 @@ function renderFullSettings(settingsOverrides: Partial<typeof DEFAULT_SETTINGS> 
     onExportBackup: vi.fn(),
     onImportBackup: vi.fn(),
   };
-  const view = render(<SettingsScreen settings={{ ...DEFAULT_SETTINGS, ...settingsOverrides }} {...handlers} />);
+  const view = render(
+    <SettingsScreen settings={{ ...DEFAULT_SETTINGS, ...settingsOverrides }} {...handlers} />,
+  );
   return { ...handlers, ...view };
 }
 
@@ -145,7 +236,12 @@ describe("SettingsScreen interactions", () => {
     const { rerender, ...handlers } = renderFullSettings();
     const input = screen.getByPlaceholderText("Enter your team name");
     fireEvent.change(input, { target: { value: "My draft" } });
-    rerender(<SettingsScreen settings={{ ...DEFAULT_SETTINGS, teamName: "Other editor's team" }} {...handlers} />);
+    rerender(
+      <SettingsScreen
+        settings={{ ...DEFAULT_SETTINGS, teamName: "Other editor's team" }}
+        {...handlers}
+      />,
+    );
     expect(input).toHaveValue("My draft");
     fireEvent.blur(input);
     expect(handlers.onUpdateTeamName).toHaveBeenCalledWith("My draft");
@@ -154,14 +250,21 @@ describe("SettingsScreen interactions", () => {
   it("allows device theme changes while a shared save is pending", async () => {
     const handlers = renderFullSettings();
     let resolve: (value: boolean) => void = () => {};
-    handlers.onAddPlayer.mockImplementation(() => new Promise<boolean>(done => { resolve = done; }));
+    handlers.onAddPlayer.mockImplementation(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
     const input = screen.getByPlaceholderText("Add player name");
     fireEvent.change(input, { target: { value: "Alice" } });
     fireEvent.click(input.closest("div")!.querySelector("button")!);
-    expect(input).toBeDisabled();
+    expect(input).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));
     expect(handlers.onUpdateTheme).toHaveBeenCalledWith("dark");
-    await act(async () => { resolve(true); });
+    await act(async () => {
+      resolve(true);
+    });
   });
   it("hides sharing when viewer access is not configured", async () => {
     renderSharingSettings({ onLoadViewerLink: vi.fn().mockResolvedValue(null) });
@@ -294,15 +397,49 @@ describe("SettingsScreen interactions", () => {
     const input = screen.getByPlaceholderText("Add player name");
     fireEvent.change(input, { target: { value: "Alice" } });
     fireEvent.click(input.closest("div")!.querySelector("button")!);
-    expect(input).toBeDisabled();
-    expect(screen.getAllByRole("status").some((status) => status.textContent === "Saving…")).toBe(
-      true,
-    );
+    expect(input).toBeEnabled();
+    expect(input.closest("div")!.querySelector("button")!).toBeDisabled();
+    expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
     await act(async () => {
       resolve(true);
       await Promise.resolve();
     });
     await waitFor(() => expect(input).toHaveValue(""));
+  });
+
+  it("keeps a new player draft typed while the previous add is pending", async () => {
+    const handlers = renderFullSettings();
+    let resolve!: (success: boolean) => void;
+    handlers.onAddPlayer.mockImplementation(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const input = screen.getByPlaceholderText("Add player name");
+    fireEvent.change(input, { target: { value: "Alice" } });
+    fireEvent.click(input.closest("div")!.querySelector("button")!);
+    fireEvent.change(input, { target: { value: "Bob" } });
+    const team = screen.getByPlaceholderText("Enter your team name");
+    fireEvent.change(team, { target: { value: "New Team" } });
+    fireEvent.blur(team);
+    expect(handlers.onUpdateTeamName).toHaveBeenCalledWith("New Team");
+    await act(async () => {
+      resolve(true);
+    });
+    expect(input).toHaveValue("Bob");
+  });
+
+  it("skips whitespace-only team-name and token changes", () => {
+    const handlers = renderFullSettings({ syncToken: "abc" });
+    const team = screen.getByPlaceholderText("Enter your team name");
+    const token = screen.getByPlaceholderText("Enter sync token");
+    fireEvent.change(team, { target: { value: ` ${DEFAULT_SETTINGS.teamName} ` } });
+    fireEvent.blur(team);
+    fireEvent.change(token, { target: { value: " abc " } });
+    fireEvent.blur(token);
+    expect(handlers.onUpdateTeamName).not.toHaveBeenCalled();
+    expect(handlers.onUpdateSyncToken).not.toHaveBeenCalled();
   });
 
   it("retains team and calendar drafts when async saves fail", async () => {

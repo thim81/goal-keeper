@@ -295,7 +295,10 @@ export function useSync(
         }
       });
       // Only the current browser session buffers actions; never persist or replay this queue.
-      commandQueue.current = result.then(() => {}, () => {});
+      commandQueue.current = result.then(
+        () => {},
+        () => {},
+      );
       return result;
     },
     [apply, refresh],

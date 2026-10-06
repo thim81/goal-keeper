@@ -81,11 +81,18 @@ describe("Index viewer access", () => {
   });
 
   it("keeps navigation and device preferences available while an editor command is pending", async () => {
-    localStorage.setItem("football-tracker-settings", JSON.stringify({ ...DEFAULT_SETTINGS, syncToken: "editor-token" }));
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...DEFAULT_SETTINGS, syncToken: "editor-token" }),
+    );
     let resolve: (response: Response) => void = () => {};
-    const fetchMock = vi.fn((url: string) => url.includes("/api/command")
-      ? new Promise<Response>(done => { resolve = done; })
-      : Promise.resolve(response("editor", emptyRemoteState)));
+    const fetchMock = vi.fn((url: string) =>
+      url.includes("/api/command")
+        ? new Promise<Response>((done) => {
+            resolve = done;
+          })
+        : Promise.resolve(response("editor", emptyRemoteState)),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<Index />);
     await screen.findByRole("button", { name: /start new match/i });
@@ -93,7 +100,9 @@ describe("Index viewer access", () => {
     const player = await screen.findByPlaceholderText("Add player name");
     fireEvent.change(player, { target: { value: "Alice" } });
     fireEvent.click(player.closest("div")!.querySelector("button")!);
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/command")).toBe(true));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === "/api/command")).toBe(true),
+    );
     expect(screen.queryByText("Saving action…")).not.toBeInTheDocument();
     const dark = screen.getByRole("button", { name: "Dark" });
     expect(dark).toBeEnabled();
@@ -604,9 +613,11 @@ describe("Index viewer access", () => {
       "football-tracker-settings",
       JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
     );
-    const fetchMock = vi.fn((_url: string, options?: RequestInit) => Promise.resolve(
-      options?.method === "POST" ? new Response("offline", { status: 500 }) : response("editor"),
-    ));
+    const fetchMock = vi.fn((_url: string, options?: RequestInit) =>
+      Promise.resolve(
+        options?.method === "POST" ? new Response("offline", { status: 500 }) : response("editor"),
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(<Index />);
 

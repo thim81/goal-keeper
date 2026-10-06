@@ -18,50 +18,93 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("authoritative workspace transport", () => {
-  it.each(["full", "live", "command"])("aborts a hung %s request after ten seconds", async kind => {
-    vi.useFakeTimers();
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(ms => {
-      const controller = new AbortController();
-      setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
-      return controller.signal;
-    });
-    const fetch = vi.fn((_url, options) => new Promise((_resolve, reject) => {
-      options.signal?.addEventListener("abort", () => reject(options.signal.reason), { once: true });
-    }));
-    vi.stubGlobal("fetch", fetch);
-    const result = (kind === "full" ? fetchRemoteState("editor") : kind === "live" ? fetchActiveMatch("editor")
-      : postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" })).catch(error => error);
-    expect(timeout).toHaveBeenCalledWith(10_000);
-    await vi.advanceTimersByTimeAsync(9999);
-    expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(await result).toMatchObject({ name: "TimeoutError" });
-  });
-  it.each(["caller", "timeout"])("combines caller cancellation with the deadline, triggered by %s", async kind => {
-    vi.useFakeTimers();
-    const deadline = new AbortController();
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
-    const caller = new AbortController();
-    const fetch = vi.fn((_url, options) => new Promise((_resolve, reject) => {
-      options.signal?.addEventListener("abort", () => reject(options.signal.reason), { once: true });
-    }));
-    vi.stubGlobal("fetch", fetch);
-    const result = postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" }, caller.signal).catch(error => error);
-    expect(timeout).toHaveBeenCalledWith(10_000);
-    if (kind === "caller") caller.abort();
-    else deadline.abort(new DOMException("Timed out", "TimeoutError"));
-    expect(await result).toMatchObject({ name: kind === "caller" ? "AbortError" : "TimeoutError" });
-  });
+  it.each(["full", "live", "command"])(
+    "aborts a hung %s request after ten seconds",
+    async (kind) => {
+      vi.useFakeTimers();
+      const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+        return controller.signal;
+      });
+      const fetch = vi.fn(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener("abort", () => reject(options.signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const result = (
+        kind === "full"
+          ? fetchRemoteState("editor")
+          : kind === "live"
+            ? fetchActiveMatch("editor")
+            : postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" })
+      ).catch((error) => error);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      await vi.advanceTimersByTimeAsync(9999);
+      expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toMatchObject({ name: "TimeoutError" });
+    },
+  );
+  it.each(["caller", "timeout"])(
+    "combines caller cancellation with the deadline, triggered by %s",
+    async (kind) => {
+      vi.useFakeTimers();
+      const deadline = new AbortController();
+      const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+      const caller = new AbortController();
+      const fetch = vi.fn(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener("abort", () => reject(options.signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const result = postCommand(
+        "editor",
+        { id: "goal", type: "add-goal", matchId: "m" },
+        caller.signal,
+      ).catch((error) => error);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      if (kind === "caller") caller.abort();
+      else deadline.abort(new DOMException("Timed out", "TimeoutError"));
+      expect(await result).toMatchObject({
+        name: kind === "caller" ? "AbortError" : "TimeoutError",
+      });
+    },
+  );
   it("keeps the timeout active while waiting for the response body", async () => {
     vi.stubGlobal("ReadableStream", NodeReadableStream);
     const deadline = new AbortController();
     const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
-    vi.stubGlobal("fetch", vi.fn((_url, options) => Promise.resolve(new Response(new ReadableStream({
-      start(controller) {
-        options.signal?.addEventListener("abort", () => controller.error(options.signal.reason), { once: true });
-      },
-    }), { headers: { "X-Workspace-Role": "editor" } }))));
-    const result = postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" }).catch(error => error);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url, options) =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                options.signal?.addEventListener(
+                  "abort",
+                  () => controller.error(options.signal.reason),
+                  { once: true },
+                );
+              },
+            }),
+            { headers: { "X-Workspace-Role": "editor" } },
+          ),
+        ),
+      ),
+    );
+    const result = postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" }).catch(
+      (error) => error,
+    );
     expect(timeout).toHaveBeenCalledWith(10_000);
     await Promise.resolve();
     deadline.abort(new DOMException("Timed out", "TimeoutError"));
