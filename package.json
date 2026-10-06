@@ -20,7 +20,8 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit",
     "build:worker": "wrangler deploy --config worker/wrangler.jsonc --dry-run --outdir /tmp/goal-keeper-worker-build",
-    "test:worker-restart": "node worker/restart-test.mjs"
+    "test:worker-restart": "node worker/restart-test.mjs",
+    "check:migration": "node scripts/check-migration.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

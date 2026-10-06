@@ -8,8 +8,9 @@ import {
 } from "../src/lib/workspace";
 import type { SyncState } from "../src/lib/sync";
 
+import { MAX_STATE_BYTES, parseMigrationState } from "../src/lib/workspace-migration";
+
 const LEGACY_KEY = "goal-keeper-state";
-const MAX_STATE_BYTES = 1_000_000;
 
 interface Env {
   WORKSPACES: DurableObjectNamespace<Workspace>;
@@ -44,21 +45,30 @@ const canonical = (value: unknown): string => {
 };
 
 export class Workspace extends DurableObject<Env> {
-  private readonly ready: Promise<void>;
-  private startupError?: WorkspaceError;
+  private ready?: Promise<WorkspaceError | undefined>;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.ready = ctx.blockConcurrencyWhile(async () => {
+  }
+
+  private async ensureReady(): Promise<void> {
+    const ready = this.ready ??= this.ctx.blockConcurrencyWhile(async () => {
       try {
         await this.initialize();
       } catch (error) {
-        this.startupError =
-          error instanceof WorkspaceError
-            ? error
-            : new WorkspaceError(503, "Workspace unavailable");
+        if (!(error instanceof WorkspaceError))
+          console.error(JSON.stringify({ event: "workspace_storage_error", kind: "initialization" }));
+        return error instanceof WorkspaceError
+          ? error
+          : new WorkspaceError(503, "Workspace initialization unavailable");
       }
     });
+    const error = await ready;
+    if (error) {
+      // A failed attempt is retryable on the next request, with no redeploy or replay loop.
+      if (this.ready === ready) this.ready = undefined;
+      throw error;
+    }
   }
 
   private sql<T extends Record<string, SqlStorageValue> = Record<string, SqlStorageValue>>(
@@ -81,28 +91,33 @@ export class Workspace extends DurableObject<Env> {
     );
     if (this.sql("SELECT id FROM workspace WHERE id = 1").length) return;
 
+    let legacy: string | null;
+    try {
+      legacy = await this.env.GOALKEEPER_KV.get(LEGACY_KEY, "text");
+    } catch {
+      console.warn(JSON.stringify({ event: "workspace_migration_failed", kind: "kv_unavailable" }));
+      throw new WorkspaceError(503, "Legacy KV read unavailable; initialization will retry on the next request");
+    }
     let state: SyncState;
     let migration: string;
     try {
-      const legacy = await this.env.GOALKEEPER_KV.get(LEGACY_KEY, "text");
       if (legacy === null) {
-        if (this.env.ALLOW_EMPTY_WORKSPACE !== "true") throw new Error("legacy state missing");
+        if (this.env.ALLOW_EMPTY_WORKSPACE !== "true") throw new Error("Legacy workspace source is missing");
         state = createEmptyWorkspace();
         migration = "empty-preview";
       } else {
-        if (new TextEncoder().encode(legacy).byteLength > MAX_STATE_BYTES)
-          throw new Error("legacy state oversized");
-        state = normalizeWorkspace(JSON.parse(legacy));
+        state = parseMigrationState(legacy);
         migration = "legacy-imported";
       }
     } catch (error) {
       console.warn(
         JSON.stringify({
           event: "workspace_migration_failed",
-          kind: error instanceof WorkspaceError ? error.name : "invalid_or_unavailable",
+          kind: "invalid_source",
+          reason: error instanceof Error ? error.message : "Invalid workspace",
         }),
       );
-      throw new WorkspaceError(503, "Workspace migration unavailable");
+      throw new WorkspaceError(503, `Workspace migration blocked: ${error instanceof Error ? error.message : "Invalid workspace"}`);
     }
     this.ctx.storage.transactionSync(() => {
       sql.exec(
@@ -272,9 +287,7 @@ export class Workspace extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     try {
-      await this.ready;
-      if (this.startupError)
-        return new Response(this.startupError.message, { status: this.startupError.status });
+      await this.ensureReady();
       const url = new URL(request.url);
       if (request.method === "GET" && url.pathname === "/state")
         return response(this.envelope("structural", this.read()));

@@ -40,9 +40,6 @@ export function useSync(
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pendingCommand, setPendingCommand] = useState<WorkspaceCommand | null>(null);
-  const [failedCommand, setFailedCommand] = useState<WorkspaceCommand | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const current = useRef({
     token,
     seasons,
@@ -198,9 +195,6 @@ export function useSync(
     reads.current = { full: null, live: null };
     announceFullRefresh.current = false;
     commandQueue.current = Promise.resolve();
-    setPendingCommand(null);
-    setFailedCommand(null);
-    setActionError(null);
     const saved = readWorkspaceCache();
     const same = saved?.credential === token;
     snapshot.current = same ? saved.state : null;
@@ -269,9 +263,6 @@ export function useSync(
       const epoch = generation.current;
       const result = commandQueue.current.then(async () => {
         if (epoch !== generation.current || confirmed.current !== "editor") return false;
-        setPendingCommand(command);
-        setFailedCommand(null);
-        setActionError(null);
         try {
           let response;
           for (let attempt = 0; attempt < 2; attempt++) {
@@ -297,16 +288,10 @@ export function useSync(
             setRole(null);
             setStatus("invalid");
           }
-          setFailedCommand(command);
-          setActionError(message);
           toast.error(message);
           // Reads reconcile displayed data, never acknowledge an uncertain command.
           void refresh(true);
           return false;
-        } finally {
-          if (epoch === generation.current) {
-            setPendingCommand(null);
-          }
         }
       });
       // Only the current browser session buffers actions; never persist or replay this queue.
@@ -323,10 +308,6 @@ export function useSync(
       return command.type === "import-backup" ? result : Promise.resolve(true);
     },
     [executeCommand],
-  );
-  const retryCommand = useCallback(
-    () => (failedCommand ? executeCommand(failedCommand) : Promise.resolve(false)),
-    [executeCommand, failedCommand],
   );
   const syncNow = async () => {
     if (!current.current.token || cooldownTimer.current) return;
@@ -352,9 +333,5 @@ export function useSync(
     syncNow,
     executeCommand,
     submitCommand,
-    retryCommand,
-    pendingCommand,
-    failedCommand,
-    actionError,
   };
 }

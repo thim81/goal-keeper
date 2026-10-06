@@ -162,7 +162,6 @@ export default function Index() {
     isCredentialConfirmed,
     submitCommand,
     metadata,
-    isWorkspaceStale,
   } = useSync(
     sharedToken ? undefined : settings.syncToken,
     seasons,
@@ -457,7 +456,6 @@ export default function Index() {
   const handleEndMatch = async () => {
     if (!(await liveAction("end-match"))) return false;
     setShowEndMatchPrompt(false);
-    setView("home");
     return true;
   };
 
@@ -585,11 +583,6 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {isWorkspaceStale && (
-        <div role="status" className="px-4 py-2 text-sm bg-secondary">
-          History and settings are cached. Refreshing workspace…
-        </div>
-      )}
       <>
         {/* Settings View */}
         {view === "settings" && (

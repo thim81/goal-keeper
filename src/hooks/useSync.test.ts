@@ -56,6 +56,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 function mount(token = "editor", onFull = vi.fn(), onLive = vi.fn()) {
@@ -98,7 +100,7 @@ describe("authoritative sync", () => {
     const target = { matchId: initial.activeMatch!.id };
     await act(async () => { expect(await h.result.current.dispatch("add-goal", { team: "my-team", scorer: "Alice" }, target)).toBe(false); });
     expect(server.activeMatch!.goals).toHaveLength(1);
-    expect(h.result.current.sync.failedCommand).not.toBeNull();
+    expect(toast.error).toHaveBeenCalledWith("Action unconfirmed. Refreshing the latest state.");
     const first = server.activeMatch!.goals[0];
     loseResponse = false;
     vi.setSystemTime(Date.now() + 60_000);
@@ -113,8 +115,6 @@ describe("authoritative sync", () => {
     vi.mocked(toast.error).mockClear();
     await act(async () => { expect(await h.result.current.dispatch("delete-goal", { goalId: second.id }, target)).toBe(true); });
     expect(server.activeMatch!.goals).toEqual([first]);
-    expect(h.result.current.sync.failedCommand).toBeNull();
-    expect(h.result.current.sync.actionError).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
   });
   it("keeps the manual refresh cooldown while returning to the app still refreshes immediately", async () => {
@@ -367,11 +367,13 @@ describe("authoritative sync", () => {
     });
     expect(postCommand).toHaveBeenCalledTimes(2);
     expect(vi.mocked(postCommand).mock.calls.every((call) => call[1].id === "cmd")).toBe(true);
-    expect(h.result.current.failedCommand?.id).toBe("cmd");
+    expect(toast.error).toHaveBeenCalledOnce();
+    expect(toast.error).toHaveBeenCalledWith("Action unconfirmed. Refreshing the latest state.");
     await act(async () => {
       await h.result.current.syncNow();
     });
-    expect(h.result.current.failedCommand?.id).toBe("cmd");
+    expect(postCommand).toHaveBeenCalledTimes(2);
+    expect(toast.error).toHaveBeenCalledOnce();
   });
   it("queues rapid actions in submission order without refusing a second tap", async () => {
     const h = mount();
@@ -395,7 +397,6 @@ describe("authoritative sync", () => {
     expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.id)).toEqual(["one", "two", "three"]);
     expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.occurredAt)).toEqual([1000, 1001, 1002]);
     expect(toast.error).not.toHaveBeenCalled();
-    expect(h.result.current.pendingCommand).toBeNull();
   });
   it("continues queued actions after an earlier command is rejected and refetches", async () => {
     const h = mount();
@@ -426,6 +427,49 @@ describe("authoritative sync", () => {
     });
     expect(vi.mocked(postCommand).mock.calls.map(([, command]) => command.id)).toEqual(["first", "first", "second"]);
     expect(vi.mocked(postCommand).mock.calls[0][1]).toEqual(vi.mocked(postCommand).mock.calls[1][1]);
+    expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+  });
+  it("releases the queue after two ten-second timeouts through the real command transport", async () => {
+    const actual = await vi.importActual<typeof import("../lib/sync")>("../lib/sync");
+    vi.mocked(postCommand).mockImplementation(actual.postCommand);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(ms => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+      return controller.signal;
+    });
+    const attempts: { command: any; signal: AbortSignal }[] = [];
+    vi.stubGlobal("fetch", vi.fn((_url, options) => {
+      const command = JSON.parse(options.body);
+      attempts.push({ command, signal: options.signal });
+      if (command.id === "first") return new Promise((_resolve, reject) => {
+        options.signal?.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+      });
+      return Promise.resolve(new Response(JSON.stringify({ ...live(3), commandId: command.id }),
+        { headers: { "X-Workspace-Role": "editor" } }));
+    }));
+    const h = mount();
+    await flush();
+    let first: Promise<boolean>, next: Promise<boolean>;
+    await act(async () => {
+      first = h.result.current.executeCommand({ id: "first", type: "add-goal", matchId: "m", occurredAt: 1000, occurredTime: "13:00" });
+      next = h.result.current.executeCommand({ id: "next", type: "add-goal", matchId: "m", occurredAt: 2000, occurredTime: "13:01" });
+    });
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    await act(async () => { await vi.advanceTimersByTimeAsync(9999); });
+    expect(attempts).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0].signal.aborted).toBe(true);
+    expect(attempts[1].signal.aborted).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await first!).toBe(false);
+      expect(await next!).toBe(true);
+    });
+    expect(attempts.map(({ command }) => command.id)).toEqual(["first", "first", "next"]);
+    expect(attempts[0].command).toEqual(attempts[1].command);
+    expect(attempts[0].signal).not.toBe(attempts[1].signal);
+    expect(toast.error).toHaveBeenCalledWith("Action unconfirmed. Refreshing the latest state.");
     expect(fetchRemoteState).toHaveBeenCalledTimes(2);
   });
   it("does not send queued actions after credentials are revoked", async () => {
@@ -607,25 +651,7 @@ describe("authoritative sync", () => {
     expect(h.result.current.status).toBe("invalid");
     expect(h.result.current.isCredentialConfirmed).toBe(false);
   });
-  it("explicit retry keeps failed command ID and clears failure only when confirmed", async () => {
-    const h = mount();
-    await flush();
-    vi.mocked(postCommand).mockRejectedValue(new Error("lost"));
-    await act(async () => {
-      await h.result.current.executeCommand({ id: "cmd", type: "pause-match", matchId: "m", occurredAt: 1000, occurredTime: "13:00" });
-    });
-    const original = vi.mocked(postCommand).mock.calls[0][1];
-    vi.setSystemTime(Date.now() + 60_000);
-    vi.mocked(postCommand).mockResolvedValue({ ...live(2), commandId: "cmd" });
-    await act(async () => {
-      expect(await h.result.current.retryCommand()).toBe(true);
-    });
-    expect(h.result.current.failedCommand).toBeNull();
-    expect(vi.mocked(postCommand).mock.calls.every(([, command]) => JSON.stringify(command) === JSON.stringify(original))).toBe(true);
-    expect(h.result.current.pendingCommand).toBeNull();
-    expect(await h.result.current.retryCommand()).toBe(false);
-  });
-  it("late commands from prior credentials cannot apply or clear current pending action", async () => {
+  it("late commands from prior credentials cannot apply to the current workspace", async () => {
     const h = mount();
     await flush();
     const d = deferred();
@@ -661,7 +687,9 @@ describe("authoritative sync", () => {
     await act(async () => {
       expect(await action!).toBe(false);
     });
-    expect(h.result.current.failedCommand).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(h.result.current.role).toBe("editor");
+    expect(h.result.current.isCredentialConfirmed).toBe(true);
   });
   it("refuses workspace identity changes and preserves cached data", async () => {
     const h = mount();

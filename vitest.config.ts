@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     coverage: {
       provider: "v8",
-      include: ["src/lib/workspace-mutations.ts", "src/hooks/useSync.ts"],
+      include: ["src/lib/workspace-mutations.ts", "src/lib/workspace-migration.ts", "src/hooks/useSync.ts"],
       thresholds: { perFile: true, branches: 90 },
     },
     environment: "jsdom",

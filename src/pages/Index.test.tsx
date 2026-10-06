@@ -185,6 +185,47 @@ describe("Index match flow", () => {
     expect(resultCard.closest("button")).toHaveTextContent("1");
   });
 
+  it.each([false, true])("waits for the end-match reply without overriding navigation, history opened: %s", async (openHistory) => {
+    let server = applyWorkspaceCommand(createEmptyWorkspace(), {
+      id: "start", type: "start-match", payload: { myTeamName: "My Team", opponentName: "Rivals", isHome: true },
+    }).state;
+    localStorage.setItem("football-tracker-settings", JSON.stringify({ syncToken: "editor" }));
+    let finishEnd!: () => void;
+    let revision = 1;
+    const commands: any[] = [];
+    const reply = (body: unknown) => new Response(JSON.stringify(body), { headers: { "X-Workspace-Role": "editor" } });
+    vi.stubGlobal("fetch", vi.fn(async (url: string, options?: RequestInit) => {
+      if (url === "/api/command") {
+        const command = JSON.parse(options!.body as string);
+        commands.push(command);
+        await new Promise<void>(resolve => { finishEnd = resolve; });
+        server = applyWorkspaceCommand(server, command).state;
+        revision++;
+        return reply({ scope: "structural", workspaceId: "goal-keeper", revision, structureRevision: revision,
+          commandId: command.id, state: server });
+      }
+      return reply({ scope: "structural", workspaceId: "goal-keeper", revision, structureRevision: revision, state: server });
+    }));
+    const { container } = render(<Index />);
+    await screen.findByText("⚽ Goal Keeper");
+    fireEvent.click(screen.getByRole("button", { name: /show extra actions/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^end$/i }));
+      if (openHistory) goToHistory(container);
+    });
+    expect(commands.map(command => command.type)).toEqual(["end-match"]);
+    expect(server.activeMatch).not.toBeNull();
+    expect(screen.queryByText("Ready to Play?")).not.toBeInTheDocument();
+    if (openHistory) expect(screen.getByText("No matches yet")).toBeInTheDocument();
+    else expect(screen.getByText("⚽ Goal Keeper")).toBeInTheDocument();
+    await act(async () => { finishEnd(); });
+    if (!openHistory) await screen.findByText("Ready to Play?");
+    const result = await screen.findByText("Rivals");
+    expect(result.closest("button")).toHaveTextContent("DRAW");
+    expect(server.activeMatch).toBeNull();
+    expect(server.matches).toHaveLength(1);
+  });
+
   it("prefills and starts a match selected from the upcoming calendar list", async () => {
     localStorage.setItem(
       "football-tracker-settings",

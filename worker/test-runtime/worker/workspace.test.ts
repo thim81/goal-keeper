@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
 import { createEmptyWorkspace } from "../../../src/lib/workspace";
 import type { SyncState } from "../../../src/lib/sync";
-import type { Workspace } from "../../workspace";
+import { Workspace } from "../../workspace";
 
 declare global {
   namespace Cloudflare {
@@ -313,6 +313,76 @@ describe("SQLite workspace Worker", () => {
     expect((await get(workspace())).status).toBe(503);
   });
 
+  it("imports completed pre-timer history without changing legacy KV or dropping events", async () => {
+    const archived = { id: "pre-timer", myTeamName: "Old Team", opponentName: "Rivals", isHome: true,
+      startedAt: 100, endedAt: 200, isActive: false,
+      goals: [{ id: "old-goal", team: "my-team", type: "normal", time: "13:00", timestamp: 120 }],
+      events: [{ id: "old-end", type: "full-time", time: "13:30", timestamp: 200 }],
+    };
+    const legacy = { matches: [{ id: "pre-timer", myTeamName: "Old Team", opponentName: "Rivals", isHome: true,
+      myTeamScore: 1, opponentScore: 0, date: "31 Jan 2026", endedAt: 200 }],
+      fullMatches: { "pre-timer": archived }, activeMatch: null, settings: { teamName: "Old Team" },
+    };
+    const raw = await seed(legacy as unknown as SyncState);
+    const stub = workspace();
+    const response = await get(stub);
+    expect(response.status).toBe(200);
+    const result = await body(response);
+    const expected = { ...archived, isRunning: false, currentPeriod: 1, totalPausedTime: 0 };
+    expect(result.state.fullMatches[archived.id]).toEqual(expected);
+    expect(result.state.seasons[result.state.activeSeasonId].fullMatches[archived.id]).toEqual(expected);
+    expect(result.state.matches).toEqual(legacy.matches);
+    expect(await env.GOALKEEPER_KV.get(LEGACY_KEY, "text")).toBe(raw);
+  });
+  it("leaves no workspace row when normalized legacy data exceeds the size limit", async () => {
+    const source = createEmptyWorkspace(100);
+    source.fullMatches = { old: { id: "old", myTeamName: "Old", opponentName: "Rivals", isHome: true,
+      goals: [], events: [], startedAt: 100, endedAt: 200, isActive: false } } as any;
+    const bytes = new TextEncoder().encode(JSON.stringify(source)).byteLength;
+    source.settings.teamName = "x".repeat(1_000_000 - bytes - 5);
+    const raw = await seed(source);
+    const stub = workspace();
+    const response = await get(stub);
+    expect(response.status).toBe(503);
+    expect(await response.text()).toContain("Normalized workspace is too large");
+    const rows = await runInDurableObject(stub, (_instance, state) => [...state.storage.sql.exec("SELECT id FROM workspace")]);
+    expect(rows).toHaveLength(0);
+    expect(await env.GOALKEEPER_KV.get(LEGACY_KEY, "text")).toBe(raw);
+  });
+  it("retries a transient KV failure on the same instance and coalesces concurrent successful requests", async () => {
+    const raw = await seed();
+    const stub = workspace();
+    await get(stub);
+    const result = await runInDurableObject(stub, async (_instance, state) => {
+      state.storage.sql.exec("DELETE FROM workspace");
+      let reads = 0;
+      const kv = { get: async () => {
+        reads++;
+        if (reads === 1) throw new Error("synthetic temporary KV outage");
+        return env.GOALKEEPER_KV.get(LEGACY_KEY, "text");
+      } } as unknown as KVNamespace;
+      const instance = new Workspace(state, { ...env, GOALKEEPER_KV: kv });
+      const first = await instance.fetch(new Request("http://workspace/state"));
+      const replies = await Promise.all(["/state", "/active-match", "/state"].map(path =>
+        instance.fetch(new Request(`http://workspace${path}`))));
+      return { first: first.status, statuses: replies.map(response => response.status), reads,
+        stored: [...state.storage.sql.exec("SELECT id FROM workspace")].length };
+    });
+    expect(result).toEqual({ first: 503, statuses: [200, 200, 200], reads: 2, stored: 1 });
+    expect(await env.GOALKEEPER_KV.get(LEGACY_KEY, "text")).toBe(raw);
+  });
+  it("recovers after an invalid source is corrected, without reimporting after success", async () => {
+    await env.GOALKEEPER_KV.put(LEGACY_KEY, "not-json");
+    const stub = workspace();
+    const invalid = await get(stub);
+    expect(invalid.status).toBe(503);
+    expect(invalid.headers.get("Cache-Control")).toBe("no-store");
+    const raw = await seed();
+    expect((await get(stub)).status).toBe(200);
+    await env.GOALKEEPER_KV.put(LEGACY_KEY, "not-json");
+    expect((await get(stub)).status).toBe(200);
+    await env.GOALKEEPER_KV.put(LEGACY_KEY, raw);
+  });
   it("rolls back a failed SQL ledger insert and permits same-id retry", async () => {
     await seed();
     const stub = workspace();

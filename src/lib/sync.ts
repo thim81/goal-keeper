@@ -33,6 +33,7 @@ async function request(
   signal?: AbortSignal,
   command?: WorkspaceCommand,
 ): Promise<WorkspaceResponse & { role: WorkspaceRole }> {
+  const timeout = AbortSignal.timeout(10_000);
   const response = await fetch(path, {
     method: command ? "POST" : "GET",
     headers: {
@@ -41,7 +42,7 @@ async function request(
       ...(command ? { "Content-Type": "application/json" } : {}),
     },
     ...(command ? { body: JSON.stringify(command) } : {}),
-    signal,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
   if (!response.ok)
     throw new SyncError((await response.text()) || "Workspace request failed", response.status);
