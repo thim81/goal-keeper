@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
 import { DEFAULT_SETTINGS, type Match, type MatchSummary, type Season } from "@/types/match";
@@ -34,6 +34,14 @@ const remoteState = {
   activeMatch: null,
   settings: { teamName: "Shared Team", players: ["Alice"], periodsCount: 4, periodDuration: 20 },
 };
+const emptyRemoteState = {
+  matches: [],
+  fullMatches: {},
+  seasons: { "remote-season": { ...season, matches: [], fullMatches: {} } },
+  activeSeasonId: "remote-season",
+  activeMatch: null,
+  settings: { teamName: "Shared Team", players: [], periodsCount: 4, periodDuration: 20 },
+};
 const activeMatch: Match = {
   id: "live-match",
   myTeamName: "Shared Team",
@@ -48,7 +56,16 @@ const activeMatch: Match = {
   currentPeriod: 1,
 };
 const response = (role: "editor" | "viewer", body = remoteState) =>
-  new Response(JSON.stringify(body), { headers: { "X-Workspace-Role": role } });
+  new Response(
+    JSON.stringify({
+      scope: "structural",
+      workspaceId: "workspace-1",
+      revision: 1,
+      structureRevision: 1,
+      state: body,
+    }),
+    { headers: { "X-Workspace-Role": role } },
+  );
 
 describe("Index viewer access", () => {
   beforeEach(() => {
@@ -61,6 +78,43 @@ describe("Index viewer access", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     history.replaceState({}, "", "/");
+  });
+
+  it("keeps navigation and device preferences available while an editor command is pending", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...DEFAULT_SETTINGS, syncToken: "editor-token" }),
+    );
+    let resolve: (response: Response) => void = () => {};
+    const fetchMock = vi.fn((url: string) =>
+      url.includes("/api/command")
+        ? new Promise<Response>((done) => {
+            resolve = done;
+          })
+        : Promise.resolve(response("editor", emptyRemoteState)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+    await screen.findByRole("button", { name: /start new match/i });
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    const player = await screen.findByPlaceholderText("Add player name");
+    fireEvent.change(player, { target: { value: "Alice" } });
+    fireEvent.click(player.closest("div")!.querySelector("button")!);
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === "/api/command")).toBe(true),
+    );
+    expect(screen.queryByText("Saving action…")).not.toBeInTheDocument();
+    const dark = screen.getByRole("button", { name: "Dark" });
+    expect(dark).toBeEnabled();
+    fireEvent.click(dark);
+    expect(JSON.parse(localStorage.getItem("football-tracker-settings")!).theme).toBe("dark");
+    const back = container.querySelector(".lucide-arrow-left")!.closest("button")!;
+    expect(back).toBeEnabled();
+    fireEvent.click(back);
+    expect(screen.getByText("Ready to Play?")).toBeInTheDocument();
+    resolve(new Response("rejected", { status: 409 }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("rejected"));
+    expect(screen.queryByRole("button", { name: /retry action/i })).not.toBeInTheDocument();
   });
 
   it("loads shared history read-only while keeping the viewer token and local theme", async () => {
@@ -98,6 +152,42 @@ describe("Index viewer access", () => {
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false),
     );
+  });
+
+  it("keeps cached editor data read-only until current credential is confirmed", async () => {
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
+    );
+    localStorage.setItem("football-tracker-seasons", JSON.stringify(remoteState.seasons));
+    localStorage.setItem("football-tracker-active-season-id", "remote-season");
+    localStorage.setItem(
+      "football-tracker-workspace-v2",
+      JSON.stringify({
+        credential: "editor-token",
+        workspaceId: "workspace-1",
+        role: "editor",
+        state: remoteState,
+        metadata: {
+          liveRevision: 1,
+          fullRevision: 1,
+          fullStructureRevision: 1,
+          observedStructureRevision: 1,
+          fullUpdatedAt: Date.now(),
+        },
+      }),
+    );
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<Index />);
+
+    expect(await screen.findByText("Waiting for the next match")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start new match/i })).not.toBeInTheDocument();
+    fireEvent.click(container.querySelector(".lucide-history")!.closest("button")!);
+    expect(await screen.findByText("Remote Opponent")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete match/i })).not.toBeInTheDocument();
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    expect(await screen.findByRole("status")).toHaveTextContent("Checking");
   });
 
   it("hides sharing without an error when viewer access is not configured", async () => {
@@ -200,9 +290,7 @@ describe("Index viewer access", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(response("viewer"))
-      .mockResolvedValueOnce(
-        new Response(null, { status: 204, headers: { "X-Workspace-Role": "viewer" } }),
-      );
+      .mockResolvedValueOnce(response("viewer", emptyRemoteState));
     vi.stubGlobal("fetch", fetchMock);
     const { container } = render(<Index />);
 
@@ -291,9 +379,7 @@ describe("Index viewer access", () => {
       const fetchMock = vi.fn().mockImplementation(() => response("editor", savedState));
       vi.stubGlobal("fetch", fetchMock);
       const first = render(<Index />);
-      await waitFor(() =>
-        expect(toast.success).toHaveBeenCalledWith("Goals Synced", { duration: 2000 }),
-      );
+      expect(await screen.findByRole("button", { name: /start new match/i })).toBeInTheDocument();
       first.unmount();
       if (!completeSettings) {
         // Reproduce the baseline saved by versions that did not include default fields.
@@ -332,6 +418,52 @@ describe("Index viewer access", () => {
 
     expect(await screen.findByText("Waiting for the next match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("advances the live Updated label on polling while settings keep their full-refresh timestamp", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-06T14:02:00Z"));
+    const openedAt = Date.now();
+    localStorage.setItem(
+      "football-tracker-settings",
+      JSON.stringify({ ...remoteState.settings, syncToken: "viewer-token" }),
+    );
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url === "/api/active-match"
+          ? new Response(
+              JSON.stringify({
+                scope: "live",
+                workspaceId: "workspace-1",
+                revision: 1,
+                structureRevision: 1,
+                activeMatch,
+                activeSeasonId: "remote-season",
+              }),
+              { headers: { "X-Workspace-Role": "viewer" } },
+            )
+          : response("viewer", { ...remoteState, activeMatch }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(<Index />));
+    });
+    expect(
+      screen.getByText(`Updated ${new Date(openedAt).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/state", "/api/active-match"]);
+    expect(
+      screen.getByText(`Updated ${new Date(openedAt + 10_000).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
+    fireEvent.click(container.querySelector(".lucide-settings")!.closest("button")!);
+    expect(
+      screen.getByText(`Last refreshed ${new Date(openedAt).toLocaleTimeString()}`),
+    ).toBeInTheDocument();
   });
 
   it("keeps viewer settings open when the editor ends the active match", async () => {
@@ -522,28 +654,29 @@ describe("Index viewer access", () => {
     expect(screen.getByPlaceholderText("Opponent")).toHaveValue("");
   });
 
-  it("keeps editor match actions available after a transient autosave failure", async () => {
+  it("closes the start sheet on submission and refetches after a command failure", async () => {
     localStorage.setItem(
       "football-tracker-settings",
       JSON.stringify({ ...remoteState.settings, syncToken: "editor-token", theme: "system" }),
     );
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(response("editor"))
-      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    const fetchMock = vi.fn((_url: string, options?: RequestInit) =>
+      Promise.resolve(
+        options?.method === "POST" ? new Response("offline", { status: 500 }) : response("editor"),
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(<Index />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Start New Match" }));
+    fireEvent.change(screen.getByPlaceholderText("Opponent"), { target: { value: "Rivals" } });
     fireEvent.click(screen.getByRole("button", { name: "Kick Off!" }));
-    await screen.findByRole("button", { name: "We Scored!" });
-
-    await waitFor(
-      () =>
-        expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
-      { timeout: 4000 },
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(true),
     );
-    fireEvent.click(screen.getByRole("button", { name: "We Scored!" }));
-    expect(screen.getByText("Add Goal ⚽")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("New Match ⚽")).not.toBeInTheDocument());
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("offline"));
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "GET")).toHaveLength(2);
+    expect(screen.getByText("Ready to Play?")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry action/i })).not.toBeInTheDocument();
   });
 });

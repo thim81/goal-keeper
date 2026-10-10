@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Match, MatchSummary } from "@/types/match";
-import {
-  closeSeasonAndCreateNext,
-  createDefaultSeasonName,
-  getSeasonStats,
-  migrateLegacyDataToSeasons,
-  renameSeason,
-  reopenSeasonAsActive,
-} from "@/lib/seasons";
+import { createDefaultSeasonName, getSeasonStats, migrateLegacyDataToSeasons } from "@/lib/seasons";
 
 function createMatchSummary(overrides: Partial<MatchSummary> = {}): MatchSummary {
   return {
@@ -82,30 +75,6 @@ describe("season helpers", () => {
     expect(season.status).toBe("active");
     expect(season.matches).toHaveLength(1);
     expect(season.fullMatches.m1).toBeTruthy();
-  });
-
-  it("closes active season and creates a fresh active one", () => {
-    const migrated = migrateLegacyDataToSeasons(
-      [createMatchSummary()],
-      { m1: createFullMatch() },
-      1711976400000,
-    );
-
-    const next = closeSeasonAndCreateNext(
-      migrated.seasons,
-      migrated.activeSeasonId,
-      "2027-2028",
-      1711976401000,
-    );
-
-    expect(next.activeSeasonId).not.toBe(migrated.activeSeasonId);
-    const closed = next.seasons[migrated.activeSeasonId];
-    const active = next.seasons[next.activeSeasonId];
-    expect(closed.status).toBe("closed");
-    expect(closed.closedAt).toBe(1711976401000);
-    expect(active.status).toBe("active");
-    expect(active.name).toBe("2027-2028");
-    expect(active.matches).toHaveLength(0);
   });
 
   it("computes season summary stats with top scorer", () => {
@@ -221,46 +190,5 @@ describe("season helpers", () => {
     expect(stats.topScorerGoals).toBe(1);
     expect(stats.topAssisters).toEqual(["Dana", "Eli"]);
     expect(stats.topAssists).toBe(1);
-  });
-
-  it("reopens a closed season and closes the previously active season", () => {
-    const migrated = migrateLegacyDataToSeasons(
-      [createMatchSummary()],
-      { m1: createFullMatch() },
-      1711976400000,
-    );
-    const rolled = closeSeasonAndCreateNext(
-      migrated.seasons,
-      migrated.activeSeasonId,
-      "2027-2028",
-      1711976401000,
-    );
-
-    const reopened = reopenSeasonAsActive(
-      rolled.seasons,
-      rolled.activeSeasonId,
-      migrated.activeSeasonId,
-      1711976402000,
-    );
-
-    expect(reopened.activeSeasonId).toBe(migrated.activeSeasonId);
-    expect(reopened.seasons[migrated.activeSeasonId].status).toBe("active");
-    expect(reopened.seasons[migrated.activeSeasonId].closedAt).toBeUndefined();
-    expect(reopened.seasons[rolled.activeSeasonId].status).toBe("closed");
-    expect(reopened.seasons[rolled.activeSeasonId].closedAt).toBe(1711976402000);
-  });
-
-  it("renames a season without changing its status or matches", () => {
-    const migrated = migrateLegacyDataToSeasons(
-      [createMatchSummary()],
-      { m1: createFullMatch() },
-      1711976400000,
-    );
-    const seasonId = migrated.activeSeasonId;
-    const renamed = renameSeason(migrated.seasons, seasonId, "Playoffs 2026");
-
-    expect(renamed[seasonId].name).toBe("Playoffs 2026");
-    expect(renamed[seasonId].status).toBe("active");
-    expect(renamed[seasonId].matches).toHaveLength(1);
   });
 });

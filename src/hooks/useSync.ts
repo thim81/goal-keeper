@@ -1,59 +1,23 @@
-import { useEffect, useRef, useCallback, useState } from "react";
-import { fetchRemoteState, pushLocalState, type SyncState } from "@/lib/sync";
-import { Match, AppSettings, Season, DEFAULT_SETTINGS } from "@/types/match";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  fetchRemoteState,
+  fetchActiveMatch,
+  postCommand,
+  type SyncState,
+  type WorkspaceRole,
+} from "@/lib/sync";
+import type { Match, AppSettings, Season } from "@/types/match";
+import type { WorkspaceCommand, WorkspaceResponse } from "@/lib/workspace";
+import {
+  assembleWorkspace,
+  emptyMetadata,
+  readWorkspaceCache,
+  saveWorkspaceCache,
+  type RevisionMetadata,
+} from "@/lib/workspace-cache";
 import { toast } from "sonner";
 
 export type SyncStatus = "local" | "checking" | "editor" | "viewer" | "invalid" | "unavailable";
-
-const ACCESS_KEY = "football-tracker-workspace-access";
-type CachedAccess = { token: string; role: "editor" | "viewer"; baseline: string };
-
-function removeCachedAccess() {
-  try {
-    localStorage.removeItem(ACCESS_KEY);
-  } catch {
-    // Storage may be unavailable in private or restricted browser contexts.
-  }
-}
-
-function readCachedAccess(token: string): CachedAccess | null {
-  if (!token) return null;
-  try {
-    const raw = localStorage.getItem(ACCESS_KEY);
-    if (!raw) return null;
-    const cached = JSON.parse(raw) as Partial<CachedAccess>;
-    if (
-      cached.token !== token ||
-      (cached.role !== "editor" && cached.role !== "viewer") ||
-      typeof cached.baseline !== "string"
-    ) {
-      removeCachedAccess();
-      return null;
-    }
-    return cached as CachedAccess;
-  } catch {
-    removeCachedAccess();
-    return null;
-  }
-}
-
-function storeCachedAccess(access: CachedAccess) {
-  try {
-    localStorage.setItem(ACCESS_KEY, JSON.stringify(access));
-  } catch {
-    // Storage is only a convenience for offline startup, not a sync requirement.
-  }
-}
-
-function clearCachedAccess(token: string) {
-  try {
-    const raw = localStorage.getItem(ACCESS_KEY);
-    if (!raw || (JSON.parse(raw) as Partial<CachedAccess>).token === token) removeCachedAccess();
-  } catch {
-    removeCachedAccess();
-  }
-}
-
 export function useSync(
   syncToken: string | undefined,
   seasons: Record<string, Season>,
@@ -61,353 +25,321 @@ export function useSync(
   activeMatch: Match | null,
   settings: AppSettings,
   onSyncState: (state: SyncState) => void,
+  onLiveState?: (activeMatch: Match | null) => void,
 ) {
-  const [status, setStatus] = useState<SyncStatus>(syncToken ? "checking" : "local");
-  const [checkedToken, setCheckedToken] = useState(syncToken ?? "");
-  const [initialAccess] = useState(() => readCachedAccess(syncToken ?? ""));
-  const [role, setRole] = useState<"editor" | "viewer" | null>(initialAccess?.role ?? null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const token = syncToken?.trim() ?? "";
+  const [cached] = useState(readWorkspaceCache);
+  const [status, setStatus] = useState<SyncStatus>(token ? "checking" : "local");
+  const [confirmedCredential, setConfirmedCredential] = useState<string | null>(null);
+  const [role, setRole] = useState<WorkspaceRole | null>(
+    cached?.credential === token ? cached.role : null,
+  );
+  const [metadata, setMetadata] = useState<RevisionMetadata>(
+    cached?.credential === token ? cached.metadata : emptyMetadata(),
+  );
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(
+    cached?.credential === token ? cached.metadata.fullUpdatedAt : null,
+  );
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
-  const controllerRef = useRef<AbortController | null>(null);
-  const generationRef = useRef(0);
-  const lastPushedState = useRef(initialAccess?.baseline ?? "");
-  const writeBlockedRef = useRef(false);
-  const manualInFlight = useRef(false);
-  const manualGeneration = useRef(0);
-  const manualCooldownUntil = useRef(0);
-  const manualCooldownTimer = useRef<number | null>(null);
-  const [refreshSignal, setRefreshSignal] = useState(0);
-  const writeControllerRef = useRef<AbortController | null>(null);
-  const writeTimerRef = useRef<number | null>(null);
-  const writePromiseRef = useRef<Promise<number> | null>(null);
-  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
-
-  const getLocalState = useCallback((): SyncState => {
-    const activeSeason = activeSeasonId ? seasons[activeSeasonId] : undefined;
-    const { theme: _theme, syncToken: _token, ...settingsToShare } = settings;
-    return {
-      matches: activeSeason?.matches ?? [],
-      fullMatches: activeSeason?.fullMatches ?? {},
-      seasons,
-      activeSeasonId: activeSeasonId ?? undefined,
-      activeMatch,
-      settings: settingsToShare,
-    };
-  }, [activeSeasonId, seasons, activeMatch, settings]);
-
-  const currentRef = useRef({ getLocalState, onSyncState });
-  currentRef.current = { getLocalState, onSyncState };
-
-  const serialize = (value: SyncState): string => {
-    const {
-      theme: _theme,
-      syncToken: _token,
-      ...sharedSettings
-    } = {
-      ...DEFAULT_SETTINGS,
-      ...value.settings,
-    };
-    return JSON.stringify({ ...value, settings: sharedSettings }, (_key, nested) => {
-      if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
-      return Object.fromEntries(
-        Object.keys(nested)
-          .sort()
-          .map((key) => [key, (nested as Record<string, unknown>)[key]]),
-      );
-    });
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const current = useRef({
+    token,
+    seasons,
+    activeSeasonId,
+    activeMatch,
+    settings,
+    onSyncState,
+    onLiveState,
+  });
+  current.current = {
+    token,
+    seasons,
+    activeSeasonId,
+    activeMatch,
+    settings,
+    onSyncState,
+    onLiveState,
   };
+  const generation = useRef(0);
+  const meta = useRef(metadata);
+  const snapshot = useRef<SyncState | null>(cached?.credential === token ? cached.state : null);
+  const workspaceId = useRef<string | null>(
+    cached?.credential === token ? cached.workspaceId : null,
+  );
+  const confirmed = useRef<WorkspaceRole | null>(null);
+  const commandQueue = useRef<Promise<void>>(Promise.resolve());
+  const reads = useRef<{ full: Promise<void> | null; live: Promise<void> | null }>({
+    full: null,
+    live: null,
+  });
+  const announceFullRefresh = useRef(false);
+  const scheduleRef = useRef(() => {});
+  const refreshRef = useRef<(full?: boolean) => Promise<void>>(async () => {});
 
-  const writeState = useCallback(async (token: string, local: SyncState, generation: number) => {
-    const operation = writeQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        if (generation !== generationRef.current || writeBlockedRef.current) return 0;
-        const controller = new AbortController();
-        writeControllerRef.current = controller;
-        const statusCode = await pushLocalState(token, local, controller.signal);
-        if (statusCode >= 200 && statusCode < 300 && generation === generationRef.current) {
-          lastPushedState.current = serialize(local);
-          storeCachedAccess({ token, role: "editor", baseline: lastPushedState.current });
-          setLastSyncedAt(Date.now());
-          setStatus("editor");
-        } else if (generation === generationRef.current) {
-          setCheckedToken(token);
-          setStatus(statusCode === 401 || statusCode === 403 ? "invalid" : "unavailable");
-          if (statusCode === 401 || statusCode === 403) {
-            clearCachedAccess(token);
-            setRole(null);
-          }
+  const apply = useCallback(
+    (response: WorkspaceResponse & { role: WorkspaceRole }, epoch: number) => {
+      if (epoch !== generation.current) return false;
+      if (workspaceId.current && workspaceId.current !== response.workspaceId) {
+        confirmed.current = null;
+        setConfirmedCredential(null);
+        setRole(null);
+        throw new Error("Workspace identity changed");
+      }
+      workspaceId.current = response.workspaceId;
+      if (response.revision < Math.max(meta.current.liveRevision, meta.current.fullRevision))
+        return false;
+      setConfirmedCredential(current.current.token);
+      confirmed.current = response.role;
+      setRole(response.role);
+      setStatus(response.role);
+      const previous =
+        snapshot.current ??
+        assembleWorkspace(
+          current.current.seasons,
+          current.current.activeSeasonId,
+          current.current.activeMatch,
+          current.current.settings,
+        );
+      if (response.scope === "structural") {
+        snapshot.current = response.state;
+        meta.current = {
+          liveRevision: response.revision,
+          fullRevision: response.revision,
+          fullStructureRevision: response.structureRevision,
+          observedStructureRevision: response.structureRevision,
+          fullUpdatedAt: Date.now(),
+        };
+        current.current.onSyncState(response.state);
+      } else {
+        // A partial response must never claim settings or history freshness.
+        snapshot.current = { ...previous, activeMatch: response.activeMatch };
+        meta.current = {
+          ...meta.current,
+          liveRevision: response.revision,
+          observedStructureRevision: response.structureRevision,
+        };
+        current.current.onLiveState?.(response.activeMatch);
+        const matchChanged = previous.activeMatch?.id !== response.activeMatch?.id;
+        if (
+          matchChanged ||
+          response.activeSeasonId !== previous.activeSeasonId ||
+          response.structureRevision !== meta.current.fullStructureRevision
+        ) {
+          void refreshRef.current(true);
         }
-        if (writeControllerRef.current === controller) writeControllerRef.current = null;
-        return statusCode;
+      }
+      setMetadata(meta.current);
+      setLastSyncedAt(Date.now());
+      saveWorkspaceCache({
+        credential: current.current.token,
+        workspaceId: response.workspaceId,
+        role: response.role,
+        state: snapshot.current,
+        metadata: meta.current,
       });
-    writePromiseRef.current = operation;
-    writeQueueRef.current = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    try {
-      return await operation;
-    } finally {
-      if (writePromiseRef.current === operation) writePromiseRef.current = null;
-    }
-  }, []);
-
-  const flushPendingWrite = useCallback(
-    async (generation: number) => {
-      if (!syncToken || generation !== generationRef.current) return false;
-      if (writeBlockedRef.current) {
-        if (writeTimerRef.current !== null) {
-          window.clearTimeout(writeTimerRef.current);
-          writeTimerRef.current = null;
-        }
-        return true;
-      }
-      let statusCode = 204;
-      if (writeTimerRef.current !== null) {
-        window.clearTimeout(writeTimerRef.current);
-        writeTimerRef.current = null;
-        statusCode = await writeState(syncToken, getLocalState(), generation);
-      } else if (writePromiseRef.current) {
-        statusCode = await writePromiseRef.current;
-      } else if (serialize(getLocalState()) !== lastPushedState.current) {
-        statusCode = await writeState(syncToken, getLocalState(), generation);
-      }
-      return generation === generationRef.current && statusCode >= 200 && statusCode < 300;
+      return true;
     },
-    [getLocalState, syncToken, writeState],
+    [],
   );
 
-  const pull = useCallback(async (token: string, generation: number, quiet = false) => {
-    if (controllerRef.current || writeControllerRef.current || writeTimerRef.current !== null)
-      return null;
-    const localAtStart = currentRef.current.getLocalState();
-    const localAtStartSerialized = serialize(localAtStart);
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    try {
-      const result = await fetchRemoteState(token, controller.signal);
-      if (generation !== generationRef.current || controller.signal.aborted) return null;
-      writeBlockedRef.current = false;
-      if (result.state) {
-        setCheckedToken(token);
-        setRole(result.role);
-        setStatus(result.role);
-        setLastSyncedAt(Date.now());
-        const currentBeforeApply = serialize(currentRef.current.getLocalState());
-        const baseline = lastPushedState.current;
-        const canApply =
-          result.role !== "editor" ||
-          (currentBeforeApply === localAtStartSerialized &&
-            (!baseline || baseline === localAtStartSerialized));
-        if (canApply) {
-          currentRef.current.onSyncState(result.state);
-          const {
-            theme: _theme,
-            syncToken: _token,
-            ...syncedSettings
-          } = result.state.settings ?? {};
-          lastPushedState.current = serialize({ ...result.state, settings: syncedSettings });
-        } else if (result.role === "editor" && !baseline) {
-          lastPushedState.current = localAtStartSerialized;
+  const refresh = useCallback(
+    (full = true, announce = false): Promise<void> => {
+      const credential = current.current.token;
+      if (!credential) return Promise.resolve();
+      const epoch = generation.current;
+      const kind = full ? "full" : "live";
+      if (full && announce) announceFullRefresh.current = true;
+      if (reads.current[kind]) return reads.current[kind]!;
+      setIsSyncing(true);
+      const request = (async () => {
+        try {
+          const response = await (full
+            ? fetchRemoteState(credential)
+            : fetchActiveMatch(credential));
+          if (
+            apply(response, epoch) &&
+            full &&
+            announceFullRefresh.current &&
+            response.role === "editor"
+          ) {
+            toast.success("Goals Synced", { duration: 2000 });
+          }
+        } catch (error) {
+          if (epoch !== generation.current) return;
+          const statusCode = (error as { status?: number }).status;
+          if (statusCode === 401 || statusCode === 403) {
+            confirmed.current = null;
+            setConfirmedCredential(null);
+            setRole(null);
+            setStatus("invalid");
+          } else setStatus("unavailable");
+        } finally {
+          if (epoch === generation.current) {
+            if (full) announceFullRefresh.current = false;
+            reads.current[kind] = null;
+            setIsSyncing(!!reads.current.full || !!reads.current.live);
+          }
         }
-        storeCachedAccess({ token, role: result.role, baseline: lastPushedState.current });
-        if (!quiet && canApply && result.role === "editor")
-          toast.success("Goals Synced", { duration: 2000 });
-      } else if (result.role === "viewer") {
-        setCheckedToken(token);
-        setRole("viewer");
-        setStatus("viewer");
-        setLastSyncedAt(Date.now());
-        lastPushedState.current = "";
-        storeCachedAccess({ token, role: "viewer", baseline: "" });
-        const current = currentRef.current.getLocalState();
-        currentRef.current.onSyncState({
-          matches: [],
-          fullMatches: {},
-          seasons: {},
-          activeMatch: null,
-          settings: current.settings,
-        });
-      } else if (result.role === "editor") {
-        const local = currentRef.current.getLocalState();
-        setCheckedToken(token);
-        const statusCode = await writeState(token, local, generation);
-        if (generation !== generationRef.current || controller.signal.aborted) return null;
-        if (statusCode >= 200 && statusCode < 300) {
-          setRole("editor");
-          setStatus("editor");
-        } else {
-          if (statusCode === 401) setRole(null);
-        }
-      }
-      return result;
-    } catch (error) {
-      if (generation !== generationRef.current || controller.signal.aborted) return null;
-      setCheckedToken(token);
-      const statusCode = (error as { status?: number }).status;
-      if (statusCode === 422) writeBlockedRef.current = true;
-      if (statusCode === 401 || statusCode === 403) {
-        clearCachedAccess(token);
-        setRole(null);
-        setStatus("invalid");
-      } else setStatus("unavailable");
-      return null;
-    } finally {
-      if (controllerRef.current === controller) controllerRef.current = null;
-    }
-  }, []);
+      })();
+      reads.current[kind] = request;
+      return request;
+    },
+    [apply],
+  );
+  refreshRef.current = refresh;
 
   useEffect(() => {
-    const generation = ++generationRef.current;
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    if (writeTimerRef.current !== null) {
-      window.clearTimeout(writeTimerRef.current);
-      writeTimerRef.current = null;
-    }
-    const cached = readCachedAccess(syncToken ?? "");
-    try {
-      lastPushedState.current = cached?.baseline ? serialize(JSON.parse(cached.baseline)) : "";
-    } catch {
-      lastPushedState.current = "";
-    }
-    writeBlockedRef.current = false;
-    manualInFlight.current = false;
-    manualGeneration.current = 0;
-    manualCooldownUntil.current = 0;
-    if (manualCooldownTimer.current !== null) window.clearTimeout(manualCooldownTimer.current);
-    manualCooldownTimer.current = null;
+    generation.current += 1;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    cooldownTimer.current = null;
     setIsCoolingDown(false);
-    setRole(cached?.role ?? null);
-    setCheckedToken(syncToken ?? "");
-    setIsSyncing(false);
-    setStatus(syncToken ? "checking" : "local");
-    setLastSyncedAt(null);
-    if (!syncToken) return;
-    void writeQueueRef.current.then(() => {
-      if (generation === generationRef.current) void pull(syncToken, generation);
-    });
-    return () => {
-      controllerRef.current?.abort();
-      if (manualCooldownTimer.current !== null) {
-        window.clearTimeout(manualCooldownTimer.current);
-        manualCooldownTimer.current = null;
-      }
-    };
-  }, [syncToken, pull]);
-
-  useEffect(() => {
-    if (
-      !syncToken ||
-      (status !== "editor" && status !== "unavailable") ||
-      role !== "editor" ||
-      checkedToken !== syncToken ||
-      writeBlockedRef.current
-    )
+    setConfirmedCredential(null);
+    confirmed.current = null;
+    reads.current = { full: null, live: null };
+    announceFullRefresh.current = false;
+    commandQueue.current = Promise.resolve();
+    const saved = readWorkspaceCache();
+    const same = saved?.credential === token;
+    snapshot.current = same ? saved.state : null;
+    workspaceId.current = same ? saved.workspaceId : null;
+    meta.current = same ? saved.metadata : emptyMetadata();
+    setMetadata(meta.current);
+    setLastSyncedAt(same ? saved.metadata.fullUpdatedAt : null);
+    setRole(same ? saved.role : null);
+    setStatus(token ? "checking" : "local");
+    if (!token) {
+      setIsSyncing(false);
       return;
-    const local = getLocalState();
-    const serialized = serialize(local);
-    if (serialized === lastPushedState.current) return;
-    const generation = generationRef.current;
-    const timeout = window.setTimeout(async () => {
-      writeTimerRef.current = null;
-      await writeState(syncToken, local, generation);
-    }, 2000);
-    writeTimerRef.current = timeout;
-    return () => {
-      window.clearTimeout(timeout);
-      if (writeTimerRef.current === timeout) writeTimerRef.current = null;
-    };
-  }, [syncToken, status, role, checkedToken, getLocalState, writeState]);
-
-  useEffect(() => {
-    if (!syncToken || role !== null || status === "invalid" || checkedToken !== syncToken) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        void pull(syncToken, generationRef.current, true);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [syncToken, role, status, checkedToken, pull]);
-
-  useEffect(() => {
-    if (!syncToken || !role || status === "invalid" || checkedToken !== syncToken) return;
-    let timer: number | undefined;
+    }
+    let timer: ReturnType<typeof setTimeout>;
     let disposed = false;
-    const refresh = async () => {
-      if (disposed || document.visibilityState !== "visible" || manualInFlight.current)
-        return schedule();
-      const generation = generationRef.current;
-      if (role === "editor" && !(await flushPendingWrite(generation))) return schedule();
-      if (generation === generationRef.current) await pull(syncToken, generation, true);
-      schedule();
-    };
     const schedule = () => {
-      if (disposed || document.visibilityState !== "visible") return;
-      timer = window.setTimeout(refresh, activeMatch ? 10_000 : 30_000);
+      clearTimeout(timer);
+      if (disposed || document.visibilityState === "hidden") return;
+      timer = setTimeout(
+        async () => {
+          const hasMatch = !!(snapshot.current
+            ? snapshot.current.activeMatch
+            : current.current.activeMatch);
+          const stale =
+            meta.current.observedStructureRevision !== meta.current.fullStructureRevision;
+          await refresh(!hasMatch || stale);
+          schedule();
+        },
+        (snapshot.current ? snapshot.current.activeMatch : current.current.activeMatch)
+          ? 10_000
+          : 30_000,
+      );
     };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        if (timer) window.clearTimeout(timer);
-        void refresh();
-      } else if (timer) window.clearTimeout(timer);
+    scheduleRef.current = schedule;
+    const visible = () => {
+      clearTimeout(timer);
+      if (document.visibilityState !== "hidden") void refresh(true, true).finally(schedule);
     };
-    schedule();
-    document.addEventListener("visibilitychange", onVisible);
+    const editorReturned = () => {
+      if (confirmed.current !== "viewer") visible();
+    };
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", editorReturned);
+    window.addEventListener("pageshow", editorReturned);
+    void refresh(true, true).finally(schedule);
     return () => {
+      scheduleRef.current = () => {};
       disposed = true;
-      if (timer) window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisible);
+      generation.current += 1;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visible);
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+      window.removeEventListener("focus", editorReturned);
+      window.removeEventListener("pageshow", editorReturned);
     };
-  }, [
-    syncToken,
+  }, [token, refresh]);
+
+  const hasLiveMatch = !!activeMatch;
+  useEffect(() => {
+    scheduleRef.current();
+  }, [hasLiveMatch]);
+
+  const executeCommand = useCallback(
+    (command: WorkspaceCommand): Promise<boolean> => {
+      if (!current.current.token || confirmed.current !== "editor") return Promise.resolve(false);
+      const credential = current.current.token;
+      const epoch = generation.current;
+      const result = commandQueue.current.then(async () => {
+        if (epoch !== generation.current || confirmed.current !== "editor") return false;
+        try {
+          let response;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              response = await postCommand(credential, command);
+              break;
+            } catch (error) {
+              if (attempt || (error as { status?: number }).status) throw error;
+            }
+          }
+          if (epoch !== generation.current) return false;
+          apply(response!, epoch);
+          return true;
+        } catch (error) {
+          if (epoch !== generation.current) return false;
+          const code = (error as { status?: number }).status;
+          const message = code
+            ? (error as Error).message
+            : "Action unconfirmed. Refreshing the latest state.";
+          if (code === 401 || code === 403) {
+            confirmed.current = null;
+            setConfirmedCredential(null);
+            setRole(null);
+            setStatus("invalid");
+          }
+          toast.error(message);
+          // Reads reconcile displayed data, never acknowledge an uncertain command.
+          void refresh(true);
+          return false;
+        }
+      });
+      // Only the current browser session buffers actions; never persist or replay this queue.
+      commandQueue.current = result.then(
+        () => {},
+        () => {},
+      );
+      return result;
+    },
+    [apply, refresh],
+  );
+  const submitCommand = useCallback(
+    (command: WorkspaceCommand): Promise<boolean> => {
+      if (!current.current.token || confirmed.current !== "editor") return Promise.resolve(false);
+      const result = executeCommand(command);
+      // Backup replacement reports success only after the revision check and replacement succeed.
+      return command.type === "import-backup" ? result : Promise.resolve(true);
+    },
+    [executeCommand],
+  );
+  const syncNow = async () => {
+    if (!current.current.token || cooldownTimer.current) return;
+    const epoch = generation.current;
+    await refresh(true, true);
+    if (epoch !== generation.current) return;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    setIsCoolingDown(true);
+    cooldownTimer.current = setTimeout(() => {
+      cooldownTimer.current = null;
+      setIsCoolingDown(false);
+    }, 3000);
+  };
+  return {
     status,
     role,
-    checkedToken,
-    !!activeMatch,
-    pull,
-    flushPendingWrite,
-    refreshSignal,
-  ]);
-
-  const syncNow = useCallback(async () => {
-    if (!syncToken || manualInFlight.current || Date.now() < manualCooldownUntil.current) return;
-    manualInFlight.current = true;
-    const generation = generationRef.current;
-    manualGeneration.current = generation;
-    setIsSyncing(true);
-    try {
-      if (role === "editor") {
-        if (!(await flushPendingWrite(generation))) return;
-      }
-      if (generation === generationRef.current) await pull(syncToken, generation);
-    } finally {
-      if (generation === generationRef.current) {
-        if (manualGeneration.current === generation) manualInFlight.current = false;
-        setIsSyncing(false);
-        setIsCoolingDown(true);
-        manualCooldownUntil.current = Date.now() + 3000;
-        manualCooldownTimer.current = window.setTimeout(() => {
-          setIsCoolingDown(false);
-          manualCooldownTimer.current = null;
-        }, 3000);
-        setRefreshSignal((value) => value + 1);
-      } else if (manualGeneration.current === generation) {
-        manualInFlight.current = false;
-      }
-    }
-  }, [flushPendingWrite, pull, role, syncToken]);
-
-  const effectiveStatus = !syncToken ? "local" : checkedToken === syncToken ? status : "checking";
-  return {
-    status: effectiveStatus as SyncStatus,
-    role: checkedToken === syncToken ? role : null,
+    isCredentialConfirmed: confirmedCredential === token && !!token,
     lastSyncedAt,
+    metadata,
+    isWorkspaceStale: metadata.observedStructureRevision !== metadata.fullStructureRevision,
     isSyncing,
     isCoolingDown,
     syncNow,
+    executeCommand,
+    submitCommand,
   };
 }

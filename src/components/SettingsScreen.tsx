@@ -1,3 +1,4 @@
+import { useSubmitAction, type SubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -23,14 +24,17 @@ import { toast } from "sonner";
 interface SettingsScreenProps {
   settings: AppSettings;
   onBack: () => void;
-  onUpdateTeamName: (name: string) => void;
-  onUpdateCalendarSettings: (url: string, teamName: string) => void;
-  onAddPlayer: (name: string) => void;
-  onRemovePlayer: (name: string) => void;
-  onUpdatePeriods: (count: number, duration: number) => void;
+  onUpdateTeamName: (name: string) => boolean | void | Promise<boolean | void>;
+  onUpdateCalendarSettings: (
+    url: string,
+    teamName: string,
+  ) => boolean | void | Promise<boolean | void>;
+  onAddPlayer: (name: string) => boolean | void | Promise<boolean | void>;
+  onRemovePlayer: (name: string) => boolean | void | Promise<boolean | void>;
+  onUpdatePeriods: (count: number, duration: number) => boolean | void | Promise<boolean | void>;
   onUpdateSyncToken: (token: string) => void | boolean;
-  onUpdateTheme: (theme: Theme) => void;
-  onUpdateDebug: (debug: boolean) => void;
+  onUpdateTheme: (theme: Theme) => boolean | void | Promise<boolean | void>;
+  onUpdateDebug: (debug: boolean) => boolean | void | Promise<boolean | void>;
   onExportBackup: () => void;
   onImportBackup: (file: File) => Promise<void> | void;
   canEdit?: boolean;
@@ -74,6 +78,20 @@ export function SettingsScreen({
   const [shareFailed, setShareFailed] = useState(false);
   const [shareUnavailable, setShareUnavailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previousCalendar = useRef({
+    url: settings.calendarUrl,
+    teamName: settings.calendarTeamName,
+  });
+  const { submit: addPlayer, isSubmitting: isAddingPlayer } = useSubmitAction(onAddPlayer, (name) =>
+    setNewPlayer((draft) => (draft.trim() === name ? "" : draft)),
+  );
+  const runMutation = async (mutation: SubmitAction, onSuccess?: () => void) => {
+    try {
+      if ((await mutation()) !== false) onSuccess?.();
+    } catch {
+      // Actions report errors; keep the draft available for another submission.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -98,25 +116,35 @@ export function SettingsScreen({
   useEffect(() => setSyncToken(settings.syncToken || ""), [settings.syncToken]);
 
   useEffect(() => {
-    setCalendarUrl(settings.calendarUrl);
-    setCalendarTeamName(settings.calendarTeamName);
+    const previous = previousCalendar.current;
+    setCalendarUrl((draft) => (draft === previous.url ? settings.calendarUrl : draft));
+    setCalendarTeamName((draft) =>
+      draft === previous.teamName ? settings.calendarTeamName : draft,
+    );
+    previousCalendar.current = { url: settings.calendarUrl, teamName: settings.calendarTeamName };
   }, [settings.calendarTeamName, settings.calendarUrl]);
 
   const handleAddPlayer = () => {
-    if (newPlayer.trim()) {
-      onAddPlayer(newPlayer.trim());
-      setNewPlayer("");
-    }
+    const name = newPlayer.trim();
+    if (name) void addPlayer(name);
   };
 
   const handleTeamNameBlur = () => {
-    if (teamName.trim() && teamName !== settings.teamName) {
-      onUpdateTeamName(teamName.trim());
+    const name = teamName.trim();
+    if (name && name !== settings.teamName.trim()) {
+      runMutation(
+        () => onUpdateTeamName(name),
+        () => setTeamName((draft) => (draft.trim() === name ? name : draft)),
+      );
     }
   };
 
   const handleCalendarSettingsBlur = () => {
-    onUpdateCalendarSettings(calendarUrl, calendarTeamName);
+    const url = calendarUrl.trim();
+    const name = calendarTeamName.trim();
+    if (url !== settings.calendarUrl.trim() || name !== settings.calendarTeamName.trim()) {
+      runMutation(() => onUpdateCalendarSettings(url, name));
+    }
   };
 
   const loadViewerLinkForAction = async () => {
@@ -132,8 +160,9 @@ export function SettingsScreen({
   };
 
   const handleSyncTokenBlur = () => {
-    if (syncToken !== settings.syncToken) {
-      if (onUpdateSyncToken(syncToken.trim()) === false) setSyncToken(settings.syncToken || "");
+    const token = syncToken.trim();
+    if (token !== (settings.syncToken || "").trim()) {
+      if (onUpdateSyncToken(token) === false) setSyncToken(settings.syncToken || "");
     }
   };
 
@@ -210,7 +239,9 @@ export function SettingsScreen({
                   <select
                     value={settings.periodsCount}
                     onChange={(e) =>
-                      onUpdatePeriods(parseInt(e.target.value), settings.periodDuration)
+                      runMutation(() =>
+                        onUpdatePeriods(parseInt(e.target.value), settings.periodDuration),
+                      )
                     }
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
@@ -226,7 +257,9 @@ export function SettingsScreen({
                   <select
                     value={settings.periodDuration}
                     onChange={(e) =>
-                      onUpdatePeriods(settings.periodsCount, parseInt(e.target.value))
+                      runMutation(() =>
+                        onUpdatePeriods(settings.periodsCount, parseInt(e.target.value)),
+                      )
                     }
                     className="w-full px-4 py-3 bg-secondary rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
@@ -262,7 +295,7 @@ export function SettingsScreen({
                 />
                 <button
                   onClick={handleAddPlayer}
-                  disabled={!newPlayer.trim()}
+                  disabled={!newPlayer.trim() || isAddingPlayer}
                   className="px-4 py-3 bg-primary text-primary-foreground rounded-xl disabled:opacity-50 hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
@@ -279,7 +312,8 @@ export function SettingsScreen({
                     >
                       <span className="text-foreground">{player}</span>
                       <button
-                        onClick={() => onRemovePlayer(player)}
+                        onClick={() => runMutation(() => onRemovePlayer(player))}
+                        aria-label={`Remove ${player}`}
                         className="p-1 rounded-full hover:bg-accent/20 transition-colors"
                       >
                         <X className="w-3 h-3 text-muted-foreground hover:text-accent" />
@@ -496,7 +530,7 @@ export function SettingsScreen({
                 <span className="text-sm font-semibold uppercase tracking-wider">Debug Mode</span>
               </div>
               <button
-                onClick={() => onUpdateDebug(!settings.debug)}
+                onClick={() => runMutation(() => onUpdateDebug(!settings.debug))}
                 className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
                   settings.debug
                     ? "border-primary bg-primary/5"

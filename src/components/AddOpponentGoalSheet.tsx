@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { goalTypes } from "./goal-types";
@@ -6,7 +7,7 @@ import { GoalType } from "@/types/match";
 interface AddOpponentGoalSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddGoal: (type: GoalType) => void;
+  onAddGoal: (type: GoalType) => boolean | void | Promise<boolean | void>;
   opponentName: string;
 }
 
@@ -17,11 +18,12 @@ export function AddOpponentGoalSheet({
   opponentName,
 }: AddOpponentGoalSheetProps) {
   const [goalType, setGoalType] = useState<GoalType>("normal");
-
-  const handleSubmit = () => {
-    onAddGoal(goalType);
+  const { submit } = useSubmitAction(onAddGoal, () => {
     setGoalType("normal");
     onClose();
+  });
+  const handleSubmit = () => {
+    void submit(goalType);
   };
 
   if (!isOpen) return null;

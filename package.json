@@ -5,14 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:pages": "npm run build && npx wrangler pages dev dist",
+    "dev:pages": "npm run build && node scripts/e2e-runtime.mjs --persist",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "oxlint .",
     "format": "oxfmt --write src",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:workers": "worker/test-runtime/node_modules/.bin/vitest run --config worker/test-runtime/vitest.config.ts",
+    "test:e2e": "npm run build && playwright test",
+    "e2e:serve": "node scripts/e2e-runtime.mjs",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit",
+    "build:worker": "wrangler deploy --config worker/wrangler.jsonc --dry-run --outdir /tmp/goal-keeper-worker-build",
+    "test:worker-restart": "node worker/restart-test.mjs",
+    "check:migration": "node scripts/check-migration.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -66,7 +75,10 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261003.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.16.5",
@@ -82,6 +94,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.147.0"
   }
 }

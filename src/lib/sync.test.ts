@@ -1,114 +1,170 @@
+/// <reference types="node" />
+import { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchRemoteState, pushLocalState, type SyncState } from "./sync";
-
-const state: SyncState = {
-  matches: [],
-  activeMatch: null,
-  fullMatches: {},
-  settings: { teamName: "My Team" },
+import { fetchRemoteState, fetchActiveMatch, postCommand } from "./sync";
+import { createEmptyWorkspace } from "./workspace";
+const body = {
+  scope: "structural",
+  workspaceId: "goal-keeper",
+  revision: 1,
+  structureRevision: 1,
+  state: createEmptyWorkspace(),
 };
-
-describe("fetchRemoteState", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it("returns the parsed remote state on a successful response", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify(state), { headers: { "X-Workspace-Role": "editor" } }),
-        ),
-    );
-
-    await expect(fetchRemoteState("token")).resolves.toEqual({ state, role: "editor" });
-    expect(fetch).toHaveBeenCalledWith("/api/state", {
-      headers: { "x-auth-token": "token" },
-    });
-  });
-
-  it("returns null when there is no remote state yet (204)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(null, { status: 204, headers: { "X-Workspace-Role": "editor" } }),
-        ),
-    );
-
-    await expect(fetchRemoteState("token")).resolves.toEqual({ state: null, role: "editor" });
-  });
-
-  it("distinguishes invalid credentials from unavailable service", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("bad", { status: 401 })));
-    await expect(fetchRemoteState("token")).rejects.toMatchObject({ status: 401 });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("oops", { status: 500 })));
-    await expect(fetchRemoteState("token")).rejects.toMatchObject({ status: 500 });
-  });
-
-  it("returns null when the network request fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-
-    await expect(fetchRemoteState("token")).rejects.toThrow("offline");
-  });
-
-  it("rejects when the response body is not valid JSON", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not json")));
-
-    await expect(fetchRemoteState("token")).rejects.toThrow();
-  });
-
-  it("passes an abort signal to fetch", async () => {
-    const controller = new AbortController();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify(state), { headers: { "X-Workspace-Role": "viewer" } }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-    await fetchRemoteState("token", controller.signal);
-    expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
-  });
-
-  it("rejects responses without a confirmed workspace role", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(state))));
-    await expect(fetchRemoteState("token")).rejects.toThrow("Workspace role was not confirmed");
-  });
+const response = (value = body, role = "editor", status = 200) =>
+  new Response(JSON.stringify(value), { status, headers: { "X-Workspace-Role": role } });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
-
-describe("pushLocalState", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
+describe("authoritative workspace transport", () => {
+  it.each(["full", "live", "command"])(
+    "aborts a hung %s request after ten seconds",
+    async (kind) => {
+      vi.useFakeTimers();
+      const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+        return controller.signal;
+      });
+      const fetch = vi.fn(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener("abort", () => reject(options.signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const result = (
+        kind === "full"
+          ? fetchRemoteState("editor")
+          : kind === "live"
+            ? fetchActiveMatch("editor")
+            : postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" })
+      ).catch((error) => error);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      await vi.advanceTimersByTimeAsync(9999);
+      expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toMatchObject({ name: "TimeoutError" });
+    },
+  );
+  it.each(["caller", "timeout"])(
+    "combines caller cancellation with the deadline, triggered by %s",
+    async (kind) => {
+      vi.useFakeTimers();
+      const deadline = new AbortController();
+      const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+      const caller = new AbortController();
+      const fetch = vi.fn(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener("abort", () => reject(options.signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const result = postCommand(
+        "editor",
+        { id: "goal", type: "add-goal", matchId: "m" },
+        caller.signal,
+      ).catch((error) => error);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      if (kind === "caller") caller.abort();
+      else deadline.abort(new DOMException("Timed out", "TimeoutError"));
+      expect(await result).toMatchObject({
+        name: kind === "caller" ? "AbortError" : "TimeoutError",
+      });
+    },
+  );
+  it("keeps the timeout active while waiting for the response body", async () => {
+    vi.stubGlobal("ReadableStream", NodeReadableStream);
+    const deadline = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url, options) =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                options.signal?.addEventListener(
+                  "abort",
+                  () => controller.error(options.signal.reason),
+                  { once: true },
+                );
+              },
+            }),
+            { headers: { "X-Workspace-Role": "editor" } },
+          ),
+        ),
+      ),
+    );
+    const result = postCommand("editor", { id: "goal", type: "add-goal", matchId: "m" }).catch(
+      (error) => error,
+    );
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    await Promise.resolve();
+    deadline.abort(new DOMException("Timed out", "TimeoutError"));
+    expect(await result).toMatchObject({ name: "TimeoutError" });
   });
-
-  it("posts the state with the auth token and returns true on success", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(pushLocalState("token", state)).resolves.toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith("/api/state", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-auth-token": "token" },
-      body: JSON.stringify(state),
+  it("reads the full envelope with protocol version and confirmed role", async () => {
+    const fetch = vi.fn().mockResolvedValue(response());
+    vi.stubGlobal("fetch", fetch);
+    expect(await fetchRemoteState("editor")).toEqual({ ...body, role: "editor" });
+    expect(fetch.mock.calls[0][1].headers).toMatchObject({
+      "x-auth-token": "editor",
+      "X-Workspace-Protocol": "2",
     });
   });
-
-  it("returns false when the upstream response is not ok", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
-
-    await expect(pushLocalState("token", state)).resolves.toBe(500);
+  it("reads live state without a full workspace", async () => {
+    const live = {
+      scope: "live",
+      workspaceId: "goal-keeper",
+      revision: 2,
+      structureRevision: 1,
+      activeMatch: null,
+      activeSeasonId: body.state.activeSeasonId,
+    };
+    const fetch = vi.fn().mockResolvedValue(response(live as never, "viewer"));
+    vi.stubGlobal("fetch", fetch);
+    expect(await fetchActiveMatch("viewer")).toEqual({ ...live, role: "viewer" });
+    expect(fetch.mock.calls[0][0]).toBe("/api/active-match");
   });
-
-  it("returns false when the network request fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-
-    await expect(pushLocalState("token", state)).resolves.toBe(0);
+  it("posts intent to the command endpoint", async () => {
+    const command = {
+      id: "cmd",
+      type: "start-match" as const,
+      payload: { opponentName: "Rivals", myTeamName: "Team", isHome: true },
+    };
+    const fetch = vi.fn().mockResolvedValue(response({ ...body, commandId: "cmd" } as never));
+    vi.stubGlobal("fetch", fetch);
+    await postCommand("editor", command);
+    expect(fetch.mock.calls[0][0]).toBe("/api/command");
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(command);
+  });
+  it.each([401, 403, 422, 426, 503])(
+    "propagates status %s without pretending to succeed",
+    async (status) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("failure", { status })));
+      await expect(fetchRemoteState("token")).rejects.toMatchObject({ status });
+    },
+  );
+  it("rejects missing roles and mismatched response scopes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body))));
+    await expect(fetchRemoteState("token")).rejects.toThrow();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response()));
+    await expect(fetchActiveMatch("token")).rejects.toThrow();
+  });
+  it("propagates cancellation and invalid JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError")));
+    await expect(fetchRemoteState("token")).rejects.toMatchObject({ name: "AbortError" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("bad", { headers: { "X-Workspace-Role": "editor" } })),
+    );
+    await expect(fetchRemoteState("token")).rejects.toThrow();
   });
 });

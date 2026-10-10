@@ -3,6 +3,11 @@ export interface Env {
     get(key: string, options?: { cacheTtl?: number }): Promise<string | null>;
     put(key: string, value: string): Promise<void>;
   };
+  WORKSPACES?: {
+    idFromName(name: string): any;
+    get(id: any): { fetch(request: Request): Promise<Response> };
+  };
+  WORKSPACE_ID?: string;
   AUTH_TOKEN: string;
   VIEWER_TOKEN?: string;
 }
@@ -17,7 +22,7 @@ export const STORAGE_KEY = "goal-keeper-state";
 export const responseHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type, x-auth-token",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, x-auth-token, X-Workspace-Protocol",
   "Access-Control-Expose-Headers": "X-Workspace-Role",
   "Cache-Control": "no-store",
 };
@@ -37,27 +42,57 @@ export function getRole(request: Request, env: Env): WorkspaceRole | null {
 
 export function sanitizeState(body: unknown, role: WorkspaceRole) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Invalid state");
-  const state = body as Record<string, unknown>;
-  if (!state.settings || typeof state.settings !== "object" || Array.isArray(state.settings)) {
-    throw new Error("Invalid settings");
-  }
-  const { syncToken: _token, ...settings } = state.settings as Record<string, unknown>;
-  if (role === "editor") return { ...state, settings };
-  const { teamName, players, periodsCount, periodDuration, calendarUrl, calendarTeamName } =
-    settings;
+  const state = body as Record<string, any>;
+  if (!state.settings || typeof state.settings !== "object") throw new Error("Invalid settings");
+  const { teamName, players, periodsCount, periodDuration, calendarUrl, calendarTeamName, debug } =
+    state.settings;
   return {
-    matches: state.matches,
-    fullMatches: state.fullMatches,
-    activeMatch: state.activeMatch,
-    seasons: state.seasons,
-    activeSeasonId: state.activeSeasonId,
+    ...state,
     settings: {
       teamName,
       players,
       periodsCount,
       periodDuration,
-      calendarUrl: typeof calendarUrl === "string" ? calendarUrl : "",
-      calendarTeamName: typeof calendarTeamName === "string" ? calendarTeamName : "",
+      calendarUrl: calendarUrl ?? "",
+      calendarTeamName: calendarTeamName ?? "",
+      ...(role === "editor" ? { debug } : {}),
     },
   };
+}
+
+export async function forwardWorkspace(
+  { env, request }: WorkspaceRequestContext,
+  path: string,
+  write = false,
+) {
+  const role = getRole(request, env);
+  if (!role) return new Response("Unauthorized", { status: 401, headers: responseHeaders });
+  const headers = { ...responseHeaders, "X-Workspace-Role": role };
+  if (write && role !== "editor") return new Response("View-only access", { status: 403, headers });
+  if (request.headers.get("X-Workspace-Protocol") !== "2")
+    return new Response("Upgrade required: reload Goal Keeper", { status: 426, headers });
+  if (!env.WORKSPACES)
+    return new Response("Authoritative workspace is unavailable", { status: 503, headers });
+  try {
+    const stub = env.WORKSPACES.get(env.WORKSPACES.idFromName(env.WORKSPACE_ID || "goal-keeper"));
+    const upstream = await stub.fetch(
+      new Request(`https://workspace.internal${path}`, {
+        method: write ? "POST" : "GET",
+        ...(write
+          ? { body: await request.text(), headers: { "Content-Type": "application/json" } }
+          : {}),
+      }),
+    );
+    if (!upstream.ok)
+      return new Response(await upstream.text(), { status: upstream.status, headers });
+    const body = (await upstream.json()) as Record<string, any>;
+    if (body.scope === "structural") body.state = sanitizeState(body.state, role);
+    return Response.json(body, { headers });
+  } catch {
+    console.error("workspace_storage_error", { path });
+    return new Response("Authoritative workspace is unavailable; cached data was preserved", {
+      status: 503,
+      headers,
+    });
+  }
 }

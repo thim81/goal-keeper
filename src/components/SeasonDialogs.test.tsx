@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SeasonDialogs } from "./SeasonDialogs";
 import type { SeasonStats } from "@/lib/seasons";
@@ -40,6 +40,34 @@ function renderDialogs(overrides: Partial<React.ComponentProps<typeof SeasonDial
 }
 
 describe("SeasonDialogs", () => {
+  it.each([
+    ["Open close season", /close & start new/i],
+    ["Open reopen season", /^reopen season$/i],
+    ["Open rename season", /^save$/i],
+  ] as const)(
+    "keeps %s controls available and guards duplicate submission",
+    async (openLabel, submitLabel) => {
+      let resolve: (result: boolean) => void = () => {};
+      const action = vi.fn(
+        () =>
+          new Promise<boolean>((done) => {
+            resolve = done;
+          }),
+      );
+      renderDialogs({ onCloseSeason: action, onReopenSeason: action, onRenameSeason: action });
+      fireEvent.click(screen.getByRole("button", { name: openLabel }));
+      fireEvent.click(screen.getByRole("button", { name: submitLabel }));
+      fireEvent.click(screen.getByRole("button", { name: submitLabel }));
+
+      expect(action).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("button", { name: submitLabel })).toBeEnabled();
+      expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      await act(async () => resolve(false));
+    },
+  );
   it("shows the season summary and confirms closing the season", () => {
     const { props } = renderDialogs();
 

@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState } from "react";
 import { Goal, GoalEdit } from "@/types/match";
 import { goalTypes } from "./goal-types";
@@ -10,7 +11,7 @@ interface EditGoalSheetProps {
   goal: Goal;
   knownPlayers: string[];
   onClose: () => void;
-  onSave: (id: string, changes: GoalEdit) => void;
+  onSave: (id: string, changes: GoalEdit) => boolean | void | Promise<boolean | void>;
 }
 
 export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalSheetProps) {
@@ -23,7 +24,17 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
   const [assist, setAssist] = useState(goal.assist ?? "");
   const [type, setType] = useState(goal.type);
   const [time, setTime] = useState(goal.time);
+  const { submit } = useSubmitAction(onSave, onClose);
   const validTime = parseClockTime(time) !== null;
+  const handleSave = () => {
+    if (!validTime || (isMyTeam && !scorer.trim())) return;
+    void submit(goal.id, {
+      scorer: isMyTeam ? scorer : undefined,
+      assist: isMyTeam ? assist : undefined,
+      type,
+      time,
+    });
+  };
 
   return (
     <Sheet
@@ -101,15 +112,7 @@ export function EditGoalSheet({ goal, knownPlayers, onClose, onSave }: EditGoalS
             <Button
               className={`flex-1 ${isMyTeam ? "" : "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent"}`}
               disabled={!validTime || (isMyTeam && !scorer.trim())}
-              onClick={() => {
-                onSave(goal.id, {
-                  scorer: team === "my-team" ? scorer : undefined,
-                  assist: team === "my-team" ? assist : undefined,
-                  type,
-                  time,
-                });
-                onClose();
-              }}
+              onClick={handleSave}
             >
               Save
             </Button>

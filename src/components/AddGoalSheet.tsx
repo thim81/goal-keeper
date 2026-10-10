@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { goalTypes } from "./goal-types";
@@ -7,7 +8,11 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface AddGoalSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddGoal: (scorer: string, assist: string, type: GoalType) => void;
+  onAddGoal: (
+    scorer: string,
+    assist: string,
+    type: GoalType,
+  ) => boolean | void | Promise<boolean | void>;
   knownPlayers: string[];
 }
 
@@ -15,14 +20,14 @@ export function AddGoalSheet({ isOpen, onClose, onAddGoal, knownPlayers }: AddGo
   const [scorer, setScorer] = useState("");
   const [assist, setAssist] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("normal");
-
-  const handleSubmit = () => {
-    if (!scorer.trim()) return;
-    onAddGoal(scorer.trim(), assist.trim(), goalType);
+  const { submit } = useSubmitAction(onAddGoal, () => {
     setScorer("");
     setAssist("");
     setGoalType("normal");
     onClose();
+  });
+  const handleSubmit = () => {
+    if (scorer.trim()) void submit(scorer.trim(), assist.trim(), goalType);
   };
 
   if (!isOpen) return null;

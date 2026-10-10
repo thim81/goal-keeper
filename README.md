@@ -37,7 +37,7 @@ Ideal for parents, who want to keep track of the goals during their kids matches
 - **Team Management**: Set your team name
 - **Player Database**: Maintain a list of players for quick goal entry
 - **Theme Support**: Light, Dark, and System themes
-- **Cloud Sync**: Sync matches across devices using Cloudflare KV (token required)
+- **Cloud Sync**: Sync matches across devices using a Cloudflare Durable Object (token required)
 - **Debug Mode**: Viewport debugging overlay for development
 
 ## Technology Stack
@@ -49,13 +49,13 @@ Ideal for parents, who want to keep track of the goals during their kids matches
 - **Routing**: React Router v6
 - **State Management**: React Hooks (Custom hooks for matches, settings, sync)
 - **Storage**: LocalStorage for persistence
-- **Cloud Sync**: Cloudflare KV (optional)
+- **Cloud Sync**: Cloudflare Durable Object (optional); legacy KV is retained for migration
 - **UI Components**: Radix UI primitives
 
 ## Installation
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 22 and npm
 
 ### Setup
 
@@ -74,39 +74,50 @@ npm install
 npm run dev
 ```
 
-To run the app with Cloudflare Pages Functions locally, use Wrangler:
+For local sync testing, start both Cloudflare Pages Functions and the Durable Object Worker:
 
 ```bash
 npm run dev:pages
 ```
 
-This serves the built app and the `functions/` directory locally. Changes to
-the frontend or functions require restarting the command because the app is
-built into `dist` before Wrangler starts.
+Open `http://127.0.0.1:8790`. In Settings, use `e2e-editor` as the sync token.
+Use a separate browser/profile with `e2e-viewer` to test viewing, or open the
+editor's Share link. These are local test credentials; no production resources
+are used. Server data is retained under `.wrangler/local-workspace` across restarts.
+
+Restart `npm run dev:pages` after source changes. It rebuilds the frontend
+automatically before starting both services, so a separate `npm run build` is
+unnecessary. `npm run dev` remains the fast frontend-only server with hot reload.
+
+`npm run e2e:serve` starts the same services for automated browser tests, using
+fresh temporary storage that is removed on exit. It serves the existing `dist`
+build; `npm run test:e2e` builds first. See [the local testing guide](testing.md)
+for editor/viewer checks, persistence, and resetting test data.
 
 ### Cloud Sync and View-only Sharing
 
-The app uses one Cloudflare Pages deployment and one `GOALKEEPER_KV` namespace
-for both editors and viewers. Configure `AUTH_TOKEN` and `VIEWER_TOKEN` as
-secrets for the Pages Functions environment. They must be different values.
-The editor token can read and write the shared workspace. The viewer token can
-read it, while the server rejects viewer writes. Shared links contain the
-viewer token in the URL fragment, which is not sent with HTTP requests.
+The app uses one Cloudflare Pages deployment and a separate SQLite Durable
+Object Worker. Bind Pages `WORKSPACES` to the Worker's `Workspace` class.
+Editors and viewers use the same stable `WORKSPACE_ID` and authoritative state.
+Configure distinct `AUTH_TOKEN` and `VIEWER_TOKEN` secrets on Pages. The editor
+can submit commands; viewers can read, and the server rejects their commands.
+Shared links contain the viewer token in the URL fragment.
 
-Viewer responses also include the configured public calendar URL and team name
-so viewers can read upcoming fixtures. The URL is disclosed to viewers, so only
-use a public calendar subscription. Calendar settings remain editor-only, and
-viewer fixture rows cannot start or change matches. Refreshing fixtures reads
-through `/api/calendar` and never writes workspace state to `/api/state`.
+Connected actions require server confirmation. State updates and cache saves do
+not upload data. Live commands return only live state; structural commands
+return the full workspace. Polling and separate revision metadata keep cached
+history/settings from claiming freshness after a partial response. Cached data
+remains readable offline; token-free local editing stays available.
 
-Set both secrets before deploying the sharing UI. The app does not provide a
-second data store or deployment for viewers. If the viewer secret is missing
-or matches the editor secret, the share endpoint stays unavailable and existing
-editor sync continues to use the same KV data.
+Viewer responses include the public calendar URL and team name for upcoming
+fixtures. Calendar configuration remains editor-only. Fixture refreshes never
+write workspace state. Missing or matching viewer credentials disable sharing.
 
-Legacy `settings.syncToken` values are omitted from every API response. They are
-removed from the stored workspace the next time an editor writes state. This
-change does not run a direct migration against production KV data.
+Legacy KV is read once during guarded initialization and retained permanently
+unchanged. Remote state excludes device-local theme and credentials. New clients
+use protocol version 2; old reads require an upgrade, and whole-workspace
+uploads are rejected. Follow [the sync architecture and cutover guide](docs/durable-object-sync.md)
+for isolated local verification, deployment bindings, migration, and recovery.
 
 To revoke viewer links, replace `VIEWER_TOKEN` with a new random value in the
 Pages environment and deploy the updated secret. Previously copied links then

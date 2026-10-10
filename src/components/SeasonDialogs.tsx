@@ -1,3 +1,4 @@
+import { useSubmitAction, type SubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import {
   AlertDialog,
@@ -35,9 +36,9 @@ interface SeasonDialogsProps {
   canReopenSeason: boolean;
   activeSeasonStats: SeasonStats | null;
   selectedSeason?: Pick<Season, "id" | "name" | "status">;
-  onCloseSeason: (name: string) => boolean;
-  onReopenSeason: (seasonId: string) => boolean;
-  onRenameSeason: (seasonId: string, name: string) => boolean;
+  onCloseSeason: (name: string) => boolean | Promise<boolean>;
+  onReopenSeason: (seasonId: string) => boolean | Promise<boolean>;
+  onRenameSeason: (seasonId: string, name: string) => boolean | Promise<boolean>;
   children: (controls: SeasonDialogControls) => ReactNode;
 }
 
@@ -78,17 +79,29 @@ export function SeasonDialogs({
     },
   };
 
-  const confirmCloseSeason = () => {
-    if (onCloseSeason(nextSeasonName)) setShowCloseSeason(false);
-  };
+  const { submit: confirm } = useSubmitAction(
+    (action: SubmitAction, _close: () => void) => action(),
+    (_action, close) => close(),
+  );
+  const confirmCloseSeason = () =>
+    confirm(
+      () => onCloseSeason(nextSeasonName),
+      () => setShowCloseSeason(false),
+    );
   const confirmReopenSeason = (event: MouseEvent<HTMLButtonElement>) => {
-    if (!pendingReopenSeasonId) return;
-    if (onReopenSeason(pendingReopenSeasonId)) setPendingReopenSeasonId(null);
-    else event.preventDefault();
+    event.preventDefault();
+    if (pendingReopenSeasonId)
+      confirm(
+        () => onReopenSeason(pendingReopenSeasonId),
+        () => setPendingReopenSeasonId(null),
+      );
   };
   const saveSeasonName = () => {
-    if (!selectedSeason) return;
-    if (onRenameSeason(selectedSeason.id, seasonNameDraft)) setShowRenameSeason(false);
+    if (selectedSeason)
+      confirm(
+        () => onRenameSeason(selectedSeason.id, seasonNameDraft),
+        () => setShowRenameSeason(false),
+      );
   };
 
   return (

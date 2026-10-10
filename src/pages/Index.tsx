@@ -3,6 +3,10 @@ import { History, RefreshCw, Settings } from "lucide-react";
 import { useMatches } from "@/hooks/useMatches";
 import { useSettings } from "@/hooks/useSettings";
 import { useTheme } from "@/hooks/useTheme";
+import { unstable_batchedUpdates } from "react-dom";
+import { assembleWorkspace } from "@/lib/workspace-cache";
+import { normalizeWorkspace, workspaceTimeline } from "@/lib/workspace";
+import { useWorkspaceActions } from "@/hooks/useWorkspaceActions";
 import { useSync } from "@/hooks/useSync";
 import { SyncState } from "@/lib/sync";
 import { Scoreboard } from "@/components/Scoreboard";
@@ -97,66 +101,40 @@ export default function Index() {
     activeSeasonId,
     seasons,
     matchHistory,
-    startMatch,
-    addGoal,
-    deleteGoal,
-    updateGoal,
-    addEvent,
-    deleteEvent,
-    updateEventTime,
-    undoLast,
-    endMatch,
-    deleteMatch,
-    renameHistoricalOpponent,
     getScore,
     getSeasonSummaries,
     getSeasonStatsById,
     getSeasonMatchHistory,
     getSeasonMatchDetails,
-    startPeriod,
-    endPeriod,
-    toggleTimer,
     setAllMatchesState,
-    renameOpponent,
-    closeAndStartNewSeason,
+    setActiveMatchState,
     canCloseSeason,
     canReopenSeason,
-    reopenSeason,
-    renameSeasonName,
   } = useMatches();
 
-  const {
-    settings,
-    updateTeamName,
-    updateCalendarSettings,
-    addPlayer,
-    removePlayer,
-    updatePeriods,
-    updateSyncToken,
-    updateTheme,
-    updateDebug,
-    setAllSettingsState,
-  } = useSettings();
+  const { settings, updateSyncToken, updateTheme, setAllSettingsState } = useSettings();
   const settingsTokenRef = useRef(settings.syncToken);
   settingsTokenRef.current = settings.syncToken;
   const shareRequestRef = useRef(0);
 
   const handleSyncState = useCallback(
     (state: SyncState) => {
-      setAllMatchesState(state);
-      setAllSettingsState({
-        ...state.settings,
-        calendarUrl:
-          typeof state.settings.calendarUrl === "string"
-            ? state.settings.calendarUrl
-            : settings.calendarUrl,
-        calendarTeamName:
-          typeof state.settings.calendarTeamName === "string"
-            ? state.settings.calendarTeamName
-            : settings.calendarTeamName,
-        theme: settings.theme,
-        syncToken: settings.syncToken,
-        debug: typeof state.settings.debug === "boolean" ? state.settings.debug : settings.debug,
+      unstable_batchedUpdates(() => {
+        setAllMatchesState(state);
+        setAllSettingsState({
+          ...state.settings,
+          calendarUrl:
+            typeof state.settings.calendarUrl === "string"
+              ? state.settings.calendarUrl
+              : settings.calendarUrl,
+          calendarTeamName:
+            typeof state.settings.calendarTeamName === "string"
+              ? state.settings.calendarTeamName
+              : settings.calendarTeamName,
+          theme: settings.theme,
+          syncToken: settings.syncToken,
+          debug: typeof state.settings.debug === "boolean" ? state.settings.debug : settings.debug,
+        });
       });
       if (state.activeMatch) setSyncScrollSignal((value) => value + 1);
     },
@@ -180,6 +158,9 @@ export default function Index() {
     syncNow,
     isSyncing,
     isCoolingDown,
+    isCredentialConfirmed,
+    submitCommand,
+    metadata,
   } = useSync(
     sharedToken ? undefined : settings.syncToken,
     seasons,
@@ -187,9 +168,50 @@ export default function Index() {
     activeMatch,
     settings,
     handleSyncState,
+    setActiveMatchState,
   );
   const canEdit =
-    !sharedToken && (workspaceRole === "editor" || (syncStatus === "local" && !settings.syncToken));
+    !sharedToken &&
+    ((workspaceRole === "editor" && isCredentialConfirmed) ||
+      (syncStatus === "local" && !settings.syncToken));
+  const dispatch = useWorkspaceActions(
+    assembleWorkspace(seasons, activeSeasonId, activeMatch, settings),
+    !settings.syncToken && !sharedToken,
+    handleSyncState,
+    submitCommand,
+  );
+  const liveAction = (
+    type: Parameters<typeof dispatch>[0],
+    payload: Record<string, unknown> = {},
+  ) =>
+    activeMatch ? dispatch(type, payload, { matchId: activeMatch.id }) : Promise.resolve(false);
+  const updateTeamName = (teamName: string) =>
+    dispatch("update-settings", { settings: { teamName } });
+  const updateCalendarSettings = (calendarUrl: string, calendarTeamName: string) =>
+    dispatch("update-settings", { settings: { calendarUrl, calendarTeamName } });
+  const addPlayer = (player: string) => dispatch("add-player", { player });
+  const removePlayer = (player: string) => dispatch("remove-player", { player });
+  const updatePeriods = (periodsCount: number, periodDuration: number) =>
+    dispatch("update-settings", { settings: { periodsCount, periodDuration } });
+  const updateDebug = (debug: boolean) => dispatch("update-settings", { settings: { debug } });
+  const deleteGoal = (goalId: string) => liveAction("delete-goal", { goalId });
+  const deleteEvent = (eventId: string) => liveAction("delete-event", { eventId });
+  const updateEventTime = (eventId: string, time: string) =>
+    liveAction("update-event-time", { eventId, time });
+  const toggleTimer = () => liveAction(activeMatch?.isRunning ? "pause-match" : "resume-match");
+  const undoLast = () => {
+    const items = workspaceTimeline(activeMatch?.goals ?? [], activeMatch?.events ?? []);
+    const latest = items[items.length - 1];
+    if (!latest) return Promise.resolve(false);
+    return latest.kind === "goal" ? deleteGoal(latest.data.id) : deleteEvent(latest.data.id);
+  };
+  const closeAndStartNewSeason = (options?: { name?: string }) =>
+    dispatch("close-season", { name: options?.name }, { seasonId: activeSeasonId ?? undefined });
+  const reopenSeason = (seasonId: string) => dispatch("reopen-season", {}, { seasonId });
+  const renameSeasonName = (seasonId: string, name: string) =>
+    dispatch("rename-season", { name }, { seasonId });
+  const renameHistoricalOpponent = (matchId: string, name: string, seasonId?: string) =>
+    dispatch("rename-historical-opponent", { name }, { matchId, seasonId });
   const hasLocalData =
     !!activeMatch ||
     Object.keys(seasons).length > 1 ||
@@ -307,8 +329,11 @@ export default function Index() {
   ]);
 
   const handleDetectedCalendarTeamName = useCallback(
-    (teamName: string) => updateCalendarSettings(settings.calendarUrl, teamName),
-    [settings.calendarUrl, updateCalendarSettings],
+    (teamName: string) => {
+      if (teamName !== settings.calendarTeamName)
+        void updateCalendarSettings(settings.calendarUrl, teamName);
+    },
+    [settings.calendarUrl, settings.calendarTeamName, dispatch],
   );
   const canViewCalendar =
     canEdit ||
@@ -335,11 +360,10 @@ export default function Index() {
     setShowRenameOpponent(true);
   }, [activeMatch]);
 
-  const handleSaveRenameOpponent = () => {
+  const handleSaveRenameOpponent = async () => {
     const trimmed = opponentNameDraft.trim();
     if (!trimmed) return;
-    renameOpponent(trimmed);
-    setShowRenameOpponent(false);
+    if (await liveAction("rename-opponent", { name: trimmed })) setShowRenameOpponent(false);
   };
 
   const seasonSummaries = useMemo(() => getSeasonSummaries(), [getSeasonSummaries]);
@@ -375,99 +399,63 @@ export default function Index() {
   const recentMatch = useMemo(() => getRecentMatchWithinDays(matchHistory), [matchHistory]);
 
   const score = getScore();
-  const lastEvent = activeMatch?.events?.[activeMatch.events.length - 1];
+  const lastEvent = [...(activeMatch?.events ?? [])]
+    .reverse()
+    .find((event) => event.type === "start" || event.type === "period-end");
   const isPeriodEnded = lastEvent?.type === "period-end";
   const periodStartedAt =
     activeMatch?.periodStartedAt ??
     [...(activeMatch?.events ?? [])].reverse().find((event) => event.type === "start")?.timestamp;
 
-  // Handle starting a new match
-  const handleStartMatch = (myTeamName: string, opponentName: string, isHome: boolean) => {
+  const handleStartMatch = async (myTeamName: string, opponentName: string, isHome: boolean) => {
+    if (!(await dispatch("start-match", { myTeamName, opponentName, isHome }))) return false;
     setScheduledMatchDefaults(null);
-    startMatch(myTeamName, opponentName, isHome);
     setView("live");
+    return true;
   };
-
   const handleSelectUpcomingMatch = (match: UpcomingMatch) => {
     setScheduledMatchDefaults({ opponentName: match.opponentName, isHome: match.isHome });
     setShowStartMatch(true);
   };
-
-  const handleStartPeriod = () => {
-    startPeriod();
+  const handleStartPeriod = () =>
+    liveAction("start-period", { expectedPeriod: activeMatch?.currentPeriod });
+  const handleEndPeriod = async () => {
+    const final = activeMatch?.currentPeriod === settings.periodsCount;
+    if (!(await liveAction("end-period", { expectedPeriod: activeMatch?.currentPeriod })))
+      return false;
+    if (final) setShowEndMatchPrompt(true);
+    return true;
   };
-
-  const handleEndPeriod = () => {
-    const isFinalPeriod =
-      activeMatch !== null && activeMatch.currentPeriod === settings.periodsCount;
-    endPeriod();
-    if (isFinalPeriod) setShowEndMatchPrompt(true);
-  };
-
-  const rememberGoalPlayers = (scorer?: string, assist?: string) => {
-    if (scorer) addPlayer(scorer);
-    if (assist) addPlayer(assist);
-  };
-
-  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) => {
-    addGoal("my-team", scorer, assist, type);
-    rememberGoalPlayers(scorer, assist);
-  };
-
-  const handleUpdateGoal = (id: string, changes: GoalEdit) => {
-    updateGoal(id, changes);
-    if (activeMatch?.goals.find((goal) => goal.id === id)?.team === "my-team") {
-      rememberGoalPlayers(changes.scorer, changes.assist);
-    }
-  };
-
-  // Handle adding opponent goal
-  const handleAddOpponentGoal = (type: GoalType) => {
-    addGoal("opponent", undefined, undefined, type);
-  };
-
-  // Handle adding an event
+  const handleAddMyGoal = (scorer: string, assist: string, type: GoalType) =>
+    liveAction("add-goal", { team: "my-team", scorer, assist, type });
+  const handleUpdateGoal = (goalId: string, changes: GoalEdit) =>
+    liveAction("update-goal", { goalId, changes });
+  const handleAddOpponentGoal = (type: GoalType) =>
+    liveAction("add-goal", { team: "opponent", type });
   const handleAddEvent = (
     type: GameEventType,
     options?: { team?: "my-team" | "opponent"; player?: string },
   ) => {
-    if (type === "start") {
-      handleStartPeriod();
-    } else if (type === "period-end") {
-      handleEndPeriod();
-    } else if (type === "pause" || type === "resume") {
-      toggleTimer();
-    } else {
-      const label =
-        type === "yellow-card" || type === "red-card"
-          ? [
-              options?.team
-                ? options.team === "my-team"
-                  ? (activeMatch?.myTeamName ?? "My Team")
-                  : (activeMatch?.opponentName ?? "Opponent")
-                : undefined,
-              options?.player,
-            ]
-              .filter(Boolean)
-              .join(" • ") || undefined
-          : undefined;
-
-      addEvent(type, label, options);
-
-      if (type === "yellow-card" || type === "red-card") {
-        if (options?.team === "my-team" && options.player) {
-          addPlayer(options.player);
-        }
-      }
-    }
+    if (type === "start") return handleStartPeriod();
+    if (type === "period-end") return handleEndPeriod();
+    if (type === "pause" || type === "resume") return toggleTimer();
+    const label =
+      [
+        options?.team
+          ? options.team === "my-team"
+            ? activeMatch?.myTeamName
+            : activeMatch?.opponentName
+          : undefined,
+        options?.player,
+      ]
+        .filter(Boolean)
+        .join(" • ") || undefined;
+    return liveAction("add-event", { eventType: type, label, ...options });
   };
-
-  // Handle ending match
-  const handleEndMatch = () => {
+  const handleEndMatch = async () => {
+    if (!(await liveAction("end-match"))) return false;
     setShowEndMatchPrompt(false);
-    if (activeMatch?.isRunning) endPeriod();
-    endMatch();
-    setView("home");
+    return true;
   };
 
   const effectiveHistorySeasonId = selectedHistorySeasonId ?? activeSeasonId;
@@ -505,10 +493,17 @@ export default function Index() {
     setPendingDeleteMatch({ matchId, seasonId: effectiveHistorySeasonId });
   };
 
-  const handleConfirmDeleteMatch = () => {
+  const handleConfirmDeleteMatch = async (event?: React.MouseEvent) => {
+    event?.preventDefault();
     if (!pendingDeleteMatch) return;
-    deleteMatch(pendingDeleteMatch.matchId, pendingDeleteMatch.seasonId);
-    setPendingDeleteMatch(null);
+    if (
+      await dispatch(
+        "delete-historical-match",
+        {},
+        { matchId: pendingDeleteMatch.matchId, seasonId: pendingDeleteMatch.seasonId },
+      )
+    )
+      setPendingDeleteMatch(null);
   };
 
   const handleExportBackup = () => {
@@ -543,8 +538,25 @@ export default function Index() {
       return;
     }
 
-    setAllMatchesState(parsed.state);
-    setAllSettingsState(parsed.state.settings);
+    if (
+      settings.syncToken &&
+      !window.confirm(
+        "Replace the complete workspace with this backup? The current server workspace will be preserved for recovery.",
+      )
+    )
+      return;
+    if (
+      !(await dispatch(
+        "import-backup",
+        { confirmed: true, state: normalizeWorkspace(parsed.state) },
+        {
+          expectedRevision: settings.syncToken
+            ? Math.max(metadata.liveRevision, metadata.fullRevision)
+            : undefined,
+        },
+      ))
+    )
+      return;
     setView(parsed.state.activeMatch ? "live" : "home");
     setSelectedMatch(null);
     setSelectedMatchSeasonId(null);
@@ -587,7 +599,7 @@ export default function Index() {
           onImportBackup={handleImportBackup}
           canEdit={canEdit}
           syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
+          lastSyncedAt={metadata.fullUpdatedAt}
           isSyncing={isSyncing}
           isCoolingDown={isCoolingDown}
           onSyncNow={syncNow}
@@ -604,12 +616,11 @@ export default function Index() {
           onRenameOpponent={
             canEdit
               ? (name) => {
-                  const updated = renameHistoricalOpponent(
+                  return renameHistoricalOpponent(
                     selectedMatch.id,
                     name,
                     selectedMatchSeasonId ?? undefined,
                   );
-                  if (updated) setSelectedMatch(updated);
                 }
               : undefined
           }
@@ -639,13 +650,13 @@ export default function Index() {
           onDeleteMatch={canEdit ? handleRequestDeleteMatch : undefined}
           onOpenSettings={() => setView("settings")}
           onGoHome={() => setView(activeMatch ? "live" : "home")}
-          onCloseSeason={(name) => {
-            const success = closeAndStartNewSeason({ name });
+          onCloseSeason={async (name) => {
+            const success = await closeAndStartNewSeason({ name });
             if (success) setView("home");
             return success;
           }}
-          onReopenSeason={(seasonId) => {
-            const success = reopenSeason(seasonId);
+          onReopenSeason={async (seasonId) => {
+            const success = await reopenSeason(seasonId);
             if (success) setSelectedHistorySeasonId(seasonId);
             return success;
           }}
@@ -676,12 +687,14 @@ export default function Index() {
               )}
               <div className="flex gap-2">
                 <button
+                  aria-label="Settings"
                   onClick={() => setView("settings")}
                   className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <Settings className="w-5 h-5 text-foreground" />
                 </button>
                 <button
+                  aria-label="History"
                   onClick={() => setView("history")}
                   className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
@@ -870,12 +883,14 @@ export default function Index() {
             </div>
             <div className="flex gap-2">
               <button
+                aria-label="Settings"
                 onClick={() => setView("settings")}
                 className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <Settings className="w-5 h-5 text-foreground" />
               </button>
               <button
+                aria-label="History"
                 onClick={() => setView("history")}
                 className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
@@ -967,6 +982,7 @@ export default function Index() {
 
             {activeSeasonMatchCount > 0 && (
               <button
+                aria-label="History"
                 onClick={() => setView("history")}
                 className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >

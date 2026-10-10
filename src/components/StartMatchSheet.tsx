@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useState, useEffect } from "react";
 import { X, Play, Home, Plane } from "lucide-react";
 import { PlayerAutocomplete } from "./PlayerAutocomplete";
@@ -5,7 +6,11 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface StartMatchSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onStartMatch: (myTeamName: string, opponentName: string, isHome: boolean) => void;
+  onStartMatch: (
+    myTeamName: string,
+    opponentName: string,
+    isHome: boolean,
+  ) => boolean | void | Promise<boolean | void>;
   defaultTeamName?: string;
   opponentSuggestions?: string[];
   initialOpponentName?: string;
@@ -24,6 +29,12 @@ export function StartMatchSheet({
   const [myTeamName, setMyTeamName] = useState("");
   const [opponentName, setOpponentName] = useState("");
   const [isHome, setIsHome] = useState(true);
+  const { submit } = useSubmitAction(onStartMatch, () => {
+    setMyTeamName("");
+    setOpponentName("");
+    setIsHome(true);
+    onClose();
+  });
 
   // Apply defaults each time the sheet opens so scheduled matches can prefill it.
   useEffect(() => {
@@ -35,11 +46,7 @@ export function StartMatchSheet({
   }, [defaultTeamName, initialIsHome, initialOpponentName, isOpen]);
 
   const handleSubmit = () => {
-    onStartMatch(myTeamName.trim() || "My Team", opponentName.trim() || "Opponent", isHome);
-    setMyTeamName("");
-    setOpponentName("");
-    setIsHome(true);
-    onClose();
+    void submit(myTeamName.trim() || "My Team", opponentName.trim() || "Opponent", isHome);
   };
 
   if (!isOpen) return null;

@@ -3,6 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Index from "./Index";
+import { createEmptyWorkspace } from "@/lib/workspace";
+import { applyWorkspaceCommand } from "@/lib/workspace-mutations";
 import type { Match, MatchSummary, Season } from "@/types/match";
 
 function goToHistory(container: HTMLElement) {
@@ -87,6 +89,181 @@ describe("Index match flow", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["goal", "card", "edited-goal", "start"] as const)(
+    "Undo deletes the latest displayed timeline entry (%s)",
+    async (kind) => {
+      const startedAt = Date.now() - 10_000;
+      const match: Match = {
+        id: "live",
+        myTeamName: "My Team",
+        opponentName: "Rivals",
+        isHome: true,
+        goals:
+          kind === "start"
+            ? []
+            : [
+                {
+                  id: "alice",
+                  team: "my-team",
+                  scorer: "Alice",
+                  type: "normal",
+                  time: "13:00",
+                  timestamp: startedAt + (kind === "edited-goal" ? 3000 : 1000),
+                },
+                {
+                  id: "bob",
+                  team: "my-team",
+                  scorer: "Bob",
+                  type: "normal",
+                  time: "13:01",
+                  timestamp: startedAt + 2000,
+                },
+              ],
+        events: [
+          { id: "start", type: "start", time: "13:00", timestamp: startedAt },
+          ...(kind === "card"
+            ? [
+                {
+                  id: "card",
+                  type: "yellow-card" as const,
+                  time: "13:02",
+                  timestamp: startedAt + 3000,
+                },
+              ]
+            : []),
+        ],
+        startedAt,
+        isActive: true,
+        isRunning: true,
+        totalPausedTime: 0,
+        currentPeriod: 1,
+      };
+      localStorage.setItem("football-tracker-active-match", JSON.stringify(match));
+      render(<Index />);
+      fireEvent.click(await screen.findByRole("button", { name: /show extra actions/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+      const saved = JSON.parse(localStorage.getItem("football-tracker-active-match")!);
+      const deletedId = kind === "edited-goal" ? "alice" : kind === "goal" ? "bob" : kind;
+      expect(saved.goals).toEqual(match.goals.filter((goal) => goal.id !== deletedId));
+      expect(saved.events).toEqual(match.events.filter((event) => event.id !== deletedId));
+      expect(saved.id).toBe(match.id);
+      expect(saved.startedAt).toBe(match.startedAt);
+      if (kind === "start") expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
+    },
+  );
+
+  it.each([
+    ["Pause Timer", true],
+    ["Pause Timer", false],
+    ["Resume Timer", true],
+    ["Resume Timer", false],
+  ])("toggles the timer from %s when running is %s", async (button, isRunning) => {
+    const startedAt = Date.now() - 10_000;
+    const match: Match = {
+      id: "live",
+      myTeamName: "My Team",
+      opponentName: "Rivals",
+      isHome: true,
+      goals: [{ id: "goal", team: "my-team", type: "normal", time: "13:00", timestamp: startedAt }],
+      events: [{ id: "start", type: "start", time: "13:00", timestamp: startedAt }],
+      startedAt,
+      isActive: true,
+      isRunning,
+      pausedAt: isRunning ? undefined : startedAt + 5000,
+      totalPausedTime: 0,
+      currentPeriod: 1,
+      periodStartedAt: startedAt,
+      periodPausedTime: 0,
+    };
+    localStorage.setItem("football-tracker-active-match", JSON.stringify(match));
+    render(<Index />);
+    fireEvent.click(await screen.findByRole("button", { name: /show extra actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^event$/i }));
+    fireEvent.click(screen.getByRole("button", { name: button as string }));
+    await waitFor(() => expect(screen.queryByText("Add Event 📋")).not.toBeInTheDocument());
+    const saved = JSON.parse(localStorage.getItem("football-tracker-active-match")!);
+    expect(saved.isRunning).toBe(!isRunning);
+    expect(saved.goals).toEqual(match.goals);
+    expect(saved.events).toEqual(match.events);
+    expect(saved.startedAt).toBe(startedAt);
+  });
+
+  it.each([false, true])(
+    "closes sheets and queues rapid goals, with first save rejected: %s",
+    async (rejectFirst) => {
+      let server = applyWorkspaceCommand(createEmptyWorkspace(100), {
+        id: "start",
+        type: "start-match",
+        payload: { myTeamName: "My Team", opponentName: "Rivals", isHome: true },
+      }).state;
+      localStorage.setItem("football-tracker-settings", JSON.stringify({ syncToken: "editor" }));
+      let finishFirst!: () => void;
+      const commands: any[] = [];
+      let revision = 1;
+      const reply = (body: unknown) =>
+        new Response(JSON.stringify(body), { headers: { "X-Workspace-Role": "editor" } });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, options?: RequestInit) => {
+          if (url === "/api/command") {
+            const command = JSON.parse(options!.body as string);
+            commands.push(command);
+            if (commands.length === 1) {
+              await new Promise<void>((resolve) => {
+                finishFirst = resolve;
+              });
+              if (rejectFirst) return new Response("Goal rejected", { status: 409 });
+            }
+            server = applyWorkspaceCommand(server, command).state;
+            return reply({
+              scope: "live",
+              workspaceId: "goal-keeper",
+              revision: ++revision,
+              structureRevision: 1,
+              commandId: command.id,
+              activeMatch: server.activeMatch,
+              activeSeasonId: server.activeSeasonId,
+            });
+          }
+          return reply({
+            scope: "structural",
+            workspaceId: "goal-keeper",
+            revision,
+            structureRevision: 1,
+            state: server,
+          });
+        }),
+      );
+      render(<Index />);
+      await screen.findByText("⚽ Goal Keeper");
+      for (const scorer of ["Alice", "Bob"]) {
+        fireEvent.click(screen.getByRole("button", { name: /we scored!/i }));
+        fireEvent.change(screen.getByPlaceholderText("Who scored?"), { target: { value: scorer } });
+        fireEvent.click(screen.getByRole("button", { name: /^add goal$/i }));
+        await waitFor(() =>
+          expect(screen.queryByPlaceholderText("Who scored?")).not.toBeInTheDocument(),
+        );
+        expect(screen.queryByText(/Saving/)).not.toBeInTheDocument();
+      }
+      expect(commands).toHaveLength(1);
+      expect(server.activeMatch!.goals).toHaveLength(0);
+      await act(async () => {
+        finishFirst();
+      });
+      await waitFor(() => expect(commands).toHaveLength(2));
+      await waitFor(() => {
+        const saved = JSON.parse(localStorage.getItem("football-tracker-active-match")!);
+        expect(saved.goals.map((goal: any) => goal.scorer)).toEqual(
+          rejectFirst ? ["Bob"] : ["Alice", "Bob"],
+        );
+      });
+      expect(commands[0].id).not.toBe(commands[1].id);
+      expect(screen.queryByText("Goal rejected")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /retry action/i })).not.toBeInTheDocument();
+    },
+  );
+
   it("starts a match, scores a goal, ends it, and shows the result on home", async () => {
     render(<Index />);
 
@@ -112,6 +289,72 @@ describe("Index match flow", () => {
     expect(resultCard.closest("button")).toHaveTextContent("WIN");
     expect(resultCard.closest("button")).toHaveTextContent("1");
   });
+
+  it.each([false, true])(
+    "waits for the end-match reply without overriding navigation, history opened: %s",
+    async (openHistory) => {
+      let server = applyWorkspaceCommand(createEmptyWorkspace(), {
+        id: "start",
+        type: "start-match",
+        payload: { myTeamName: "My Team", opponentName: "Rivals", isHome: true },
+      }).state;
+      localStorage.setItem("football-tracker-settings", JSON.stringify({ syncToken: "editor" }));
+      let finishEnd!: () => void;
+      let revision = 1;
+      const commands: any[] = [];
+      const reply = (body: unknown) =>
+        new Response(JSON.stringify(body), { headers: { "X-Workspace-Role": "editor" } });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, options?: RequestInit) => {
+          if (url === "/api/command") {
+            const command = JSON.parse(options!.body as string);
+            commands.push(command);
+            await new Promise<void>((resolve) => {
+              finishEnd = resolve;
+            });
+            server = applyWorkspaceCommand(server, command).state;
+            revision++;
+            return reply({
+              scope: "structural",
+              workspaceId: "goal-keeper",
+              revision,
+              structureRevision: revision,
+              commandId: command.id,
+              state: server,
+            });
+          }
+          return reply({
+            scope: "structural",
+            workspaceId: "goal-keeper",
+            revision,
+            structureRevision: revision,
+            state: server,
+          });
+        }),
+      );
+      const { container } = render(<Index />);
+      await screen.findByText("⚽ Goal Keeper");
+      fireEvent.click(screen.getByRole("button", { name: /show extra actions/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /^end$/i }));
+        if (openHistory) goToHistory(container);
+      });
+      expect(commands.map((command) => command.type)).toEqual(["end-match"]);
+      expect(server.activeMatch).not.toBeNull();
+      expect(screen.queryByText("Ready to Play?")).not.toBeInTheDocument();
+      if (openHistory) expect(screen.getByText("No matches yet")).toBeInTheDocument();
+      else expect(screen.getByText("⚽ Goal Keeper")).toBeInTheDocument();
+      await act(async () => {
+        finishEnd();
+      });
+      if (!openHistory) await screen.findByText("Ready to Play?");
+      const result = await screen.findByText("Rivals");
+      expect(result.closest("button")).toHaveTextContent("DRAW");
+      expect(server.activeMatch).toBeNull();
+      expect(server.matches).toHaveLength(1);
+    },
+  );
 
   it("prefills and starts a match selected from the upcoming calendar list", async () => {
     localStorage.setItem(
@@ -293,6 +536,7 @@ describe("Index season dialog interactions", () => {
   });
 
   it("imports a backup and applies its settings and seasons", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     const { container } = render(<Index />);
     goToSettings(container);
 
@@ -335,5 +579,6 @@ describe("Index season dialog interactions", () => {
 
     goToSettings(container);
     expect(screen.getByPlaceholderText("Enter your team name")).toHaveValue("Imported Team");
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useState } from "react";
 import { X, Play, Pause, ArrowLeft } from "lucide-react";
 import { GameEventType } from "@/types/match";
@@ -9,7 +10,7 @@ interface AddEventSheetProps {
   onAddEvent: (
     type: GameEventType,
     options?: { team?: "my-team" | "opponent"; player?: string },
-  ) => void;
+  ) => boolean | void | Promise<boolean | void>;
   myTeamName: string;
   opponentName: string;
   knownPlayers: string[];
@@ -36,6 +37,11 @@ export function AddEventSheet({
   const [pendingCardType, setPendingCardType] = useState<"yellow-card" | "red-card" | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<"my-team" | "opponent">("my-team");
   const [player, setPlayer] = useState("");
+  const { submit: submitEvent } = useSubmitAction(
+    (type: GameEventType, options?: { team?: "my-team" | "opponent"; player?: string }) =>
+      options ? onAddEvent(type, options) : onAddEvent(type),
+    onClose,
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,18 +57,16 @@ export function AddEventSheet({
       return;
     }
 
-    onAddEvent(type);
-    onClose();
+    void submitEvent(type);
   };
 
   const handleAddCardEvent = () => {
     if (!pendingCardType) return;
 
-    onAddEvent(pendingCardType, {
+    void submitEvent(pendingCardType, {
       team: selectedTeam,
       player: player.trim() || undefined,
     });
-    onClose();
   };
 
   if (!isOpen) return null;
