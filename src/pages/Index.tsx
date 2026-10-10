@@ -914,7 +914,7 @@ export default function Index() {
               </h2>
               <p className="text-muted-foreground">
                 {canEdit
-                  ? "Start tracking your match goals in real time"
+                  ? "Start tracking your match in real time"
                   : "View live scores and browse past match results"}
               </p>
             </div>
