@@ -8,7 +8,7 @@
     "bindings": [{ "name": "WORKSPACES", "class_name": "Workspace" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Workspace"] }],
-  "kv_namespaces": [{ "binding": "GOALKEEPER_KV", "id": "legacy-state" }],
+  "kv_namespaces": [{ "binding": "GOALKEEPER_KV", "id": "81c3705d46bf4843a70505dbfe83b9b1" }],
   "vars": {
     "ALLOW_EMPTY_WORKSPACE": "false",
     "WORKSPACE_ID": "goal-keeper"
