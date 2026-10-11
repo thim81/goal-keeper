@@ -44,6 +44,54 @@ export interface SeasonStats {
   topAssists: number;
 }
 
+export interface SeasonPlayerStats {
+  name: string;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+}
+
+export function getSeasonPlayerStats(season: Season): SeasonPlayerStats[] {
+  const players = new Map<string, SeasonPlayerStats>();
+  const getPlayer = (name?: string) => {
+    const trimmedName = name?.trim();
+    if (!trimmedName) return;
+    if (!players.has(trimmedName)) {
+      players.set(trimmedName, {
+        name: trimmedName,
+        goals: 0,
+        assists: 0,
+        yellowCards: 0,
+        redCards: 0,
+      });
+    }
+    return players.get(trimmedName)!;
+  };
+
+  for (const summary of season.matches) {
+    const match = season.fullMatches[summary.id];
+    if (!match || match.isActive) continue;
+    for (const goal of match.goals) {
+      if (goal.team !== "my-team" || goal.type === "own-goal") continue;
+      const scorer = getPlayer(goal.scorer);
+      const assister = getPlayer(goal.assist);
+      if (scorer) scorer.goals += 1;
+      if (assister) assister.assists += 1;
+    }
+    for (const event of match.events) {
+      if (event.team !== "my-team" || (event.type !== "yellow-card" && event.type !== "red-card"))
+        continue;
+      const player = getPlayer(event.player);
+      if (!player) continue;
+      if (event.type === "yellow-card") player.yellowCards += 1;
+      else player.redCards += 1;
+    }
+  }
+
+  return [...players.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function getSeasonStats(season: Season): SeasonStats {
   const summary = season.matches.reduce(
     (acc, match) => {
@@ -65,36 +113,25 @@ export function getSeasonStats(season: Season): SeasonStats {
     },
   );
 
-  const scorerCounts: Record<string, number> = {};
-  const assistCounts: Record<string, number> = {};
-  for (const match of Object.values(season.fullMatches)) {
-    for (const goal of match.goals) {
-      if (goal.team === "my-team" && goal.type !== "own-goal" && goal.scorer) {
-        scorerCounts[goal.scorer] = (scorerCounts[goal.scorer] || 0) + 1;
-      }
-      if (goal.team === "my-team" && goal.type !== "own-goal" && goal.assist) {
-        assistCounts[goal.assist] = (assistCounts[goal.assist] || 0) + 1;
-      }
-    }
-  }
-
-  const getTopLeaders = (counts: Record<string, number>) => {
+  const playerStats = getSeasonPlayerStats(season);
+  const getTopLeaders = (field: "goals" | "assists") => {
     let leaders: string[] = [];
     let count = 0;
 
-    for (const [name, value] of Object.entries(counts)) {
+    for (const player of playerStats) {
+      const value = player[field];
       if (value > count) {
-        leaders = [name];
+        leaders = [player.name];
         count = value;
       } else if (value === count && value > 0) {
-        leaders.push(name);
+        leaders.push(player.name);
       }
     }
 
     return { names: leaders, count };
   };
-  const topScorer = getTopLeaders(scorerCounts);
-  const topAssister = getTopLeaders(assistCounts);
+  const topScorer = getTopLeaders("goals");
+  const topAssister = getTopLeaders("assists");
 
   return {
     ...summary,

@@ -89,6 +89,46 @@ describe("Index match flow", () => {
     vi.unstubAllGlobals();
   });
 
+  it("shares the season selection between player stats and match history", () => {
+    const { seasonId, matchId } = seedOneMatchSeason();
+    const seasons = JSON.parse(localStorage.getItem("football-tracker-seasons")!) as Record<
+      string,
+      Season
+    >;
+    const goal = (scorer: string) => ({
+      id: scorer,
+      scorer,
+      type: "normal" as const,
+      team: "my-team" as const,
+      time: "10:00",
+      timestamp: 1,
+    });
+    seasons[seasonId].fullMatches[matchId].goals = [goal("Alice")];
+    const previous: Season = {
+      ...seasons[seasonId],
+      id: "previous",
+      name: "2024-2025",
+      status: "closed",
+      fullMatches: {
+        [matchId]: { ...seasons[seasonId].fullMatches[matchId], goals: [goal("Dana")] },
+      },
+    };
+    localStorage.setItem("football-tracker-seasons", JSON.stringify({ ...seasons, previous }));
+    render(<Index />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Player stats" }));
+    expect(screen.getByRole("heading", { name: "Player Stats" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "Alice" })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Season" }), {
+      target: { value: "previous" },
+    });
+    expect(screen.getByRole("rowheader", { name: "Dana" })).toBeInTheDocument();
+    expect(screen.queryByRole("rowheader", { name: "Alice" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByRole("heading", { name: "Match History" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Season" })).toHaveValue("previous");
+  });
+
   it.each(["goal", "card", "edited-goal", "start"] as const)(
     "Undo deletes the latest displayed timeline entry (%s)",
     async (kind) => {

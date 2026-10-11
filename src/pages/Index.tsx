@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { History, RefreshCw, Settings } from "lucide-react";
+import { History, RefreshCw, Settings, Users } from "lucide-react";
 import { useMatches } from "@/hooks/useMatches";
 import { useSettings } from "@/hooks/useSettings";
 import { useTheme } from "@/hooks/useTheme";
@@ -19,6 +19,7 @@ import { AddOpponentGoalSheet } from "@/components/AddOpponentGoalSheet";
 import { AddEventSheet } from "@/components/AddEventSheet";
 import { StartMatchSheet } from "@/components/StartMatchSheet";
 import { MatchHistoryScreen } from "@/components/MatchHistoryScreen";
+import { PlayerStatsScreen } from "@/components/PlayerStatsScreen";
 import { MatchResultCard } from "@/components/MatchResultCard";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { MatchDetail } from "@/components/MatchDetail";
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PlayerAutocomplete } from "@/components/PlayerAutocomplete";
-import { createDefaultSeasonName } from "@/lib/seasons";
+import { createDefaultSeasonName, getSeasonPlayerStats } from "@/lib/seasons";
 import { buildBackupPayload, parseBackupPayload } from "@/lib/backup";
 import { getRecentMatchWithinDays } from "@/lib/recent-match";
 import { useUpcomingMatches } from "@/hooks/useUpcomingMatches";
@@ -59,7 +60,7 @@ import {
 import { GoalType, GoalEdit, GameEventType, Match } from "@/types/match";
 import { toast } from "sonner";
 
-type View = "home" | "live" | "history" | "detail" | "settings";
+type View = "home" | "live" | "history" | "players" | "detail" | "settings";
 type MatchDetailOrigin = "home" | "history";
 
 export default function Index() {
@@ -465,6 +466,13 @@ export default function Index() {
   const historySeasonStats = effectiveHistorySeasonId
     ? getSeasonStatsById(effectiveHistorySeasonId)
     : null;
+  const seasonPlayerStats = useMemo(
+    () =>
+      effectiveHistorySeasonId && seasons[effectiveHistorySeasonId]
+        ? getSeasonPlayerStats(seasons[effectiveHistorySeasonId])
+        : [],
+    [seasons, effectiveHistorySeasonId],
+  );
 
   // Handle viewing match details
   const handleSelectMatch = (
@@ -664,13 +672,26 @@ export default function Index() {
         />
       )}
 
+      {view === "players" && (
+        <PlayerStatsScreen
+          seasons={seasonSummaries}
+          selectedSeasonId={effectiveHistorySeasonId}
+          stats={seasonPlayerStats}
+          hasActiveMatch={!!activeMatch}
+          onSelectSeason={setSelectedHistorySeasonId}
+          onGoHome={() => setView(activeMatch ? "live" : "home")}
+          onOpenHistory={() => setView("history")}
+          onOpenSettings={() => setView("settings")}
+        />
+      )}
+
       {/* Live Match View */}
       {view === "live" && activeMatch && (
         <LiveMatchLayout
           debug={canEdit && settings.debug}
           header={
-            <div className="relative flex items-center justify-between p-4">
-              <h1 className="text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
+            <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-4">
+              <h1 className="text-base sm:text-lg font-bold text-foreground">⚽ Goal Keeper</h1>
               {settings.syncToken && (
                 <button
                   type="button"
@@ -678,14 +699,14 @@ export default function Index() {
                   disabled={isSyncing || isCoolingDown}
                   aria-label={isSyncing ? "Syncing match" : "Sync match"}
                   title={isSyncing ? "Syncing match" : "Sync match"}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 shrink-0 rounded-full bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RefreshCw
                     className={`w-5 h-5 text-foreground ${isSyncing ? "animate-spin" : ""}`}
                   />
                 </button>
               )}
-              <div className="flex gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                 <button
                   aria-label="Settings"
                   onClick={() => setView("settings")}
@@ -693,6 +714,17 @@ export default function Index() {
                 >
                   <Settings className="w-5 h-5 text-foreground" />
                 </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    aria-label="Player stats"
+                    title="Player stats"
+                    onClick={() => setView("players")}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                  >
+                    <Users className="w-5 h-5 text-foreground" />
+                  </button>
+                )}
                 <button
                   aria-label="History"
                   onClick={() => setView("history")}
@@ -876,23 +908,36 @@ export default function Index() {
       {view === "home" && !activeMatch && (
         <div className="min-h-screen flex flex-col safe-top">
           {/* Header */}
-          <div className="flex items-center justify-between p-4">
-            <div>
-              <h1 className="text-2xl font-black text-foreground">⚽️ Goal Keeper</h1>
-              <p className="text-sm text-muted-foreground">Track your football matches</p>
+          <div className="flex items-center justify-between gap-2 p-4">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-2xl font-black text-foreground">⚽️ Goal Keeper</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Track your football matches
+              </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-1 sm:gap-2">
               <button
                 aria-label="Settings"
                 onClick={() => setView("settings")}
-                className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                className="p-2.5 sm:p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <Settings className="w-5 h-5 text-foreground" />
               </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  aria-label="Player stats"
+                  title="Player stats"
+                  onClick={() => setView("players")}
+                  className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <Users className="w-5 h-5 text-foreground" />
+                </button>
+              )}
               <button
                 aria-label="History"
                 onClick={() => setView("history")}
-                className="p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                className="p-2.5 sm:p-3 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
               >
                 <History className="w-5 h-5 text-foreground" />
               </button>
