@@ -57,7 +57,7 @@ if (isIosStandalonePwa()) {
     setTimeout(setVH, 100);
 
     const backgroundDurationMs = hiddenAt ? Date.now() - hiddenAt : 0;
-    if (!reloadTriggered && hiddenAt && backgroundDurationMs > 750) {
+    if (!reloadTriggered && hiddenAt && backgroundDurationMs > 10_000) {
       reloadTriggered = true;
       window.location.reload();
     }
