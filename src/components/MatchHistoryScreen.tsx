@@ -85,7 +85,10 @@ export function MatchHistoryScreen({
   useEffect(() => clearRenameTimer, []);
 
   return (
-    <div className="min-h-screen flex flex-col safe-top overflow-hidden">
+    <div
+      className="flex flex-col safe-top overflow-hidden"
+      style={{ height: "calc(var(--vh, 1vh) * 100)" }}
+    >
       <SeasonDialogs
         canEdit={canEdit}
         canCloseSeason={canCloseSeason}
