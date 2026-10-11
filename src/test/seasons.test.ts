@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Match, MatchSummary } from "@/types/match";
-import { createDefaultSeasonName, getSeasonStats, migrateLegacyDataToSeasons } from "@/lib/seasons";
+import {
+  createDefaultSeasonName,
+  getSeasonPlayerStats,
+  getSeasonStats,
+  migrateLegacyDataToSeasons,
+} from "@/lib/seasons";
 
 function createMatchSummary(overrides: Partial<MatchSummary> = {}): MatchSummary {
   return {
@@ -59,6 +64,57 @@ function createFullMatch(overrides: Partial<Match> = {}): Match {
 }
 
 describe("season helpers", () => {
+  it("totals named team players across completed season matches only", () => {
+    const goal = (
+      id: string,
+      scorer?: string,
+      assist?: string,
+      type: Match["goals"][number]["type"] = "normal",
+      team: Match["goals"][number]["team"] = "my-team",
+    ) => ({ id, scorer, assist, type, team, time: "10:00", timestamp: 1 });
+    const card = (
+      id: string,
+      type: "yellow-card" | "red-card",
+      player?: string,
+      team: "my-team" | "opponent" = "my-team",
+    ) => ({ id, type, player, team, time: "10:00", timestamp: 1 });
+    const migrated = migrateLegacyDataToSeasons(
+      [createMatchSummary(), createMatchSummary({ id: "m2" }), createMatchSummary({ id: "live" })],
+      {
+        m1: createFullMatch({
+          goals: [
+            goal("1", "Alice", "Bob"),
+            goal("2", "Alice", "Bob", "penalty"),
+            goal("3", "Own goal", "Outsider", "own-goal"),
+            goal("4", "Opponent", "Outsider", "normal", "opponent"),
+            goal("5", undefined, "Bob"),
+            goal("6", "", ""),
+          ],
+          events: [
+            card("7", "yellow-card", "Alice"),
+            card("8", "red-card", "Chris"),
+            card("9", "yellow-card", "Opponent", "opponent"),
+            card("10", "yellow-card"),
+          ],
+        }),
+        m2: createFullMatch({ id: "m2", goals: [goal("11", "Alice", "Bob", "head")] }),
+        orphan: createFullMatch({ id: "orphan", goals: [goal("12", "Orphan")] }),
+        live: createFullMatch({ id: "live", isActive: true, goals: [goal("13", "Live")] }),
+      },
+    );
+
+    expect(getSeasonPlayerStats(migrated.seasons[migrated.activeSeasonId])).toEqual([
+      { name: "Alice", goals: 3, assists: 0, yellowCards: 1, redCards: 0 },
+      { name: "Bob", goals: 0, assists: 4, yellowCards: 0, redCards: 0 },
+      { name: "Chris", goals: 0, assists: 0, yellowCards: 0, redCards: 1 },
+    ]);
+  });
+
+  it("returns no player stats when completed match details are unavailable", () => {
+    const migrated = migrateLegacyDataToSeasons([createMatchSummary()], {});
+    expect(getSeasonPlayerStats(migrated.seasons[migrated.activeSeasonId])).toEqual([]);
+  });
+
   it("creates default season names in YYYY-YYYY format", () => {
     const date = new Date("2026-04-25T10:00:00Z");
     expect(createDefaultSeasonName(date)).toBe("2026-2027");

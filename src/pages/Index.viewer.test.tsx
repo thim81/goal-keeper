@@ -80,6 +80,71 @@ describe("Index viewer access", () => {
     history.replaceState({}, "", "/");
   });
 
+  it.each([
+    ["editor", false],
+    ["editor", true],
+    ["viewer", false],
+    ["viewer", true],
+  ] as const)(
+    "shows player stats only to confirmed editors, role: %s, live: %s",
+    async (role, live) => {
+      localStorage.setItem(
+        "football-tracker-settings",
+        JSON.stringify({ syncToken: "viewer-token" }),
+      );
+      const fullMatch: Match = {
+        ...activeMatch,
+        id: summary.id,
+        isActive: false,
+        endedAt: 2,
+        goals: [
+          {
+            id: "goal",
+            team: "my-team",
+            scorer: "Alice",
+            assist: "Bob",
+            type: "normal",
+            time: "10:00",
+            timestamp: 1,
+          },
+        ],
+      };
+      const fetchMock = vi.fn().mockResolvedValue(
+        response(role, {
+          ...remoteState,
+          activeMatch: live ? activeMatch : null,
+          seasons: { "remote-season": { ...season, fullMatches: { [summary.id]: fullMatch } } },
+        }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      render(<Index />);
+      await screen.findByText(
+        live
+          ? "⚽ Goal Keeper"
+          : role === "editor"
+            ? "Ready to Play?"
+            : "Waiting for the next match",
+      );
+      if (role === "viewer") {
+        expect(screen.queryByRole("button", { name: "Player stats" })).not.toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: "History" }).length).toBeGreaterThan(0);
+        expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+        return;
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Player stats" }));
+      expect(screen.getByRole("heading", { name: "Player Stats" })).toBeInTheDocument();
+      expect(screen.getByRole("rowheader", { name: "Alice" })).toBeInTheDocument();
+      expect(screen.getByRole("rowheader", { name: "Bob" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Sort by Assists" }));
+      expect(
+        screen.queryByRole("button", { name: /delete|rename|close season/i }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: live ? "Back to match" : "Home" }));
+      expect(screen.getByRole("button", { name: "Player stats" })).toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+    },
+  );
+
   it("keeps navigation and device preferences available while an editor command is pending", async () => {
     localStorage.setItem(
       "football-tracker-settings",
