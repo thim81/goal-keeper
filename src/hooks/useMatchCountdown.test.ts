@@ -13,7 +13,7 @@ describe("useMatchCountdown", () => {
     vi.setSystemTime(now);
     const match: UpcomingMatch = {
       id: "distant",
-      start: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+      start: new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString(),
       homeTeam: "Home",
       awayTeam: "Away",
       opponentName: "Away",
@@ -33,9 +33,9 @@ describe("useMatchCountdown", () => {
     expect(result.current).toBeNull();
 
     act(() => vi.advanceTimersByTime(30 * 60 * 1000));
-    expect(result.current?.secondsRemaining).toBe(3600);
+    expect(result.current?.secondsRemaining).toBe(3 * 3600);
     act(() => vi.advanceTimersByTime(60 * 1000));
-    expect(result.current?.secondsRemaining).toBe(3540);
+    expect(result.current?.secondsRemaining).toBe(3 * 3600 - 60);
 
     unmount();
     expect(vi.getTimerCount()).toBe(0);

@@ -16,14 +16,14 @@ const fixture = (start: number, id = "next"): UpcomingMatch => ({
 });
 
 describe("upcoming match countdown", () => {
-  it("starts at the one-hour boundary and chooses the earliest fixture", () => {
+  it("starts at the three-hour boundary and chooses the earliest fixture", () => {
     const now = Date.now();
     const later = fixture(now + UPCOMING_MATCH_COUNTDOWN_WINDOW_MS, "later");
     const next = fixture(now + 30 * 60 * 1000, "next");
 
     expect(getUpcomingMatchCountdown([later], now)).toEqual({
       match: later,
-      secondsRemaining: 3600,
+      secondsRemaining: 3 * 3600,
     });
     expect(getUpcomingMatchCountdown([later, next], now)?.match).toEqual(next);
     expect(

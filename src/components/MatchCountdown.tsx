@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { MapRoutePicker } from "@/components/MapRoutePicker";
 import type { UpcomingMatch } from "@/lib/upcoming-matches";
 
 interface MatchCountdownProps {
@@ -14,6 +15,7 @@ export function MatchCountdown({
   secondsRemaining,
   onStart,
 }: MatchCountdownProps) {
+  const location = match.isHome ? teamName : match.opponentName;
   const homeTeamName = match.isHome ? teamName : match.opponentName;
   const awayTeamName = match.isHome ? match.opponentName : teamName;
 
@@ -52,6 +54,7 @@ export function MatchCountdown({
           Start match
         </Button>
       )}
+      <MapRoutePicker location={location} />
     </section>
   );
 }

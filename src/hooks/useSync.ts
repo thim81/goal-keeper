@@ -75,9 +75,7 @@ export function useSync(
   });
   const announceRefresh = useRef(false);
   const scheduleRef = useRef(() => {});
-  const refreshRef = useRef<(full?: boolean, announce?: boolean) => Promise<void>>(
-    async () => {},
-  );
+  const refreshRef = useRef<(full?: boolean, announce?: boolean) => Promise<void>>(async () => {});
 
   const apply = useCallback(
     (response: WorkspaceResponse & { role: WorkspaceRole }, epoch: number) => {

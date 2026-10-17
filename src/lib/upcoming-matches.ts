@@ -1,6 +1,6 @@
 import { CALENDAR_GAME_GRACE_PERIOD_MS, type CalendarFixture } from "./calendar";
 
-export const UPCOMING_MATCH_COUNTDOWN_WINDOW_MS = 60 * 60 * 1000;
+export const UPCOMING_MATCH_COUNTDOWN_WINDOW_MS = 3 * 60 * 60 * 1000;
 export const UPCOMING_MATCH_COUNTDOWN_GRACE_MS = 15 * 60 * 1000;
 
 export interface UpcomingMatch extends CalendarFixture {
