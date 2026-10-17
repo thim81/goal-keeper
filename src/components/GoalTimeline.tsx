@@ -4,6 +4,7 @@ import { Goal, GoalEdit, GameEvent } from "@/types/match";
 import { EditGoalSheet } from "./EditGoalSheet";
 import { workspaceTimeline } from "@/lib/workspace";
 import { parseClockTime } from "@/lib/clock-time";
+import { formatOpponentDisplayName } from "@/lib/team-name";
 import {
   Trophy,
   Target,
@@ -83,13 +84,6 @@ const eventTypeIconColors = {
   "red-card": "text-red-500",
 };
 
-function formatTimelineOpponentName(name: string) {
-  return name
-    .replace(/\s+U[\s-]?\d{1,2}(?:\s?[A-Z])?$/i, "")
-    .replace(/^(?:K\.?|Koninklijke)\s+/i, "")
-    .trim();
-}
-
 export function GoalTimeline({
   goals,
   events,
@@ -105,7 +99,7 @@ export function GoalTimeline({
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
   const timelineItems = workspaceTimeline(goals, events);
-  const timelineOpponentName = formatTimelineOpponentName(opponentName);
+  const timelineOpponentName = formatOpponentDisplayName(opponentName);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const prevCountRef = useRef(timelineItems.length);

@@ -29,6 +29,18 @@ describe("MatchResultCard", () => {
     );
   });
 
+  it("shortens the opponent name in match result cards", () => {
+    render(
+      <MatchResultCard
+        match={{ ...match, opponentName: "K Patro Eisden Maasmechelen U15" }}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Patro Eisden Maasmechelen")).toBeInTheDocument();
+    expect(screen.queryByText("K Patro Eisden Maasmechelen U15")).not.toBeInTheDocument();
+  });
+
   it("calls onSelect when the card is clicked", () => {
     const onSelect = vi.fn();
     render(<MatchResultCard match={match} onSelect={onSelect} />);

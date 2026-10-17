@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import type { MatchSummary } from "@/types/match";
+import { formatOpponentDisplayName } from "@/lib/team-name";
 
 type MatchResultCardProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -22,8 +23,9 @@ export function MatchResultCard({
   const isDraw = match.myTeamScore === match.opponentScore;
   const resultColor = isWin ? "text-primary" : isDraw ? "text-goal" : "text-accent";
   const resultBg = isWin ? "bg-primary/10" : isDraw ? "bg-goal/10" : "bg-accent/10";
-  const homeTeamName = match.isHome ? match.myTeamName : match.opponentName;
-  const awayTeamName = match.isHome ? match.opponentName : match.myTeamName;
+  const opponentName = formatOpponentDisplayName(match.opponentName);
+  const homeTeamName = match.isHome ? match.myTeamName : opponentName;
+  const awayTeamName = match.isHome ? opponentName : match.myTeamName;
   const homeScore = match.isHome ? match.myTeamScore : match.opponentScore;
   const awayScore = match.isHome ? match.opponentScore : match.myTeamScore;
 
