@@ -36,19 +36,25 @@ export function MatchResultCard({
       className={`w-full p-4 text-left hover:bg-secondary/30 transition-colors touch-pan-y ${className}`}
     >
       <div className="flex items-center justify-between">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 mb-2">
             <span className={`text-xs font-bold px-2 py-1 rounded ${resultBg} ${resultColor}`}>
               {isWin ? "WIN" : isDraw ? "DRAW" : "LOSS"}
             </span>
             <span className="text-xs text-muted-foreground">{match.date}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-foreground">{homeTeamName}</span>
-            <span className="text-2xl font-black text-primary">{homeScore}</span>
-            <span className="text-muted-foreground">-</span>
-            <span className="text-2xl font-black text-accent">{awayScore}</span>
-            <span className="font-semibold text-foreground">{awayTeamName}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <span className="min-w-0 break-words text-left font-semibold text-foreground">
+              {homeTeamName}
+            </span>
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+              <span className="text-2xl font-black text-primary">{homeScore}</span>
+              <span className="text-muted-foreground">-</span>
+              <span className="text-2xl font-black text-accent">{awayScore}</span>
+            </div>
+            <span className="min-w-0 break-words text-right font-semibold text-foreground">
+              {awayTeamName}
+            </span>
           </div>
         </div>
         {showChevron && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
