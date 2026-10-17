@@ -41,29 +41,8 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// Force refresh when returning to an iOS Home Screen app from background.
+// iOS may restore from back/forward cache when reopening.
 if (isIosStandalonePwa()) {
-  let hiddenAt = 0;
-  let reloadTriggered = false;
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      hiddenAt = Date.now();
-      reloadTriggered = false;
-      return;
-    }
-
-    // Keep existing viewport fix when app becomes active again.
-    setTimeout(setVH, 100);
-
-    const backgroundDurationMs = hiddenAt ? Date.now() - hiddenAt : 0;
-    if (!reloadTriggered && hiddenAt && backgroundDurationMs > 10_000) {
-      reloadTriggered = true;
-      window.location.reload();
-    }
-  });
-
-  // iOS may restore from back/forward cache when reopening.
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) {
       window.location.reload();
