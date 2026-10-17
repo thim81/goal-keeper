@@ -229,6 +229,7 @@ export function useSync(
             ? snapshot.current.activeMatch
             : current.current.activeMatch);
           const stale =
+            !snapshot.current ||
             meta.current.observedStructureRevision !== meta.current.fullStructureRevision;
           await refresh(!hasMatch || stale);
           schedule();
@@ -243,7 +244,9 @@ export function useSync(
       const hasMatch = !!(snapshot.current
         ? snapshot.current.activeMatch
         : current.current.activeMatch);
-      const stale = meta.current.observedStructureRevision !== meta.current.fullStructureRevision;
+      const stale =
+        !snapshot.current ||
+        meta.current.observedStructureRevision !== meta.current.fullStructureRevision;
       return refresh(!hasMatch || stale, announce);
     };
     let lastResumeAt = Date.now();
@@ -256,7 +259,13 @@ export function useSync(
       clearTimeout(timer);
       void refreshCurrentScope(true).finally(schedule);
     };
-    const visible = () => resume();
+    const visible = () => {
+      if (document.visibilityState === "hidden") {
+        clearTimeout(timer);
+        return;
+      }
+      resume();
+    };
     const editorReturned = () => resume(true);
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", editorReturned);
