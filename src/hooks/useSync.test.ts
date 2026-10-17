@@ -164,6 +164,9 @@ describe("authoritative sync", () => {
       await h.result.current.syncNow();
     });
     expect(fetchRemoteState).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
     act(() => window.dispatchEvent(new Event("focus")));
     await flush();
     expect(fetchRemoteState).toHaveBeenCalledTimes(3);
@@ -191,7 +194,7 @@ describe("authoritative sync", () => {
     await flush();
     expect(h.onFull).toHaveBeenCalledOnce();
     expect(h.result.current.isCredentialConfirmed).toBe(true);
-    expect(toast.success).toHaveBeenCalledExactlyOnceWith("Goals Synced", { duration: 2000 });
+    expect(toast.success).toHaveBeenCalledExactlyOnceWith("Matches Synced", { duration: 2000 });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30000);
     });
@@ -203,18 +206,24 @@ describe("authoritative sync", () => {
     async (event) => {
       const h = mount();
       await flush();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
       vi.mocked(toast.success).mockClear();
       vi.mocked(fetchRemoteState).mockResolvedValue(full(2));
       act(() => window.dispatchEvent(new Event(event)));
       await flush();
       expect(fetchRemoteState).toHaveBeenCalledTimes(2);
       expect(h.result.current.metadata.fullRevision).toBe(2);
-      expect(toast.success).toHaveBeenCalledExactlyOnceWith("Goals Synced", { duration: 2000 });
+      expect(toast.success).toHaveBeenCalledExactlyOnceWith("Matches Synced", { duration: 2000 });
     },
   );
   it("coalesces editor return events into one full read and one success toast", async () => {
     mount();
     await flush();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
     vi.mocked(toast.success).mockClear();
     const d = deferred();
     vi.mocked(fetchRemoteState).mockReturnValue(d.promise);
@@ -232,6 +241,9 @@ describe("authoritative sync", () => {
   it("announces an existing polling read when an editor returns during it", async () => {
     mount();
     await flush();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
     vi.mocked(toast.success).mockClear();
     const d = deferred();
     vi.mocked(fetchRemoteState).mockReturnValue(d.promise);

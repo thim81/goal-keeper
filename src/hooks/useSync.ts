@@ -73,13 +73,15 @@ export function useSync(
     full: null,
     live: null,
   });
-  const announceFullRefresh = useRef(false);
+  const announceRefresh = useRef(false);
   const scheduleRef = useRef(() => {});
-  const refreshRef = useRef<(full?: boolean) => Promise<void>>(async () => {});
+  const refreshRef = useRef<(full?: boolean, announce?: boolean) => Promise<void>>(
+    async () => {},
+  );
 
   const apply = useCallback(
     (response: WorkspaceResponse & { role: WorkspaceRole }, epoch: number) => {
-      if (epoch !== generation.current) return false;
+      if (epoch !== generation.current) return "ignored" as const;
       if (workspaceId.current && workspaceId.current !== response.workspaceId) {
         confirmed.current = null;
         setConfirmedCredential(null);
@@ -88,7 +90,7 @@ export function useSync(
       }
       workspaceId.current = response.workspaceId;
       if (response.revision < Math.max(meta.current.liveRevision, meta.current.fullRevision))
-        return false;
+        return "ignored" as const;
       setConfirmedCredential(current.current.token);
       confirmed.current = response.role;
       setRole(response.role);
@@ -101,6 +103,7 @@ export function useSync(
           current.current.activeMatch,
           current.current.settings,
         );
+      let requiresFullRefresh = false;
       if (response.scope === "structural") {
         snapshot.current = response.state;
         meta.current = {
@@ -121,13 +124,10 @@ export function useSync(
         };
         current.current.onLiveState?.(response.activeMatch);
         const matchChanged = previous.activeMatch?.id !== response.activeMatch?.id;
-        if (
+        requiresFullRefresh =
           matchChanged ||
           response.activeSeasonId !== previous.activeSeasonId ||
-          response.structureRevision !== meta.current.fullStructureRevision
-        ) {
-          void refreshRef.current(true);
-        }
+          response.structureRevision !== meta.current.fullStructureRevision;
       }
       setMetadata(meta.current);
       setLastSyncedAt(Date.now());
@@ -138,7 +138,7 @@ export function useSync(
         state: snapshot.current,
         metadata: meta.current,
       });
-      return true;
+      return requiresFullRefresh ? ("full" as const) : ("applied" as const);
     },
     [],
   );
@@ -149,7 +149,7 @@ export function useSync(
       if (!credential) return Promise.resolve();
       const epoch = generation.current;
       const kind = full ? "full" : "live";
-      if (full && announce) announceFullRefresh.current = true;
+      if (announce) announceRefresh.current = true;
       if (reads.current[kind]) return reads.current[kind]!;
       setIsSyncing(true);
       const request = (async () => {
@@ -157,13 +157,19 @@ export function useSync(
           const response = await (full
             ? fetchRemoteState(credential)
             : fetchActiveMatch(credential));
-          if (
-            apply(response, epoch) &&
-            full &&
-            announceFullRefresh.current &&
-            response.role === "editor"
+          const applied = apply(response, epoch);
+          if (applied === "full") {
+            await refreshRef.current(true, announceRefresh.current);
+          } else if (
+            applied === "applied" &&
+            announceRefresh.current &&
+            response.role === "editor" &&
+            !(response.scope === "live" && reads.current.full)
           ) {
-            toast.success("Goals Synced", { duration: 2000 });
+            toast.success(response.scope === "live" ? "Goals Synced" : "Matches Synced", {
+              duration: 2000,
+            });
+            announceRefresh.current = false;
           }
         } catch (error) {
           if (epoch !== generation.current) return;
@@ -176,9 +182,9 @@ export function useSync(
           } else setStatus("unavailable");
         } finally {
           if (epoch === generation.current) {
-            if (full) announceFullRefresh.current = false;
             reads.current[kind] = null;
             setIsSyncing(!!reads.current.full || !!reads.current.live);
+            if (!reads.current.full && !reads.current.live) announceRefresh.current = false;
           }
         }
       })();
@@ -197,7 +203,7 @@ export function useSync(
     setConfirmedCredential(null);
     confirmed.current = null;
     reads.current = { full: null, live: null };
-    announceFullRefresh.current = false;
+    announceRefresh.current = false;
     commandQueue.current = Promise.resolve();
     const saved = readWorkspaceCache();
     const same = saved?.credential === token;
@@ -233,17 +239,29 @@ export function useSync(
       );
     };
     scheduleRef.current = schedule;
-    const visible = () => {
+    const refreshCurrentScope = (announce: boolean) => {
+      const hasMatch = !!(snapshot.current
+        ? snapshot.current.activeMatch
+        : current.current.activeMatch);
+      const stale = meta.current.observedStructureRevision !== meta.current.fullStructureRevision;
+      return refresh(!hasMatch || stale, announce);
+    };
+    let lastResumeAt = Date.now();
+    const resume = (editorsOnly = false) => {
+      if (disposed || document.visibilityState === "hidden") return;
+      if (editorsOnly && confirmed.current === "viewer") return;
+      const now = Date.now();
+      if (now - lastResumeAt < 1000) return;
+      lastResumeAt = now;
       clearTimeout(timer);
-      if (document.visibilityState !== "hidden") void refresh(true, true).finally(schedule);
+      void refreshCurrentScope(true).finally(schedule);
     };
-    const editorReturned = () => {
-      if (confirmed.current !== "viewer") visible();
-    };
+    const visible = () => resume();
+    const editorReturned = () => resume(true);
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", editorReturned);
     window.addEventListener("pageshow", editorReturned);
-    void refresh(true, true).finally(schedule);
+    void refreshCurrentScope(true).finally(schedule);
     return () => {
       scheduleRef.current = () => {};
       disposed = true;
@@ -279,7 +297,7 @@ export function useSync(
             }
           }
           if (epoch !== generation.current) return false;
-          apply(response!, epoch);
+          if (apply(response!, epoch) === "full") void refresh(true);
           return true;
         } catch (error) {
           if (epoch !== generation.current) return false;
