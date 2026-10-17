@@ -30,6 +30,20 @@ function swipe(element: Element, distance: number) {
 }
 
 describe("GoalTimeline", () => {
+  it("shortens opponent names in the timeline by removing royal prefixes and age groups", () => {
+    render(
+      <GoalTimeline
+        goals={[{ ...goal, team: "opponent", scorer: "" }]}
+        events={[]}
+        myTeamName="My Team"
+        opponentName="K Patro Eisden Maasmechelen U15"
+      />,
+    );
+
+    expect(screen.getByText("Patro Eisden Maasmechelen")).toBeInTheDocument();
+    expect(screen.queryByText("K Patro Eisden Maasmechelen U15")).not.toBeInTheDocument();
+  });
+
   it("requires a scorer before saving one of our goals", () => {
     vi.useFakeTimers();
     const onUpdateGoal = vi.fn();

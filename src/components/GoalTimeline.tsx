@@ -83,6 +83,13 @@ const eventTypeIconColors = {
   "red-card": "text-red-500",
 };
 
+function formatTimelineOpponentName(name: string) {
+  return name
+    .replace(/\s+U[\s-]?\d{1,2}(?:\s?[A-Z])?$/i, "")
+    .replace(/^(?:K\.?|Koninklijke)\s+/i, "")
+    .trim();
+}
+
 export function GoalTimeline({
   goals,
   events,
@@ -98,6 +105,7 @@ export function GoalTimeline({
 }: GoalTimelineProps) {
   // Combine goals and events, then sort by timestamp
   const timelineItems = workspaceTimeline(goals, events);
+  const timelineOpponentName = formatTimelineOpponentName(opponentName);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const prevCountRef = useRef(timelineItems.length);
@@ -365,7 +373,7 @@ export function GoalTimeline({
             event.team === "my-team"
               ? myTeamName
               : event.team === "opponent"
-                ? opponentName
+                ? timelineOpponentName
                 : undefined;
           const isCardEvent = event.type === "yellow-card" || event.type === "red-card";
           const Icon = !isCardEvent ? eventTypeIcons[event.type] : null;
@@ -465,7 +473,7 @@ export function GoalTimeline({
         const goal = item.data;
         const Icon = goalTypeIcons[goal.type];
         const isMyTeam = goal.team === "my-team";
-        const teamName = isMyTeam ? myTeamName : opponentName;
+        const teamName = isMyTeam ? myTeamName : timelineOpponentName;
 
         const swipeX = goalSwipeX[goal.id] ?? 0;
         const canSwipeDelete = editable && !!onDeleteGoal;
