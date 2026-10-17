@@ -973,6 +973,7 @@ export default function Index() {
               <div className="w-full max-w-xs mt-6 card-gradient rounded-xl border border-border/30 overflow-hidden">
                 <MatchResultCard
                   match={recentMatch}
+                  showChevron={false}
                   onSelect={() =>
                     handleSelectMatch(recentMatch.id, activeSeasonId ?? undefined, "home")
                   }
