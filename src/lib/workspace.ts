@@ -21,6 +21,7 @@ export const COMMAND_SCOPES = {
   "delete-goal": "live",
   "add-event": "live",
   "update-event-time": "live",
+  "update-period": "live",
   "delete-event": "live",
   "pause-match": "live",
   "resume-match": "live",

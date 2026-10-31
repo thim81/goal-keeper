@@ -32,9 +32,15 @@ interface GoalTimelineProps {
   opponentName: string;
   scrollToBottomSignal?: number;
   editable?: boolean;
+  currentPeriod?: number;
   onDeleteGoal?: (id: string) => boolean | void | Promise<boolean | void>;
   onDeleteEvent?: (id: string) => boolean | void | Promise<boolean | void>;
-  onUpdateEventTime?: (id: string, time: string) => boolean | void | Promise<boolean | void>;
+  onUpdateEventTime?: (
+    id: string,
+    time: string,
+    period?: number,
+    expectedPeriod?: number,
+  ) => boolean | void | Promise<boolean | void>;
   onUpdateGoal?: (id: string, changes: GoalEdit) => boolean | void | Promise<boolean | void>;
   knownPlayers?: string[];
 }
@@ -91,6 +97,7 @@ export function GoalTimeline({
   opponentName,
   scrollToBottomSignal = 0,
   editable = false,
+  currentPeriod,
   onDeleteGoal,
   onDeleteEvent,
   onUpdateEventTime,
@@ -157,9 +164,23 @@ export function GoalTimeline({
   const longPressStartXRef = useRef(0);
   const [editingEvent, setEditingEvent] = useState<GameEvent | null>(null);
   const [editingEventTime, setEditingEventTime] = useState("");
+  const [editingPeriod, setEditingPeriod] = useState("");
+  const [originalPeriod, setOriginalPeriod] = useState<number>();
+  const [originalEventPeriod, setOriginalEventPeriod] = useState<number>();
+  const canChangePeriod =
+    originalPeriod !== undefined &&
+    originalEventPeriod !== undefined &&
+    (editingEvent?.type === "period-end" ||
+      (editingEvent?.type === "start" &&
+        editingEvent.id === [...events].reverse().find((event) => event.type === "start")?.id));
   const { submit: deleteItem } = useSubmitAction((mutation: SubmitAction) => mutation());
   const { submit: saveEventTime } = useSubmitAction(
-    (id: string, time: string) => onUpdateEventTime?.(id, time),
+    (id: string, time: string, period?: number, expectedPeriod?: number) =>
+      onUpdateEventTime?.(
+        id,
+        time,
+        ...(period === undefined ? [] : ([period, expectedPeriod] as const)),
+      ),
     () => setEditingEvent(null),
   );
 
@@ -188,6 +209,13 @@ export function GoalTimeline({
         longPressTriggeredRef.current = true;
         setEditingEvent(event);
         setEditingEventTime(event.time);
+        setOriginalPeriod(currentPeriod);
+        const number =
+          event.type === "period-end"
+            ? Number(event.label?.match(/^End Period (\d+)$/)?.[1])
+            : currentPeriod;
+        setOriginalEventPeriod(number && Number.isSafeInteger(number) ? number : undefined);
+        setEditingPeriod(number ? String(number) : "");
       }, 500);
     }
     activeEventIdRef.current = eventId;
@@ -602,9 +630,22 @@ export function GoalTimeline({
       >
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Edit period time</DialogTitle>
-            <DialogDescription>Adjust the time for this period event.</DialogDescription>
+            <DialogTitle>Edit period</DialogTitle>
+            <DialogDescription>Adjust this period event.</DialogDescription>
           </DialogHeader>
+          {canChangePeriod && (
+            <label className="flex items-center justify-center gap-3 text-sm">
+              Period
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={editingPeriod}
+                onChange={(event) => setEditingPeriod(event.target.value)}
+                className="h-10 w-20 rounded-lg bg-secondary px-3 text-center text-foreground"
+              />
+            </label>
+          )}
           <input
             type="time"
             value={editingEventTime}
@@ -619,10 +660,23 @@ export function GoalTimeline({
             <Button
               onClick={() => {
                 if (editingEvent && parseClockTime(editingEventTime) && onUpdateEventTime) {
-                  void saveEventTime(editingEvent.id, editingEventTime);
+                  const period =
+                    canChangePeriod && Number(editingPeriod) !== originalEventPeriod
+                      ? Number(editingPeriod)
+                      : undefined;
+                  void saveEventTime(
+                    editingEvent.id,
+                    editingEventTime,
+                    period,
+                    period === undefined ? undefined : originalPeriod,
+                  );
                 }
               }}
-              disabled={!parseClockTime(editingEventTime)}
+              disabled={
+                !parseClockTime(editingEventTime) ||
+                (canChangePeriod &&
+                  (!Number.isSafeInteger(Number(editingPeriod)) || Number(editingPeriod) < 1))
+              }
             >
               Save
             </Button>

@@ -28,6 +28,77 @@ const live = (state = base()) => {
 };
 
 describe("applyWorkspaceCommand live mutations", () => {
+  it("corrects an earlier period end label without changing the active period", () => {
+    const { state, matchId } = live();
+    const ended = applyWorkspaceCommand(
+      state,
+      command("end-period", { expectedPeriod: 1 }, { matchId }),
+    ).state;
+    const started = applyWorkspaceCommand(
+      ended,
+      command("start-period", { expectedPeriod: 1 }, { matchId }),
+    ).state;
+    const end = started.activeMatch!.events.find((event) => event.type === "period-end")!;
+    const corrected = applyWorkspaceCommand(
+      started,
+      command(
+        "edit",
+        { eventId: end.id, time: end.time, period: 3, expectedPeriod: 2 },
+        { type: "update-period", matchId },
+      ),
+    ).state.activeMatch!;
+    expect(corrected.currentPeriod).toBe(2);
+    expect(corrected.events.find((event) => event.id === end.id)?.label).toBe("End Period 3");
+    expect(corrected.events.at(-1)?.label).toBe("Start Period 2");
+  });
+  it("corrects the current period number and its start and end entries", () => {
+    const { state, matchId } = live();
+    const ended = applyWorkspaceCommand(
+      state,
+      command("end-period", { expectedPeriod: 1 }, { matchId }),
+    ).state;
+    const start = ended.activeMatch!.events[0];
+    const corrected = applyWorkspaceCommand(
+      ended,
+      command(
+        "time",
+        { eventId: start.id, time: start.time, period: 4, expectedPeriod: 1 },
+        { type: "update-period", matchId },
+      ),
+    ).state.activeMatch!;
+    expect(corrected.currentPeriod).toBe(4);
+    expect(corrected.events.map((event) => event.label)).toEqual([
+      "Start Period 4",
+      "End Period 4",
+    ]);
+    expect(corrected.startedAt).toBe(start.timestamp);
+    expect(() =>
+      applyWorkspaceCommand(
+        ended,
+        command(
+          "time",
+          { eventId: start.id, time: start.time, period: 4, expectedPeriod: 5 },
+          { type: "update-period", matchId },
+        ),
+      ),
+    ).toThrow("Period changed");
+    expect(() =>
+      applyWorkspaceCommand(
+        ended,
+        command(
+          "time",
+          { eventId: start.id, time: start.time, period: 0, expectedPeriod: 1 },
+          { type: "update-period", matchId },
+        ),
+      ),
+    ).toThrow("Invalid period number");
+    expect(
+      applyWorkspaceCommand(
+        { ...ended, activeMatch: corrected },
+        command("start-period", { expectedPeriod: 4 }, { matchId }),
+      ).state.activeMatch!.currentPeriod,
+    ).toBe(5);
+  });
   it("reopens an archived match paused without its automatic end event", () => {
     const { state, matchId } = live();
     const seasonId = state.activeSeasonId!;

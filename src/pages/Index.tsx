@@ -196,8 +196,18 @@ export default function Index() {
   const updateDebug = (debug: boolean) => dispatch("update-settings", { settings: { debug } });
   const deleteGoal = (goalId: string) => liveAction("delete-goal", { goalId });
   const deleteEvent = (eventId: string) => liveAction("delete-event", { eventId });
-  const updateEventTime = (eventId: string, time: string) =>
-    liveAction("update-event-time", { eventId, time });
+  const updateEventTime = (
+    eventId: string,
+    time: string,
+    period?: number,
+    expectedPeriod?: number,
+  ) =>
+    liveAction(period === undefined ? "update-event-time" : "update-period", {
+      eventId,
+      time,
+      period,
+      expectedPeriod,
+    });
   const toggleTimer = () => liveAction(activeMatch?.isRunning ? "pause-match" : "resume-match");
   const undoLast = () => {
     const items = workspaceTimeline(activeMatch?.goals ?? [], activeMatch?.events ?? []);
@@ -756,6 +766,7 @@ export default function Index() {
                 opponentName={activeMatch.opponentName}
                 scrollToBottomSignal={syncScrollSignal}
                 editable={canEdit}
+                currentPeriod={activeMatch.currentPeriod}
                 onDeleteGoal={canEdit ? deleteGoal : undefined}
                 knownPlayers={settings.players}
                 onUpdateGoal={canEdit ? handleUpdateGoal : undefined}

@@ -35,6 +35,9 @@ const cases: Record<
   "delete-goal": { prepare: ["add-goal"], payload: { goalId: "prepare-add-goal:goal" } },
   "add-event": { payload: { eventType: "yellow-card", team: "my-team", player: "Alex" } },
   "update-event-time": { payload: { eventId: "start:start", time: "10:00" } },
+  "update-period": {
+    payload: { eventId: "start:start", time: "10:00", period: 2, expectedPeriod: 1 },
+  },
   "delete-event": { payload: { eventId: "start:start" } },
   "pause-match": {},
   "resume-match": { prepare: ["pause-match"] },

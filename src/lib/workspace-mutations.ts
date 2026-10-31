@@ -430,7 +430,8 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       match.events = match.events.filter((event) => event.id !== id);
       return;
     }
-    case "update-event-time": {
+    case "update-event-time":
+    case "update-period": {
       const match = targetMatch(state, command);
       const id = text(payload, "eventId");
       const time = text(payload, "time");
@@ -440,11 +441,30 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       if (!event) fail(404, "Event not found");
       if (event.type !== "start" && event.type !== "period-end")
         fail(409, "Event time cannot be changed");
-      const timestamp = setClockTime(event.timestamp, time!, command.timeZone);
+      const lastStart = [...match.events].reverse().find((item) => item.type === "start");
+      if (command.type === "update-period") {
+        if (!Number.isSafeInteger(payload.period) || (payload.period as number) < 1)
+          fail(400, "Invalid period number");
+        if (payload.expectedPeriod !== match.currentPeriod) fail(409, "Period changed");
+        if (event.type === "period-end") {
+          event.label = `End Period ${payload.period}`;
+        } else {
+          if (lastStart?.id !== event.id) fail(409, "Only the current period can be changed");
+          match.currentPeriod = payload.period as number;
+          event.label = `Start Period ${match.currentPeriod}`;
+          const end = match.events
+            .slice(match.events.indexOf(event) + 1)
+            .find((item) => item.type === "period-end");
+          if (end) end.label = `End Period ${match.currentPeriod}`;
+        }
+      }
+      const timestamp =
+        event.time === time
+          ? event.timestamp
+          : setClockTime(event.timestamp, time!, command.timeZone);
       event.time = time!;
       event.timestamp = timestamp;
       const firstStart = match.events.find((item) => item.type === "start");
-      const lastStart = [...match.events].reverse().find((item) => item.type === "start");
       if (event.type === "start" && firstStart?.id === id) match.startedAt = event.timestamp;
       if (event.type === "start" && lastStart?.id === id) match.periodStartedAt = event.timestamp;
       return;

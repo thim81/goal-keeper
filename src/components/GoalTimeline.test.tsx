@@ -362,6 +362,54 @@ describe("GoalTimeline", () => {
     expect(onUpdateEventTime).toHaveBeenCalledWith("start-1", "20:30");
   });
 
+  it("allows correcting the current period number from the start event", () => {
+    vi.useFakeTimers();
+    const onUpdateEventTime = vi.fn();
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[{ ...event, type: "start", label: "Start Period 5" }]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        currentPeriod={5}
+        onDeleteEvent={vi.fn()}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("Start Period 5"));
+    act(() => vi.advanceTimersByTime(500));
+    fireEvent.change(screen.getByRole("spinbutton", { name: /period/i }), {
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onUpdateEventTime).toHaveBeenCalledWith(event.id, "20:00", 4, 5);
+  });
+
+  it("allows correcting an earlier end label without changing the current period", () => {
+    vi.useFakeTimers();
+    const onUpdateEventTime = vi.fn();
+    render(
+      <GoalTimeline
+        goals={[]}
+        events={[{ ...event, type: "period-end", label: "End Period 5" }]}
+        myTeamName="My Team"
+        opponentName="Rivals"
+        editable
+        currentPeriod={6}
+        onDeleteEvent={vi.fn()}
+        onUpdateEventTime={onUpdateEventTime}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByText("End Period 5"));
+    act(() => vi.advanceTimersByTime(500));
+    const number = screen.getByRole("spinbutton", { name: /period/i });
+    expect(number).toHaveValue(5);
+    fireEvent.change(number, { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onUpdateEventTime).toHaveBeenCalledWith(event.id, "20:00", 3, 6);
+  });
+
   it("retains event time editor after a rejected save", async () => {
     vi.useFakeTimers();
     const onUpdateEventTime = vi.fn().mockRejectedValue(new Error("failed"));
