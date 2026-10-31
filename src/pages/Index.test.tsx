@@ -438,7 +438,7 @@ describe("Index history interactions", () => {
     const { container } = render(<Index />);
     goToHistory(container);
     fireEvent.click(await screen.findByText("Rivals"));
-    fireEvent.click(screen.getByRole("button", { name: /continue match/i }));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
   });
 

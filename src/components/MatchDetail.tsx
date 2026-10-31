@@ -1,6 +1,6 @@
 import { useSubmitAction } from "@/hooks/useSubmitAction";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import { Match } from "@/types/match";
 import { GoalTimeline } from "./GoalTimeline";
 import {
@@ -181,8 +181,16 @@ export function MatchDetail({
           </p>
         </div>
         {onContinue && (
-          <Button size="sm" className="ml-auto" onClick={onContinue} disabled={continueDisabled}>
-            Continue match
+          <Button
+            size="sm"
+            variant="secondary"
+            className="ml-auto h-8 gap-1 rounded-full px-3 text-xs font-medium"
+            onClick={onContinue}
+            disabled={continueDisabled}
+            title="Continue match"
+          >
+            <Play className="size-3" />
+            Continue
           </Button>
         )}
       </div>
