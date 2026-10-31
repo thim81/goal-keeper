@@ -345,6 +345,32 @@ function mutate(state: SyncState, command: WorkspaceCommand, now: number): void 
       canonicalize(state);
       return;
     }
+    case "reopen-match": {
+      if (state.activeMatch) fail(409, "Match already active");
+      const season = targetSeason(state, command);
+      if (season.id !== state.activeSeasonId) fail(409, "Match must belong to the active season");
+      if (!nonempty(command.matchId)) fail(400, "matchId required");
+      if (season.matches[0]?.id !== command.matchId)
+        fail(409, "Only the latest match can be continued");
+      const match = season.fullMatches[command.matchId];
+      if (!match) fail(404, "Match not found");
+      const last = match.events[match.events.length - 1];
+      state.activeMatch = {
+        ...match,
+        endedAt: undefined,
+        isActive: true,
+        isRunning: false,
+        events:
+          last?.type === "period-end" &&
+          last.id.endsWith(":period-end") &&
+          last.timestamp === match.endedAt
+            ? match.events.slice(0, -1)
+            : match.events,
+      };
+      season.matches = season.matches.filter((item) => item.id !== match.id);
+      delete season.fullMatches[match.id];
+      return;
+    }
     case "add-goal":
       addGoal(state, command, payload, now);
       return;

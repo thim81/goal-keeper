@@ -433,6 +433,15 @@ describe("Index history interactions", () => {
     vi.useRealTimers();
   });
 
+  it("continues the latest archived match from its details", async () => {
+    seedOneMatchSeason();
+    const { container } = render(<Index />);
+    goToHistory(container);
+    fireEvent.click(await screen.findByText("Rivals"));
+    fireEvent.click(screen.getByRole("button", { name: /continue match/i }));
+    expect(await screen.findByText("⚽ Goal Keeper")).toBeInTheDocument();
+  });
+
   it("deletes a match after confirming the delete dialog", async () => {
     seedOneMatchSeason();
     const { container } = render(<Index />);

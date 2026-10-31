@@ -612,6 +612,26 @@ export default function Index() {
       {view === "detail" && selectedMatch && (
         <MatchDetail
           match={selectedMatch}
+          onContinue={
+            canEdit &&
+            selectedMatchSeasonId === activeSeasonId &&
+            matchHistory[0]?.id === selectedMatch.id
+              ? async () => {
+                  if (
+                    await dispatch(
+                      "reopen-match",
+                      {},
+                      { matchId: selectedMatch.id, seasonId: selectedMatchSeasonId },
+                    )
+                  ) {
+                    setSelectedMatch(null);
+                    setSelectedMatchSeasonId(null);
+                    setView("live");
+                  }
+                }
+              : undefined
+          }
+          continueDisabled={!!activeMatch}
           opponentSuggestions={opponentSuggestions}
           onRenameOpponent={
             canEdit

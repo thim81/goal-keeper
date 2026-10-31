@@ -28,6 +28,69 @@ const live = (state = base()) => {
 };
 
 describe("applyWorkspaceCommand live mutations", () => {
+  it("reopens an archived match paused without its automatic end event", () => {
+    const { state, matchId } = live();
+    const seasonId = state.activeSeasonId!;
+    const ended = applyWorkspaceCommand(
+      state,
+      command("end-match", {}, { matchId }),
+      1_700_000_060_000,
+    ).state;
+    const reopened = applyWorkspaceCommand(
+      ended,
+      command("reopen-match", {}, { matchId, seasonId }),
+      1_700_000_120_000,
+    ).state;
+    expect(reopened.activeMatch).toMatchObject({
+      id: matchId,
+      isActive: true,
+      isRunning: false,
+      pausedAt: 1_700_000_060_000,
+    });
+    expect(reopened.activeMatch!.endedAt).toBeUndefined();
+    expect(reopened.activeMatch!.events.map((event) => event.type)).toEqual(["start"]);
+    expect(reopened.seasons![seasonId].matches).toHaveLength(0);
+    expect(reopened.seasons![seasonId].fullMatches[matchId]).toBeUndefined();
+    expect(() =>
+      applyWorkspaceCommand(reopened, command("reopen-match", {}, { matchId, seasonId })),
+    ).toThrow("Match already active");
+  });
+  it("retains a deliberately ended period when reopening a match", () => {
+    const { state, matchId } = live();
+    const seasonId = state.activeSeasonId!;
+    const paused = applyWorkspaceCommand(
+      state,
+      command("end-period", { expectedPeriod: 1 }, { matchId }),
+      1_700_000_060_000,
+    ).state;
+    const ended = applyWorkspaceCommand(
+      paused,
+      command("end-match", {}, { matchId }),
+      1_700_000_080_000,
+    ).state;
+    const reopened = applyWorkspaceCommand(
+      ended,
+      command("reopen-match", {}, { matchId, seasonId }),
+    ).state;
+    expect(reopened.activeMatch!.events).toEqual(paused.activeMatch!.events);
+    expect(reopened.activeMatch!.pausedAt).toBe(1_700_000_060_000);
+  });
+  it("only allows the most recent match to be reopened", () => {
+    const { state, matchId } = live();
+    const seasonId = state.activeSeasonId!;
+    const ended = applyWorkspaceCommand(state, command("end-match", {}, { matchId })).state;
+    const newer = applyWorkspaceCommand(
+      ended,
+      command("start-match", { isHome: true }, { id: "new-match" }),
+    ).state;
+    const archived = applyWorkspaceCommand(
+      newer,
+      command("end-match", {}, { matchId: newer.activeMatch!.id }),
+    ).state;
+    expect(() =>
+      applyWorkspaceCommand(archived, command("reopen-match", {}, { matchId, seasonId })),
+    ).toThrow("Only the latest match can be continued");
+  });
   it.each([
     ["add-goal", { team: "my-team" }],
     ["add-event", { eventType: "yellow-card", team: "my-team", player: "Alice" }],

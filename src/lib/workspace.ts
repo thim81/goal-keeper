@@ -6,6 +6,7 @@ import type { SyncState } from "./sync";
 export const COMMAND_SCOPES = {
   "start-match": "structural",
   "end-match": "structural",
+  "reopen-match": "structural",
   "update-settings": "structural",
   "add-player": "structural",
   "remove-player": "structural",

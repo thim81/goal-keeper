@@ -14,6 +14,7 @@ const cases: Record<
 > = {
   "start-match": { idle: true, payload: { isHome: true } },
   "end-match": {},
+  "reopen-match": { prepare: ["end-match"] },
   "update-settings": { payload: { settings: { teamName: "Changed" } } },
   "add-player": { payload: { player: "Alex" } },
   "remove-player": { payload: { player: "Alex" } },

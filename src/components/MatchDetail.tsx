@@ -17,6 +17,8 @@ import { PlayerAutocomplete } from "./PlayerAutocomplete";
 interface MatchDetailProps {
   match: Match;
   onBack: () => void;
+  onContinue?: () => void;
+  continueDisabled?: boolean;
   onRenameOpponent?: (name: string) => boolean | void | Promise<boolean | void>;
   opponentSuggestions?: string[];
 }
@@ -24,6 +26,8 @@ interface MatchDetailProps {
 export function MatchDetail({
   match,
   onBack,
+  onContinue,
+  continueDisabled,
   onRenameOpponent,
   opponentSuggestions = [],
 }: MatchDetailProps) {
@@ -176,6 +180,11 @@ export function MatchDetail({
             })}
           </p>
         </div>
+        {onContinue && (
+          <Button size="sm" className="ml-auto" onClick={onContinue} disabled={continueDisabled}>
+            Continue match
+          </Button>
+        )}
       </div>
 
       {/* Score Summary */}
